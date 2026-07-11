@@ -1,0 +1,35 @@
+name: gmrb_seismic_activity
+description: |
+  Alert-group feed: significant global earthquakes in the last 72 hours.
+  Passes any of: HIGH/CRITICAL severity tier, magnitude >= 5.5, OR any
+  M4.5+ event inside a tagged economic zone (Japan tech/auto supply,
+  Chile copper, Indonesia rare-earth, California reinsurance, Turkey
+  lira, Pacific NW Cascadia, Italy/Mediterranean, NZ dairy, Mexico
+  manufacturing, Philippines BPO). Filter widened 2026-04-23 after
+  initial production run returned zero rows on typical-day seismicity
+  because the M5.5+ threshold excluded economically-relevant M4.5-5.4
+  events in populated industrial zones. Powers the Global Macro Risk
+  Brief alert group's natural-disaster block.
+query: |-
+  index="indexes/geophysical/earthquakes/*.parquet"
+  | sort -_epoch
+  | dedup event_id
+  | where severity_tier IN ("HIGH","CRITICAL") OR magnitude >= 5.5 OR (region_tag != "Unclassified" AND magnitude >= 4.5)
+  | sort -magnitude, -significance
+  | table event_id, magnitude, place, region_tag, severity_tier, pager_alert, tsunami_warning, economic_thesis, event_time_utc, url
+  | head 10
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -72h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

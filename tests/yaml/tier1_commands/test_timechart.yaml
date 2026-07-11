@@ -1,0 +1,23 @@
+tests:
+  # ── timechart - count by time span ───────────────────────────
+  # timechart requires a _time column. Our fixture uses 'timestamp'.
+  # Rename it first.
+  - id: timechart_001
+    title: "timechart - count events by day"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | rename timestamp as _time
+      | timechart span=1day count
+    expect:
+      min_rows: 1
+      columns_include: ["count"]
+
+  # ── timechart - count by field ───────────────────────────────
+  - id: timechart_002
+    title: "timechart - count by region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | rename timestamp as _time
+      | timechart span=1day count by region
+    expect:
+      min_rows: 1

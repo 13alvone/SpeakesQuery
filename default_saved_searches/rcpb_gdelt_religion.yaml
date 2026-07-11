@@ -1,0 +1,34 @@
+name: rcpb_gdelt_religion
+description: |
+  Alert-group feed: GDELT global geopolitical events filtered to religion
+  / sectarian themes. Reuses the existing indexes/geopolitics/gdelt_events
+  parquet emitted by gdelt_geopolitical_events, projected via eval-then-
+  where pattern to surface articles whose title contains religion-related
+  keywords (papal, religious tension, sectarian, holy site, etc.).
+  Powers the Religion & Cultural Prediction Brief's news-flow block -
+  cross-reference vs Wikipedia pageview momentum for the most concentrated
+  attention-shift signals.
+query: |-
+  index="indexes/geopolitics/gdelt_events/*.parquet"
+  | sort -_epoch
+  | dedup article_url
+  | eval is_religion = if_(match(title, "(?i)Pope"), 1, if_(match(title, "(?i)Vatican"), 1, if_(match(title, "(?i)papal"), 1, if_(match(title, "(?i)conclave"), 1, if_(match(title, "(?i)Dalai Lama"), 1, if_(match(title, "(?i)Mecca"), 1, if_(match(title, "(?i)Hajj"), 1, if_(match(title, "(?i)Christian"), 1, if_(match(title, "(?i)Muslim"), 1, if_(match(title, "(?i)Jewish"), 1, if_(match(title, "(?i)religious"), 1, if_(match(title, "(?i)holy site"), 1, if_(match(title, "(?i)sectarian"), 1, 0)))))))))))))
+  | where is_religion = 1
+  | sort -_epoch
+  | table title, domain, source_country, seen_date, tension_theme, severity_tier, article_url
+  | head 20
+cron_schedule: 0 17 * * sun
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

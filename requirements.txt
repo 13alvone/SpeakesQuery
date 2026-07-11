@@ -1,0 +1,70 @@
+pandas~=2.2.3
+pyarrow~=17.0.0
+requests~=2.32.3
+antlr4-python3-runtime~=4.13.1
+defusedxml~=0.7
+flask~=3.1.0
+werkzeug~=3.1.3
+croniter~=6.0.0
+numpy~=2.2.1
+# The 'yaml' package does not exist on PyPI; PyYAML provides YAML support.
+pyyaml~=6.0.2
+pyparsing~=3.2.0
+aiosmtplib~=3.0.2
+aiosqlite~=0.20.0
+apscheduler>=3,<4
+restrictedpython~=7.4
+python-dotenv~=1.1
+faker~=37.4.0
+cryptography~=42.0
+beautifulsoup4~=4.12
+lxml~=5.2
+# CA certificate bundle - required for SMTP TLS on macOS where Python's
+# default cafile is often missing.
+certifi>=2024.0
+# DuckDB - high-performance Parquet reader with predicate/projection pushdown.
+# Replaces the C++ cpp_index_call extension for index loading.
+duckdb~=1.2
+# WeasyPrint - used by tools/schedule_pdf.py to render the polished
+# multi-page Schedule Operations Report PDF. Pure Python at the import
+# layer, but the underlying rendering needs system libs (libpango,
+# libcairo, libgdk-pixbuf, libffi) - Dockerfile installs those via apt.
+# On macOS local dev: `brew install pango cairo gdk-pixbuf libffi`.
+weasyprint~=68.0
+# Scientific stack - available to ingestion scripts authored with
+# trust_level: "unrestricted" (the "_pro" variant tier).  Sandboxed scripts
+# cannot import these; see docs/lang/09_ingestion_etiquette.md.
+scipy>=1.11
+scikit-learn>=1.3
+rapidfuzz>=3.0
+# Anthropic Python SDK - required by the Claude Analyzer, alert group
+# dispatcher, and /api/analyzer/test endpoint. Previously optional (lazy
+# import) but shipping it by default now that Claude features are
+# first-class (Test Claude button, history store, cost logging).
+anthropic>=0.91,<1.0
+# sentence-transformers - local embedding model for the Phase 1 semantic
+# layer (`| nearest`, `| dedup_semantic`). Lazy-imported in
+# analyzers/embedder.py so the app boots cleanly on hosts that haven't
+# rebuilt yet; once torch is resident, embedding adds ~250 MB RSS and
+# 5–20 ms per row on M-series CPU. Default model `all-MiniLM-L6-v2`
+# (384 dims, ~80 MB, MIT license) downloads on first call.
+sentence-transformers>=3.0,<5.0
+# ── Phase 3 / Bet 4 slice 5 (2026-05-09): notebook markdown cells ──
+# Server-side markdown → HTML rendering for the notebook `markdown`
+# cell type. Tiny dep (~150KB on disk). The engine has a graceful
+# fallback (HTML-escaped <pre> block) when the lib isn't installed -
+# so deploying slice 5 onto an existing image without `pip install`
+# still gets a functional page; full markdown rendering activates
+# after the next ./update.sh reinstalls. Used in
+# notebook_engine.py::_render_markdown_html.
+markdown>=3.5,<4.0
+# ── Phase 6 / Bet 5 slice 3b (2026-05-16): yt-dlp topic-search ──
+# Used by the curator_topic_search_pull_pro _pro-tier ingestion script
+# to discover candidates OUTSIDE the user's existing YouTube
+# subscriptions, breaking the bootstrap-locked channel monoculture
+# from slice 1.5. The script reads the latest topic snapshot, runs
+# `ytsearch{N}:<cluster_label>` for the top clusters, and lands rows
+# in the same canonical curator_candidates schema. yt-dlp is also the
+# foundation for slice 3c+ multi-platform support (PeerTube,
+# Archive.org, podcast RSS, Vimeo, etc. - all yt-dlp extractors).
+yt-dlp>=2024.0

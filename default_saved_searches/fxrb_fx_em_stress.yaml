@@ -1,0 +1,30 @@
+name: fxrb_fx_em_stress
+description: |
+  Alert-group feed: emerging-market currency stress (MXN, BRL, INR vs USD)
+  ranked by 30-day move with regime flag and ETF hint. Reuses the
+  indexes/fx/fred_fx_yields parquet, filtering to fx_em rows. Powers the
+  FX & Rate-Differential Brief's EM-FX block - surfaces capital-flight,
+  carry-unwind, and EM bid signals.
+query: |-
+  index="indexes/fx/fred_fx_yields/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | where series_type="fx_em"
+  | sort -change_30d_pct
+  | table pair_code, latest_value, change_30d_pct, change_90d_pct, regime_flag, investment_thesis, etf_ticker
+  | head 10
+cron_schedule: 0 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

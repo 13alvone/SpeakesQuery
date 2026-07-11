@@ -1,0 +1,31 @@
+name: rcpb_poly_religion
+description: |
+  Alert-group feed: Polymarket religion / cultural-event markets sorted
+  by volume. Reuses indexes/polymarket/religion parquet emitted by
+  polymarket_religion_markets. Each row carries a religion_subcategory
+  tag (christianity / islam / buddhism / hinduism / judaism / interfaith
+  / culture) for downstream filtering. Powers the Religion & Cultural
+  Prediction Brief's Polymarket block - cross-reference vs Kalshi
+  religion contracts for arbitrage.
+query: |-
+  index="indexes/polymarket/religion/*.parquet"
+  | sort -_epoch
+  | dedup market_id
+  | sort -volume
+  | table question, slug, yes_price, no_price, volume, liquidity, category, religion_subcategory, end_date
+  | head 20
+cron_schedule: 0 17 * * sun
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

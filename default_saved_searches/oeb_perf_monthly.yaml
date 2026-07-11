@@ -1,0 +1,28 @@
+name: oeb_perf_monthly
+description: |
+  Performance Review feeder: closures in the past 30 days.  Wider window
+  than weekly so Claude can spot trends + signal-class winners/losers.
+  Capped at 200.
+query: |-
+  index="indexes/IMMUTABLE/ag_picks_closures/*.parquet"
+  | where alert_group="options_edge_brief"
+  | eval ago_30d = now() - 2592000
+  | where _epoch >= ago_30d
+  | table idea_id, instrument_id, outcome, trigger_rule, entry_price, exit_price, pnl_per_contract_usd, pnl_pct_vs_max_loss, days_held, closure_quality, fits_account_at_entry, fits_account_at_close, exit_epoch
+  | sort -exit_epoch
+  | head 200
+cron_schedule: 0 22 * * sun
+lookback: -31d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-04-26T00:00:00"

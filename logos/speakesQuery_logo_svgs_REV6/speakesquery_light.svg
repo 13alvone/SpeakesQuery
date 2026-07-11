@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 210" width="940" height="210">
+
+  <!-- Transparent background -->
+
+  <!-- THE MARK -->
+  <rect x="16" y="16" width="170" height="178" rx="22" fill="#F0F6FC"/>
+
+  <!-- Title bar -->
+  <rect x="16" y="16" width="170" height="28" rx="22" fill="#E4EDF6"/>
+  <rect x="16" y="32" width="170" height="12" fill="#E4EDF6"/>
+  <circle cx="42" cy="30" r="3.5" fill="#FF5F57" opacity="0.8"/>
+  <circle cx="56" cy="30" r="3.5" fill="#FEBC2E" opacity="0.8"/>
+  <circle cx="70" cy="30" r="3.5" fill="#28C840" opacity="0.8"/>
+
+  <!-- Data bars - light blue and dark blue alternating -->
+  <rect x="38" y="56" width="88" height="7" rx="3" fill="#A8D4F0" opacity="0.5"/>
+  <rect x="38" y="71" width="124" height="7" rx="3" fill="#1A5A96" opacity="0.3"/>
+  <rect x="38" y="86" width="66" height="7" rx="3" fill="#A8D4F0" opacity="0.6"/>
+  <rect x="38" y="101" width="108" height="7" rx="3" fill="#1A5A96" opacity="0.4"/>
+  <rect x="38" y="116" width="78" height="7" rx="3" fill="#A8D4F0" opacity="0.7"/>
+  <rect x="38" y="131" width="130" height="7" rx="3" fill="#1A5A96" opacity="0.55"/>
+  <rect x="38" y="146" width="96" height="7" rx="3" fill="#A8D4F0" opacity="0.85"/>
+
+  <!-- >_ prompt + cursor -->
+  <text x="38" y="174" font-family="'SF Mono','Cascadia Code','Fira Code',monospace" font-size="13" font-weight="600" fill="#1A5A96" opacity="0.5">&gt;_</text>
+  <rect x="62" y="164" width="2.5" height="12" rx="1" fill="#1A5A96" opacity="0.7">
+    <animate attributeName="opacity" values="0.7;0.7;0;0;0.7" keyTimes="0;0.45;0.5;0.95;1" dur="1.8s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Wordmark - tightened gap -->
+  <text x="216" y="124"
+        font-family="'Segoe UI','SF Pro Display','Helvetica Neue',sans-serif"
+        font-size="90" font-weight="700" letter-spacing="-2"
+        fill="#88C4E8">Speakes</text>
+  <text x="612" y="124"
+        font-family="'Segoe UI','SF Pro Display','Helvetica Neue',sans-serif"
+        font-size="90" font-weight="700" letter-spacing="1"
+        fill="#1A5A96">Query</text>
+</svg>

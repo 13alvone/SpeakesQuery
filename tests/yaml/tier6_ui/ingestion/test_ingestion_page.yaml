@@ -1,0 +1,64 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_ingestion_001
+    title: "Ingestion Scripts page - control buttons visible"
+    steps:
+      - action: navigate
+        page: ingestion
+    expect:
+      active_page: page-ingestion
+      visible: ["#si-new-btn", "#refresh-si-btn"]
+      count:
+        - selector: "#si-scripts-list"
+          value: 1
+
+  - id: ui_ingestion_002
+    title: "Ingestion Scripts page - history modal hidden initially"
+    steps:
+      - action: navigate
+        page: ingestion
+    expect:
+      hidden: ["#history-modal"]
+
+  - id: ui_ingestion_003
+    title: "Ingestion Scripts page - history modal elements exist in DOM"
+    steps:
+      - action: navigate
+        page: ingestion
+    expect:
+      count:
+        - selector: "#history-modal"
+          value: 1
+        - selector: "#history-modal-backdrop"
+          value: 1
+        - selector: "#history-modal-title"
+          value: 1
+        - selector: "#history-modal-body"
+          value: 1
+        - selector: "#history-modal-close"
+          value: 1
+
+  # ── New Script Button ──────────────────────────────────────────
+
+  - id: ui_ingestion_010
+    title: "New Script button navigates to Create Ingestion page"
+    steps:
+      - action: navigate
+        page: ingestion
+      - action: click
+        selector: "#si-new-btn"
+    expect:
+      active_page: page-create-ingestion
+
+  # ── Refresh ─────────────────────────────────────────────────────
+
+  - id: ui_ingestion_020
+    title: "Refresh button is clickable"
+    steps:
+      - action: navigate
+        page: ingestion
+      - action: click
+        selector: "#refresh-si-btn"
+    expect:
+      enabled: ["#refresh-si-btn"]

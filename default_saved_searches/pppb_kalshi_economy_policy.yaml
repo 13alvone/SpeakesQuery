@@ -1,0 +1,41 @@
+name: pppb_kalshi_economy_policy
+description: |
+  Alert-group feed: Kalshi economy / Fed / CPI / inflation / GDP / jobs
+  contracts. These prediction markets serve as live consensus on
+  near-term policy outcomes (Fed rate decisions, inflation prints,
+  unemployment trajectory). Reuses indexes/kalshi_contracts parquet via
+  eval-then-where filter. Defensive filters added 2026-05-01 to dodge
+  the empty-category data-quality issue: volume>=1000 + yes_price>0
+  drops the 0-volume player-prop noise, word-boundary regex (\\b...\\b)
+  prevents "Brady House" from matching "House". Capped to contracts
+  closing within 1095 days (3 years) - matches Kalshi's typical
+  policy/election contract horizon. The original 60-day cap eliminated
+  every match (Kalshi markets are mostly 2-3 year contracts); caught
+  2026-05-05 after the V2 schema rewrite.
+query: |-
+  index="indexes/kalshi_contracts/*.parquet"
+  | sort -_epoch
+  | dedup market_ticker
+  | where volume >= 1000 AND yes_price > 0
+  | eval is_econ = if_(match(market_title, "(?i)\\bFed (Funds|Reserve|rate)\\b"), 1, if_(match(market_title, "(?i)\\bCPI\\b"), 1, if_(match(market_title, "(?i)inflation"), 1, if_(match(market_title, "(?i)recession"), 1, if_(match(market_title, "(?i)unemployment|jobs report"), 1, if_(match(market_title, "(?i)rate (cut|hike)"), 1, 0))))))
+  | where is_econ = 1
+  | where days_to_close > 0
+  | where days_to_close <= 1095
+  | sort -volume
+  | table event_title, market_title, category, yes_price, implied_prob_yes, volume, open_interest, days_to_close
+  | head 25
+cron_schedule: 0 20,21 * * *
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-05-01T22:30:00"

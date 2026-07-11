@@ -1,0 +1,50 @@
+name: sfcb_metaculus_questions
+description: |
+  Alert-group feed: Metaculus open forecasting questions sorted by
+  community engagement. Reuses indexes/forecasting/metaculus parquet
+  emitted by metaculus_questions. Filtered to questions with
+  prediction_count >= 50 (signal threshold) and resolving in <= 365 days.
+
+  Round-6 (2026-05-02): Metaculus deprecated unauthenticated API access
+  in 2026-Q1. Ingestion emits sentinel rows with category in
+  AUTH_REQUIRED / AUTH_INVALID / API_ERROR / NO_SIGNAL when the API
+  call fails. Cohort tallies expose the per-category sentinel count.
+
+  Round-7 (2026-05-05): admit sentinel rows past the prediction_count
+  filter so the brief surfaces actionable upstream-API status messages
+  in the email body. Pre-2026-05-05 the prediction_count >= 50 filter
+  silently dropped the sentinels - Claude saw zero rows and no signal
+  about why. With the OR-clause, the AUTH_REQUIRED sentinel's `title`
+  field carries the user-action message (register at
+  metaculus.com/account, paste API token into Settings) directly into
+  the brief. Once the credential is added, real questions land
+  (`category` = real category names, not the SENTINEL set), and the
+  sentinel disappears automatically - the OR-clause is dormant on
+  healthy days.
+query: |-
+  index="indexes/forecasting/metaculus/*.parquet"
+  | sort -_epoch
+  | dedup question_id
+  | eval auth_req_indicator=if_(category=="AUTH_REQUIRED", 1, 0), auth_inv_indicator=if_(category=="AUTH_INVALID", 1, 0), api_err_indicator=if_(category=="API_ERROR", 1, 0)
+  | eventstats sum(auth_req_indicator) as n_auth_required, sum(auth_inv_indicator) as n_auth_invalid, sum(api_err_indicator) as n_api_errors
+  | where prediction_count >= 50 OR category IN ("AUTH_REQUIRED","AUTH_INVALID","API_ERROR","NO_SIGNAL")
+  | where days_to_resolve >= 0
+  | where days_to_resolve <= 365 OR category IN ("AUTH_REQUIRED","AUTH_INVALID","API_ERROR","NO_SIGNAL")
+  | sort -prediction_count
+  | table question_id, title, question_type, community_prediction, prediction_count, comment_count, forecaster_count, resolve_time, days_to_resolve, category, page_url, n_auth_required, n_auth_invalid, n_api_errors
+  | head 25
+cron_schedule: 0 4 * * *
+lookback: -36h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-05-02T02:50:00"

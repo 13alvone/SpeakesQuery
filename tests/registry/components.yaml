@@ -1,0 +1,807 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SpeakesQuery - UI Component Registry
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Living documentation of every interactive UI component in desktop_app/ui.html.
+#
+# Purpose:
+#   1. Human-readable reference for developers and testers
+#   2. Machine-readable catalog for test coverage tracking
+#   3. Single source of truth for expected behavior
+#
+# Schema:
+#   global_components - UI elements present on every page
+#   pages[] - One entry per page/view
+#     .components[] - Interactive elements on that page
+#       .id - Unique identifier
+#       .selector - CSS selector (must match tests/ui/selectors.py)
+#       .type - Element type (button, textarea, input, display, etc.)
+#       .behavior - Human-readable description of expected behavior
+#       .test_ids - YAML test IDs that exercise this component (added as tests are written)
+
+version: "1.0"
+
+# ── Global Components ─────────────────────────────────────────────────────────
+
+global_components:
+
+  - id: nav_tabs
+    name: "Navigation Tab Bar"
+    selector: ".nav-tabs"
+    type: navigation
+    description: >
+      11 tab buttons that switch between pages.  Each <button> has a
+      data-page attribute.  Clicking a tab adds .active to that tab and
+      its target page, removes .active from all other tabs and pages.
+    children:
+      - {id: nav_query,             selector: 'button.nav-tab[data-page="page-query"]',             label: "Query"}
+      - {id: nav_lookups,           selector: 'button.nav-tab[data-page="page-lookups"]',           label: "Lookups"}
+      - {id: nav_import,            selector: 'button.nav-tab[data-page="page-import"]',            label: "Import"}
+      - {id: nav_create_search,     selector: 'button.nav-tab[data-page="page-create-search"]',     label: "Create Search"}
+      - {id: nav_searches,          selector: 'button.nav-tab[data-page="page-searches"]',          label: "Searches"}
+      - {id: nav_create_ingestion,  selector: 'button.nav-tab[data-page="page-create-ingestion"]',  label: "Create Ingestion"}
+      - {id: nav_ingestion,         selector: 'button.nav-tab[data-page="page-ingestion"]',         label: "Ingestion Scripts"}
+      - {id: nav_library,           selector: 'button.nav-tab[data-page="page-library"]',           label: "Script Library"}
+      - {id: nav_docs,              selector: 'button.nav-tab[data-page="page-docs"]',              label: "Docs"}
+      - {id: nav_settings,          selector: 'button.nav-tab[data-page="page-settings"]',          label: "Settings"}
+      - {id: nav_macros,            selector: 'button.nav-tab[data-page="page-macros"]',            label: "Macros"}
+    test_ids: [ui_nav_001, ui_nav_002, ui_nav_003, ui_nav_004, ui_nav_005,
+               ui_nav_006, ui_nav_007, ui_nav_008, ui_nav_009, ui_nav_010, ui_nav_011]
+
+  - id: theme_switcher
+    name: "Theme Switcher"
+    type: control
+    description: >
+      4 theme buttons (dark, light, night, cyber) that set data-theme on <html>.
+      Persisted to localStorage key 'speakesquery_theme'.
+    children:
+      - {id: theme_dark,  selector: 'button.theme-btn[data-theme="dark"]'}
+      - {id: theme_light, selector: 'button.theme-btn[data-theme="light"]'}
+      - {id: theme_night, selector: 'button.theme-btn[data-theme="night"]'}
+      - {id: theme_cyber, selector: 'button.theme-btn[data-theme="cyber"]'}
+    test_ids: [ui_theme_001, ui_theme_002, ui_theme_003, ui_theme_004]
+
+  - id: notification_system
+    name: "Toast Notification System"
+    selector: "#notification-container"
+    type: feedback
+    description: >
+      Toasts rendered by showNotification() / showError() / showSuccess().
+      Each notification auto-dismisses after 6 seconds.  Has a close button.
+      Types: is-primary (info), is-success (green), is-danger (red).
+
+  - id: welcome_overlay
+    name: "Welcome Overlay"
+    selector: "#welcome-panel"
+    type: overlay
+    description: >
+      Shown on first visit to the Query page.  Contains tour cards for
+      guided walkthroughs.  Dismissed via "Got it - let's go!" button.
+      Dismissal stored in localStorage 'speakesquery_query_welcome'.
+
+  - id: email_setup_overlay
+    name: "Email Setup Prompt"
+    selector: "#email-setup-panel"
+    type: overlay
+    description: >
+      Shown on first run if SMTP not configured.  Lets user enter SMTP
+      credentials and send a test email.  Dismissal stored in localStorage.
+
+# ── Pages ─────────────────────────────────────────────────────────────────────
+
+pages:
+
+  # ── Query ─────────────────────────────────────────────────────
+
+  - id: page_query
+    page_id: "page-query"
+    name: "Query"
+    nav_selector: 'button.nav-tab[data-page="page-query"]'
+    api_endpoints: ["/api/query", "/api/tree", "/api/save", "/api/jobs"]
+    components:
+      - id: query_editor
+        selector: "#query"
+        type: textarea
+        behavior: >
+          Auto-resizes up to 400px.  Stores last query in localStorage
+          key 'speakesquery_last'.
+
+      - id: run_query_btn
+        selector: "#run-query-btn"
+        type: button
+        behavior: >
+          Executes the query.  Disabled and shows #spinner during execution.
+          Re-enabled after response.  Shows error notification on failure.
+
+      - id: save_csv_btn
+        selector: "#save-csv-btn"
+        type: button
+        behavior: "Downloads results as CSV.  Disabled until query returns results."
+
+      - id: save_json_btn
+        selector: "#save-json-btn"
+        type: button
+        behavior: "Downloads results as JSON.  Disabled until query returns results."
+
+      - id: save_job_btn
+        selector: "#save-job-btn"
+        type: button
+        behavior: "Toggles #save-job-panel inline form.  Disabled until query returns results."
+
+      - id: expand_macros_btn
+        selector: "#expand-macros-btn"
+        type: button
+        behavior: "Expands backtick macro calls in the query text with inline annotations."
+
+      - id: results_area
+        selector: "#results"
+        type: display
+        behavior: "Renders paginated query results as an HTML table.  100 rows per page."
+
+      - id: row_count
+        selector: "#row-count"
+        type: display
+        behavior: "Shows 'Total Results: N' after a successful query."
+
+      - id: spinner
+        selector: "#spinner"
+        type: display
+        behavior: "Visible while query is executing, hidden otherwise."
+
+      - id: directory_tree
+        selector: "#directory-tree"
+        type: interactive
+        behavior: >
+          Expandable file tree of .parquet files.  Clicking a file inserts
+          its path into the query editor.  Loaded via GET /api/tree.
+
+      - id: tree_search
+        selector: "#tree-search-input"
+        type: input
+        behavior: "Filters directory tree entries in real-time (debounced)."
+
+      - id: job_id_bar
+        selector: "#job-id-bar"
+        type: display
+        behavior: "Shows the job_id after a query.  Hidden until a query runs."
+
+  # ── Settings ──────────────────────────────────────────────────
+
+  - id: page_settings
+    page_id: "page-settings"
+    name: "Settings"
+    nav_selector: 'button.nav-tab[data-page="page-settings"]'
+    api_endpoints: ["/api/settings", "/api/settings/reset", "/api/email/test"]
+    components:
+      - id: save_settings_btn
+        selector: "#save-settings-btn"
+        type: button
+        behavior: "POSTs all settings fields to /api/settings.  Shows success/error notification."
+
+      - id: reset_settings_btn
+        selector: "#reset-settings-btn"
+        type: button
+        behavior: "Resets all settings to defaults after confirmation dialog."
+
+      - id: test_email_btn
+        selector: "#test-email-btn"
+        type: button
+        behavior: >
+          Auto-saves SMTP settings, then sends a test email to the SMTP user.
+          Shows status in #test-email-msg.
+
+      - id: settings_message
+        selector: "#settings-message"
+        type: display
+        behavior: "Shows save/reset/error status messages."
+
+      - id: smtp_fields
+        type: form_group
+        behavior: "SMTP server, port, user, password, from, starttls fields."
+        fields:
+          - {selector: "#set-smtp-server",   type: text,     label: "SMTP Server"}
+          - {selector: "#set-smtp-port",     type: int,      label: "Port"}
+          - {selector: "#set-smtp-user",     type: text,     label: "Username"}
+          - {selector: "#set-smtp-password", type: password, label: "Password / App Password"}
+          - {selector: "#set-smtp-from",     type: text,     label: "From Address"}
+          - {selector: "#set-smtp-starttls", type: checkbox, label: "Use STARTTLS"}
+
+      - id: storage_fields
+        type: form_group
+        behavior: "Storage limits and paths."
+        fields:
+          - {selector: "#set-indexes-root",              type: text, label: "Indexes Root"}
+          - {selector: "#set-max-total-size-gb",         type: int,  label: "Max Total Size (GB)"}
+          - {selector: "#set-max-subdirectory-size-gb",  type: int,  label: "Max Subdirectory Size (GB)"}
+          - {selector: "#set-max-parquet-file-mb",       type: int,  label: "Max Parquet File (MB)"}
+          - {selector: "#set-cleanup-interval-hours",    type: int,  label: "Cleanup Interval (hours)"}
+          - {selector: "#set-max-subdirectory-depth",    type: int,  label: "Max Subdirectory Depth"}
+
+  # ── Lookups ───────────────────────────────────────────────────
+
+  - id: page_lookups
+    page_id: "page-lookups"
+    name: "Lookups"
+    nav_selector: 'button.nav-tab[data-page="page-lookups"]'
+    api_endpoints: ["/api/lookups", "/api/lookups/preview", "/api/lookups/upload",
+                    "/api/lookups/download", "/api/lookups/delete"]
+    components:
+      - id: lookups_list_view
+        selector: "#lookups-list-view"
+        type: container
+        behavior: "Main view showing table of lookup files. Hidden when previewing."
+
+      - id: upload_lookup_btn
+        selector: "#upload-lookup-btn"
+        type: button
+        behavior: "Triggers hidden #upload-lookup-input file picker."
+
+      - id: upload_lookup_input
+        selector: "#upload-lookup-input"
+        type: file_input
+        behavior: "Hidden file input. Accepts .csv, .json, .tsv, .parquet."
+
+      - id: refresh_lookups_btn
+        selector: "#refresh-lookups-btn"
+        type: button
+        behavior: "Reloads the lookups list from the server."
+
+      - id: lookups_list
+        selector: "#lookups-list"
+        type: display
+        behavior: "Dynamic table of files with name, type, size, dates, and action buttons."
+
+      - id: lookups_preview_view
+        selector: "#lookups-preview-view"
+        type: container
+        behavior: "Hidden by default. Shows preview table when a file is clicked."
+
+      - id: lookup_back_btn
+        selector: "#lookup-back-btn"
+        type: button
+        behavior: "Returns to list view from preview view."
+
+  # ── Import ────────────────────────────────────────────────────
+
+  - id: page_import
+    page_id: "page-import"
+    name: "Import"
+    nav_selector: 'button.nav-tab[data-page="page-import"]'
+    api_endpoints: ["/api/indexes/import", "/api/indexes/import/sqlite-tables"]
+    components:
+      - id: import_file_btn
+        selector: "#import-file-btn"
+        type: button
+        behavior: "Triggers hidden #import-file-input file picker."
+
+      - id: import_file_input
+        selector: "#import-file-input"
+        type: file_input
+        behavior: "Hidden. Accepts .csv, .parquet, .sqlite, .sqlite3, .db."
+
+      - id: import_file_label
+        selector: "#import-file-label"
+        type: display
+        behavior: "Shows 'No file selected' or the selected filename."
+
+      - id: import_index_name
+        selector: "#import-index-name"
+        type: input
+        behavior: "Target subdirectory under indexes/. Supports nesting with /."
+
+      - id: import_date_field
+        selector: "#import-date-field"
+        type: input
+        behavior: "Optional date column to convert to _epoch."
+
+      - id: import_sqlite_section
+        selector: "#import-sqlite-section"
+        type: container
+        behavior: "Hidden until a SQLite file is selected. Shows table picker dropdown."
+
+      - id: import_submit_btn
+        selector: "#import-submit-btn"
+        type: button
+        behavior: "Disabled by default. Enabled when index_name is filled and a file is selected."
+
+  # ── Create Search ─────────────────────────────────────────────
+
+  - id: page_create_search
+    page_id: "page-create-search"
+    name: "Create Search"
+    nav_selector: 'button.nav-tab[data-page="page-create-search"]'
+    api_endpoints: ["/api/ss/create", "/api/ss/validate-tokens"]
+    components:
+      - id: ss_name
+        selector: "#ss-name"
+        type: input
+        behavior: "Search name. Letters, digits, spaces, hyphens, underscores, periods."
+
+      - id: ss_query
+        selector: "#ss-query"
+        type: textarea
+        behavior: "Query to execute on schedule."
+
+      - id: ss_cron
+        selector: "#ss-cron"
+        type: input
+        behavior: "5-field cron expression. Hint shown below."
+
+      - id: ss_lookback
+        selector: "#ss-lookback"
+        type: input
+        behavior: "Time window to look back (e.g. -4h). Rule: 4x cron interval."
+
+      - id: ss_trigger
+        selector: "#ss-trigger"
+        type: select
+        behavior: "Once or Per Result. Controls when alert fires."
+
+      - id: ss_email
+        selector: "#ss-email"
+        type: input
+        behavior: "Recipient email for alerts."
+
+      - id: ss_from_email
+        selector: "#ss-from-email"
+        type: input
+        behavior: "From address. Disabled - configured in Settings."
+
+      - id: ss_body
+        selector: "#ss-body"
+        type: textarea
+        behavior: "Email body template. Supports $field_name$ token substitution."
+
+      - id: ss_save_btn
+        selector: "#ss-save-btn"
+        type: button
+        behavior: "Validates required fields, runs token validation, saves to server."
+
+      - id: ss_clear_btn
+        selector: "#ss-clear-btn"
+        type: button
+        behavior: "Resets all form fields to empty."
+
+      - id: ss_import_query_btn
+        selector: "#ss-import-query-btn"
+        type: button
+        behavior: "Imports query text from the Query page."
+
+  # ── Searches ──────────────────────────────────────────────────
+
+  - id: page_searches
+    page_id: "page-searches"
+    name: "Searches"
+    nav_selector: 'button.nav-tab[data-page="page-searches"]'
+    api_endpoints: ["/api/ss/list", "/api/ss"]
+    components:
+      - id: searches_list
+        selector: "#searches-list"
+        type: display
+        behavior: "Dynamic table of saved searches with edit, view YAML, delete buttons."
+
+      - id: refresh_searches_btn
+        selector: "#refresh-searches-btn"
+        type: button
+        behavior: "Reloads the searches list from the server."
+
+      - id: yaml_viewer_modal
+        selector: "#yaml-viewer-modal"
+        type: modal
+        behavior: "Hidden by default. Shows raw YAML of a saved search when View is clicked."
+
+  # ── Create Ingestion ──────────────────────────────────────────
+  # (Phase 4)
+
+  - id: page_create_ingestion
+    page_id: "page-create-ingestion"
+    name: "Create Ingestion"
+    nav_selector: 'button.nav-tab[data-page="page-create-ingestion"]'
+    api_endpoints: ["/api/si/add", "/api/si/lint", "/api/si/test-code", "/api/credentials"]
+    components:
+      - id: si_title
+        selector: "#si-title"
+        type: input
+        behavior: "Script name. Letters, digits, spaces, hyphens, underscores."
+
+      - id: si_description
+        selector: "#si-description"
+        type: input
+        behavior: "Optional description of what the script collects."
+
+      - id: si_code
+        selector: "#si-code"
+        type: textarea
+        behavior: "Hidden textarea replaced by CodeMirror editor at init."
+
+      - id: codemirror_editor
+        selector: ".CodeMirror"
+        type: editor
+        behavior: >
+          Python code editor with syntax highlighting, Ctrl+Space autocomplete,
+          Ctrl+/ comment toggle, Tab/Shift-Tab indent. Debounced lint on keystroke.
+
+      - id: si_cron
+        selector: "#si-cron"
+        type: input
+        behavior: "5-field cron expression for scheduling."
+
+      - id: si_subdirectory
+        selector: "#si-subdirectory"
+        type: input
+        behavior: "Output path under indexes/. Defaults to title if blank."
+
+      - id: si_overwrite
+        selector: "#si-overwrite"
+        type: select
+        behavior: "Append (new files each run) or Overwrite (replace existing)."
+
+      - id: si_test_btn
+        selector: "#si-test-btn"
+        type: button
+        behavior: "Executes the code in a sandbox. Must pass before save is enabled."
+
+      - id: si_save_btn
+        selector: "#si-save-btn"
+        type: button
+        behavior: "Disabled by default. Enabled only after test passes. Posts to /api/si/add."
+
+      - id: si_clear_btn
+        selector: "#si-clear-btn"
+        type: button
+        behavior: "Resets all form fields and re-disables save button."
+
+      - id: si_boilerplate_btn
+        selector: "#si-boilerplate-btn"
+        type: button
+        behavior: "Inserts a standardized ingestion template into the editor."
+
+      - id: si_wizard_btn
+        selector: "#si-wizard-btn"
+        type: button
+        behavior: "Opens the guided wizard modal for generating a script."
+
+      - id: si_test_results
+        selector: "#si-test-results"
+        type: display
+        behavior: "Hidden until test runs. Shows pass/fail and sample output."
+
+      - id: si_credentials_sidebar
+        type: form_group
+        behavior: "Sidebar for managing API credentials attached to this script."
+        fields:
+          - {selector: "#si-cred-key",     type: text,     label: "Key Name"}
+          - {selector: "#si-cred-value",   type: password, label: "Value"}
+          - {selector: "#si-cred-add-btn", type: button,   label: "Store Credential"}
+
+  # ── Ingestion Scripts ─────────────────────────────────────────
+
+  - id: page_ingestion
+    page_id: "page-ingestion"
+    name: "Ingestion Scripts"
+    nav_selector: 'button.nav-tab[data-page="page-ingestion"]'
+    api_endpoints: ["/api/si/list", "/api/si", "/api/si/history"]
+    components:
+      - id: si_scripts_list
+        selector: "#si-scripts-list"
+        type: display
+        behavior: "Dynamic table of scripts with run, history, edit, toggle, delete buttons."
+
+      - id: si_new_btn
+        selector: "#si-new-btn"
+        type: button
+        behavior: "Navigates to Create Ingestion page with a clean form."
+
+      - id: refresh_si_btn
+        selector: "#refresh-si-btn"
+        type: button
+        behavior: "Reloads the scripts list from the server."
+
+      - id: history_modal
+        selector: "#history-modal"
+        type: modal
+        behavior: "Hidden by default. Shows execution history when History button clicked."
+
+  # ── Script Library ────────────────────────────────────────────
+
+  - id: page_library
+    page_id: "page-library"
+    name: "Script Library"
+    nav_selector: 'button.nav-tab[data-page="page-library"]'
+    api_endpoints: ["/api/library/list", "/api/library"]
+    components:
+      - id: lib_grid
+        selector: "#lib-grid"
+        type: display
+        behavior: "Grid of .lib-card elements, each with title, description, tags, Preview/Deploy buttons."
+
+      - id: refresh_lib_btn
+        selector: "#refresh-lib-btn"
+        type: button
+        behavior: "Reloads the library script list from the server."
+
+      - id: lib_modal
+        selector: "#lib-modal"
+        type: modal
+        behavior: >
+          Hidden by default. Shows script details (category, cron, code preview,
+          required credentials) when Preview is clicked. Has Deploy button.
+
+  # ── Docs ──────────────────────────────────────────────────────
+
+  - id: page_docs
+    page_id: "page-docs"
+    name: "Docs"
+    nav_selector: 'button.nav-tab[data-page="page-docs"]'
+    api_endpoints: ["/api/docs/", "/api/docs"]
+    components:
+      - id: docs_search
+        selector: "#docs-search"
+        type: input
+        behavior: "Filters sidebar navigation links in real-time."
+
+      - id: docs_nav
+        selector: "#docs-nav"
+        type: navigation
+        behavior: "Sidebar list of doc files. Clicking loads content. Sub-headings expand on click."
+
+      - id: docs_content
+        selector: "#docs-content"
+        type: display
+        behavior: "Renders markdown-to-HTML from the selected doc file."
+
+      - id: docs_placeholder
+        selector: "#docs-placeholder"
+        type: display
+        behavior: "Shown before any doc is selected. Hidden after clicking a sidebar link."
+
+      - id: docs_tour_section
+        selector: "#docs-tour-section"
+        type: container
+        behavior: "Permanent access point for 3 guided tours (GitHub Security, HackerNews, Weather)."
+
+  # ── Macros ────────────────────────────────────────────────────
+  # (Phase 3)
+
+  - id: page_macros
+    page_id: "page-macros"
+    name: "Macros"
+    nav_selector: 'button.nav-tab[data-page="page-macros"]'
+    api_endpoints: ["/api/macros/list", "/api/macros/create", "/api/macros/expand",
+                    "/api/macros/test", "/api/macros"]
+    components:
+      - id: macros_list
+        selector: "#macros-list"
+        type: display
+        behavior: "Dynamic table of macros with edit and delete buttons per row."
+
+      - id: macro_new_btn
+        selector: "#macro-new-btn"
+        type: button
+        behavior: "Opens the create macro form with empty fields."
+
+      - id: macro_refresh_btn
+        selector: "#macro-refresh-btn"
+        type: button
+        behavior: "Reloads the macros list from the server."
+
+      - id: macro_form_box
+        selector: "#macro-form-box"
+        type: container
+        behavior: "Hidden by default. Shown when New or Edit is clicked."
+
+      - id: macro_name
+        selector: "#macro-name"
+        type: input
+        behavior: "Macro name. Read-only when editing an existing macro."
+
+      - id: macro_definition
+        selector: "#macro-definition"
+        type: textarea
+        behavior: "Macro body. $param$ tokens auto-populate the parameters field."
+
+      - id: macro_parameters
+        selector: "#macro-parameters"
+        type: input
+        behavior: "Read-only. Auto-populated from $param$ tokens in definition."
+
+      - id: macro_save_btn
+        selector: "#macro-save-btn"
+        type: button
+        behavior: "Validates name + definition are present, then POSTs to server."
+
+      - id: macro_cancel_btn
+        selector: "#macro-cancel-btn"
+        type: button
+        behavior: "Hides the form and clears edit state."
+
+      - id: macro_test_query
+        selector: "#macro-test-query"
+        type: textarea
+        behavior: "Query input for testing macro expansion."
+
+      - id: macro_expand_btn
+        selector: "#macro-expand-btn"
+        type: button
+        behavior: "Expands macros in the test query without executing."
+
+      - id: macro_test_btn
+        selector: "#macro-test-btn"
+        type: button
+        behavior: "Expands macros and runs the query, showing results below."
+
+  # ═══════════════════════════════════════════════════════════════
+  # CROSS-CUTTING CONCERNS (not tied to a single page)
+  # ═══════════════════════════════════════════════════════════════
+
+cross_cutting:
+
+  # ── Welcome Overlay ───────────────────────────────────────────
+
+  - id: welcome_overlay
+    name: "Welcome Overlay"
+    behavior: >
+      Shown on first visit (unless dismissed via localStorage).
+      Contains intro text, quick-start guides, and guided tour cards.
+      Dismissed by clicking "Got it - let's go!" button.
+    components:
+      - id: welcome_backdrop
+        selector: "#welcome-backdrop"
+        type: backdrop
+        behavior: "Semi-transparent overlay behind the welcome panel."
+
+      - id: welcome_panel
+        selector: "#welcome-panel"
+        type: modal
+        behavior: "The welcome content panel. Hidden by default (display:none). Shown once for new users."
+
+      - id: welcome_dismiss_check
+        selector: "#welcome-dismiss-check"
+        type: checkbox
+        behavior: "When checked, sets localStorage key to suppress overlay on future visits."
+
+      - id: welcome_go_btn
+        selector: "#welcome-go-btn"
+        type: button
+        behavior: "Dismisses the overlay. If checkbox is checked, saves preference to localStorage."
+
+      - id: welcome_tour_cards
+        selector: "#welcome-tour-cards"
+        type: container
+        behavior: "Contains 3 guided tour cards (GitHub Security, HackerNews, Weather)."
+
+  # ── First-Run Email Setup ──────────────────────────────────────
+
+  - id: email_setup
+    name: "First-Run Email Setup"
+    behavior: >
+      Prompt shown on first run when SMTP is not configured.
+      Guides user through Gmail App Password setup.
+      Can be skipped - user can configure later in Settings.
+    components:
+      - id: email_setup_backdrop
+        selector: "#email-setup-backdrop"
+        type: backdrop
+        behavior: "Overlay behind the email setup panel."
+
+      - id: email_setup_panel
+        selector: "#email-setup-panel"
+        type: modal
+        behavior: "Email configuration form. Hidden by default."
+
+      - id: es_smtp_user
+        selector: "#es-smtp-user"
+        type: input
+        behavior: "Gmail address field."
+
+      - id: es_smtp_password
+        selector: "#es-smtp-password"
+        type: password
+        behavior: "16-character Gmail App Password."
+
+      - id: es_smtp_from
+        selector: "#es-smtp-from"
+        type: input
+        behavior: "Optional From address. Defaults to Gmail address."
+
+      - id: es_test_to
+        selector: "#es-test-to"
+        type: input
+        behavior: "Recipient for the verification test email."
+
+      - id: es_configure_btn
+        selector: "#es-configure-btn"
+        type: button
+        behavior: "Saves SMTP settings and sends a test email."
+
+      - id: es_skip_btn
+        selector: "#es-skip-btn"
+        type: button
+        behavior: "Dismisses the email setup panel without configuring."
+
+      - id: es_spinner
+        selector: "#es-spinner"
+        type: display
+        behavior: "Loading indicator shown during save + test email."
+
+      - id: es_status
+        selector: "#es-status"
+        type: display
+        behavior: "Success/error message after configure attempt."
+
+  # ── Guided Tour Engine ─────────────────────────────────────────
+
+  - id: tour_engine
+    name: "Guided Tour Engine"
+    behavior: >
+      Interactive walkthrough system. Tours are defined in JS with step arrays.
+      Each step highlights a DOM element and shows a tooltip with instructions.
+      Tours can be started from welcome overlay or docs sidebar.
+      Completion is tracked in localStorage per tour ID.
+    components:
+      - id: tour_blocker
+        selector: "#tour-blocker"
+        type: overlay
+        behavior: "Blocks all page interaction during a tour step."
+
+      - id: tour_backdrop
+        selector: "#tour-backdrop"
+        type: backdrop
+        behavior: "Spotlight effect - highlights the target element."
+
+      - id: tour_tooltip
+        selector: "#tour-tooltip"
+        type: tooltip
+        behavior: >
+          Positioned near the highlighted element. Contains step counter,
+          title, body, optional code block, and navigation buttons
+          (Back, Next/Finish, Exit Tour).
+
+  # ── Notification System ─────────────────────────────────────────
+
+  - id: notification_system
+    name: "Toast Notification System"
+    behavior: >
+      Shows success (green), error (red), or primary (blue) toast notifications.
+      Auto-dismissed after 6 seconds. Each has a close button.
+      Stacks vertically in #notification-container.
+    components:
+      - id: notification_container
+        selector: "#notification-container"
+        type: container
+        behavior: "Fixed-position container for toast notifications."
+
+  # ── Theme System ───────────────────────────────────────────────
+
+  - id: theme_system
+    name: "Theme Switcher"
+    behavior: >
+      Four themes: dark (default), light, night, cyber.
+      Theme is applied via data-theme attribute on <html>.
+      Persisted in localStorage as 'speakesquery_theme'.
+    components:
+      - id: theme_select
+        selector: "#theme-select"
+        type: select
+        behavior: "Dropdown in the nav bar. Changes data-theme on <html> and saves to localStorage."
+
+  # ── ELI5 Tooltips ──────────────────────────────────────────────
+
+  - id: eli5_system
+    name: "ELI5 Hover Tooltips"
+    behavior: >
+      Settings page fields with data-eli5 attributes show explanatory tooltips
+      on hover. Plain-English descriptions of technical settings.
+      Can be disabled via body.no-eli5 class.
+    selector_pattern: ".ss-field[data-eli5]"
+
+  # ── Version Badge ──────────────────────────────────────────────
+
+  - id: version_badge
+    name: "Version Badge"
+    behavior: "Displays the current SpeakesQuery version in the nav bar. Loaded from /api/version."
+    components:
+      - id: version_badge_el
+        selector: "#version-badge"
+        type: display
+        behavior: "Shows version string (e.g., '1.2.3') loaded from the server on page init."

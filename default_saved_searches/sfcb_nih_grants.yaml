@@ -1,0 +1,32 @@
+name: sfcb_nih_grants
+description: |
+  Alert-group feed: NIH Reporter active research grants from the past 30
+  days, sorted by award amount. Reuses indexes/research/nih_grants parquet
+  emitted by nih_reporter_grants. Filtered to award_amount >= 500000 so
+  the brief sees substantive research-direction funding. Powers the
+  Science & Forecasting Community Brief: NIH grant clusters around a
+  specific therapeutic area or platform precede biotech equity activity
+  (IPO, partnership, clinical-trial start) by 6-24 months.
+query: |-
+  index="indexes/research/nih_grants/*.parquet"
+  | sort -_epoch
+  | dedup project_num
+  | where award_amount >= 500000
+  | sort -award_amount
+  | table project_num, project_title, organization_name, organization_state, agency_ic_admin, agency_ic_funding, award_amount, fiscal_year, project_start_date, project_end_date, pi_name, spending_category, project_url
+  | head 25
+cron_schedule: 0 4 * * *
+lookback: -2d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

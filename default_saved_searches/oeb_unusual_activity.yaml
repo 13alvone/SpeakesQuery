@@ -1,0 +1,56 @@
+name: oeb_unusual_activity
+description: |
+  Options Edge Brief feeder: unusual options activity (vol/OI ratio scan)
+  on the 40-ticker watchlist.  earliest="-24h" comfortably covers the
+  twice-daily cron cadence (14:15 + 19:15 UTC).  Original "-6h" was too
+  tight: the debug button can fire any time after the last cron run, and
+  6h cut off everything when pressed >6h after the 19:15 UTC cron.
+
+  Round 3 fix (2026-05-01): dropped the `alert_level IN ("HIGH","CRITICAL")`
+  filter - it was redundant with `vol_oi_ratio >= 3.0` (the script defines
+  MODERATE=3-5, HIGH=5-10, CRITICAL=10+, so HIGH+CRITICAL means ratio>=5).
+  Combined with OI>=100 + last_price>0.05 the chain was too restrictive for
+  a typical day's flow. The vol_oi_ratio>=3.0 floor IS the "unusual" gate;
+  alert_level was just a derived label.
+
+  Round 4 fix (2026-05-01): dropped `underlying_price > 0` - the diagnostic
+  showed ZERO of 374 unique contracts have a populated underlying_price.
+  Root cause: the script's `_fetch_underlying_price()` calls Massive's v2
+  stocks-snapshot endpoint, which isn't included in the Options Starter tier.
+  The fetch silently returns None for every ticker, the row writes with
+  underlying_price=null/0, and our filter eliminated everything. Brief loses
+  moneyness math but unusual-flow signal still works. Script-side fix: derive
+  underlying from break_even_price - last_price (calls) or upgrade Massive
+  plan. SPQL workaround documented in CHANGELOG.
+  Data-quality filters drop the OI=0 / underlying_price=0 / penny-priced
+  contracts that would otherwise dominate the top of the ratio ranking
+  (a OI=0 contract with volume=21943 produces ratio=21943.0 - a
+  division-edge artifact, not real flow).  Dedup contract_symbol so the
+  same option doesn't appear at multiple snapshot timestamps.
+  `count_in_direction` via eventstats by direction_bias gives Claude the
+  bullish-vs-bearish watchlist tilt.  Capped at 12 unique contracts.
+query: |-
+  index="indexes/equities/options_unusual_pro/*.parquet" earliest="-24h"
+  | where open_interest >= 100 AND last_price > 0.05 AND vol_oi_ratio >= 3.0 AND days_to_expiry >= 2 AND days_to_expiry <= 60
+  | sort -_epoch
+  | dedup contract_symbol
+  | eventstats count(_epoch) as alerts_today
+  | eventstats count(_epoch) as count_in_direction by direction_bias
+  | table ticker, contract_type, strike, expiration, days_to_expiry, volume, open_interest, vol_oi_ratio, last_price, day_vwap, implied_vol, iv_rank, delta, gamma, vega, theta, alert_level, direction_bias, underlying_price, contract_symbol, bid, ask, break_even_price, alerts_today, count_in_direction
+  | sort -vol_oi_ratio
+  | head 12
+cron_schedule: 15 14,19 * * mon-fri
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-04-30T00:00:00"

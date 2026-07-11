@@ -1,0 +1,158 @@
+tests:
+  # ── Eval chain: later pipe references earlier eval columns ───
+  - id: complex_001
+    title: "eval chain - sequential column dependencies"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval a=x+1
+      | eval b=a+1
+      | eval c=b+1
+    expect:
+      row_count: 5
+      columns_include: ["a", "b", "c"]
+      column_values:
+        - column: a
+          values: ["5", "5", "6", "5", "7"]
+        - column: b
+          values: ["6", "6", "7", "6", "8"]
+        - column: c
+          values: ["7", "7", "8", "7", "9"]
+
+  # ── Search -> Eval -> Stats -> Sort (full pipeline) ──────────
+  - id: complex_002
+    title: "full pipeline - search eval stats"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | search region="US"
+      | eval high_priority=if_(priority=="critical", 1, 0)
+      | stats count, sum(high_priority) by userRole
+    expect:
+      row_count: 5
+      columns: ["userRole", "count", "sum(high_priority)"]
+
+  # ── Eval case -> Stats (transform then aggregate) ────────────
+  - id: complex_003
+    title: "eval case then stats - category aggregation"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval resp_category=case(responseTime < 5, "fast", responseTime < 15, "medium", "slow")
+      | stats count by resp_category
+    expect:
+      row_count: 3
+      columns: ["resp_category", "count"]
+
+  # ── Eval -> Rename -> Fields (column reference after rename) ─
+  - id: complex_004
+    title: "eval rename fields - column rename then select"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | rename level as severity
+      | fields severity, message
+    expect:
+      row_count: 5
+      columns: ["severity", "message"]
+
+  # ── Eval -> Dedup (dedup on computed column) ─────────────────
+  - id: complex_005
+    title: "eval then dedup - dedup on computed column"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval category=if_(x > 4, "high", "low")
+      | dedup category
+    expect:
+      row_count: 2
+      column_values:
+        - column: category
+          values: ["low", "high"]
+
+  # ── Head -> Stats (reduction before aggregation) ─────────────
+  - id: complex_006
+    title: "head then stats - reduce then aggregate"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 10
+      | stats count by region
+    expect:
+      min_rows: 1
+      max_rows: 3
+
+  # ── Stats -> Head (aggregate then limit) ─────────────────────
+  - id: complex_007
+    title: "stats then head - aggregate then limit rows"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by userRole
+      | head 2
+    expect:
+      row_count: 2
+
+  # ── Eventstats -> Where (filter on aggregated column) ────────
+  - id: complex_008
+    title: "eventstats then where - filter on appended aggregate"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eventstats count by userRole
+      | where count > 1
+    expect:
+      row_count: 4
+
+  # ── Rex -> Eval -> Stats (extract then compute then agg) ────
+  - id: complex_009
+    title: "rex eval stats - extract transform aggregate"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | rex field=message "(?P<word>\w+) message"
+      | eval word_len=len(word)
+      | stats avg(word_len)
+    expect:
+      row_count: 1
+      columns_include: ["avg(word_len)"]
+
+  # ── Search -> Eval -> Search (double filter with transform) ──
+  - id: complex_010
+    title: "search eval search - filter transform filter"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval is_critical=if_(priority=="critical", "yes", "no")
+      | search is_critical="yes"
+    expect:
+      row_count: 26
+
+  # ── Makeresults -> Eval -> Mvexpand -> Stats ─────────────────
+  # Note: "a,b,c" is a single string value, not a list.
+  # mvexpand does not split it, so count remains 1.
+  - id: complex_011
+    title: "makeresults eval mvexpand stats - single string stays 1 row"
+    query: |
+      | makeresults count=1
+      | eval items="a,b,c"
+      | mvexpand items
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 1
+
+  # ── Append with subsearch stats ──────────────────────────────
+  - id: complex_012
+    title: "append - union two stats results"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | stats count by userRole
+      | append [index="indexes/default_test/output_parquets/test1.parquet" | stats count by userRole]
+    expect:
+      min_rows: 5
+
+  # ── Search + Dedup + Table (filter reduce select) ────────────
+  - id: complex_013
+    title: "search dedup table - filter reduce select"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | search status="critical"
+      | dedup team
+      | table team, status, priority
+    expect:
+      row_count: 3
+      columns: ["team", "status", "priority"]

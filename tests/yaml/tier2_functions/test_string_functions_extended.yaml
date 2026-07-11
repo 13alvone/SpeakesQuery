@@ -1,0 +1,134 @@
+tests:
+  # ── capitalize ───────────────────────────────────────────────
+  - id: func_str_ext_001
+    title: "capitalize() - capitalize first letter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval cap_status=capitalize(status)
+    expect:
+      row_count: 5
+      column_values:
+        - column: cap_status
+          values: ["Debug", "Info", "Warning", "Error", "Critical"]
+
+  # ── trim ─────────────────────────────────────────────────────
+  - id: func_str_ext_002
+    title: "trim() - remove leading/trailing whitespace"
+    query: |
+      | makeresults count=1
+      | eval padded="  hello  "
+      | eval trimmed=trim(padded)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: trimmed
+          value: "hello"
+
+  # ── ltrim ────────────────────────────────────────────────────
+  - id: func_str_ext_003
+    title: "ltrim() - remove leading whitespace"
+    query: |
+      | makeresults count=1
+      | eval padded="  hello  "
+      | eval left_trimmed=ltrim(padded)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: left_trimmed
+          value: "hello  "
+
+  # ── rtrim ────────────────────────────────────────────────────
+  - id: func_str_ext_004
+    title: "rtrim() - remove trailing whitespace"
+    query: |
+      | makeresults count=1
+      | eval padded="  hello  "
+      | eval right_trimmed=rtrim(padded)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: right_trimmed
+          value: "  hello"
+
+  # ── urldecode ────────────────────────────────────────────────
+  - id: func_str_ext_005
+    title: "urldecode() - decode percent-encoded string"
+    query: |
+      | makeresults count=1
+      | eval encoded="hello%20world"
+      | eval decoded=urldecode(encoded)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: decoded
+          value: "hello world"
+
+  # ── defang ───────────────────────────────────────────────────
+  - id: func_str_ext_006
+    title: "defang() - defang URL"
+    query: |
+      | makeresults count=1
+      | eval url="http://evil.com"
+      | eval safe=defang(url)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: safe
+          value: "http[:]//evil[.]com"
+
+  # ── fang ─────────────────────────────────────────────────────
+  - id: func_str_ext_007
+    title: "fang() - re-fang URL"
+    query: |
+      | makeresults count=1
+      | eval safe="http[:]//evil[.]com"
+      | eval url=fang(safe)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: url
+          value: "http://evil.com"
+
+  # ── type ─────────────────────────────────────────────────────
+  - id: func_str_ext_008
+    title: "type() - detect column type"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval t=type(level)
+    expect:
+      row_count: 5
+      columns_include: ["t"]
+
+  # ── split ────────────────────────────────────────────────────
+  - id: func_str_ext_009
+    title: "split() - split string into multi-value"
+    query: |
+      | makeresults count=1
+      | eval csv="a,b,c"
+      | eval parts=split(csv, ",")
+      | eval cnt=mvcount(parts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 3
+
+  # ── isnotnull ────────────────────────────────────────────────
+  - id: func_str_ext_010
+    title: "isnotnull() - detect non-null values"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | eval has_code=isnotnull(errorCode)
+    expect:
+      row_count: 3
+      column_values:
+        - column: has_code
+          values: ["False", "True", "True"]

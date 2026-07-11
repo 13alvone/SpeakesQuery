@@ -1,0 +1,22 @@
+{
+  "title": "OpenWeatherMap Current Weather",
+  "description": "Fetches current weather data for a list of major US cities from the OpenWeatherMap API. Requires a free API key (sign up at openweathermap.org). Returns temperature, humidity, wind speed, and conditions.",
+  "category": "Weather",
+  "api_url": "https://api.openweathermap.org/data/2.5/weather",
+  "requires_credentials": [
+    "api_key"
+  ],
+  "credential_kinds": {
+    "api_key": "api_key"
+  },
+  "suggested_cron": "0 */3 * * *",
+  "suggested_subdirectory": "weather/current",
+  "suggested_overwrite": false,
+  "tags": [
+    "api-key",
+    "weather",
+    "iot",
+    "monitoring"
+  ],
+  "code": "import pandas as pd\nimport requests\nimport time\nfrom datetime import datetime, timezone\n\n# OpenWeatherMap - free tier: 1000 calls/day\n# Sign up: https://openweathermap.org/api\nAPI_KEY = CREDENTIALS['api_key']\nBASE_URL = 'https://api.openweathermap.org/data/2.5/weather'\n\n# Major US cities to monitor\ncities = [\n    {'name': 'New York', 'lat': 40.7128, 'lon': -74.0060},\n    {'name': 'Los Angeles', 'lat': 34.0522, 'lon': -118.2437},\n    {'name': 'Chicago', 'lat': 41.8781, 'lon': -87.6298},\n    {'name': 'Houston', 'lat': 29.7604, 'lon': -95.3698},\n    {'name': 'Phoenix', 'lat': 33.4484, 'lon': -112.0740},\n]\n\nrows = []\nfor city in cities:\n    params = {\n        'lat': city['lat'],\n        'lon': city['lon'],\n        'appid': API_KEY,\n        'units': 'imperial',\n    }\n    resp = requests.get(BASE_URL, params=params, timeout=30)\n    resp.raise_for_status()\n    data = resp.json()\n\n    rows.append({\n        'city': city['name'],\n        'temp_f': data['main']['temp'],\n        'feels_like_f': data['main']['feels_like'],\n        'humidity_pct': data['main']['humidity'],\n        'pressure_hpa': data['main']['pressure'],\n        'wind_speed_mph': data['wind']['speed'],\n        'wind_deg': data['wind'].get('deg', 0),\n        'weather': data['weather'][0]['main'] if data.get('weather') else '',\n        'description': data['weather'][0]['description'] if data.get('weather') else '',\n        'clouds_pct': data.get('clouds', {}).get('all', 0),\n        'visibility_m': data.get('visibility', 0),\n        '_epoch': data.get('dt', int(datetime.now(timezone.utc).timestamp())),\n    })\n    time.sleep(0.25)  # Be kind to free tier rate limits\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

@@ -1,0 +1,31 @@
+name: gmrb_fx_and_yields
+description: |
+  Alert-group feed: latest USD cross-rates (EUR, JPY, CNY, MXN, BRL, GBP,
+  CAD, AUD, INR, CHF), plus US 10Y TIPS real yield and 10Y breakeven
+  inflation. Each row carries regime flag (USD_STRENGTH / USD_WEAKNESS /
+  STABLE for FX; RISING / FALLING / STABLE for real yields;
+  INFLATION_RISING / ANCHORED / INFLATION_FALLING for breakeven) and an
+  ETF-hint thesis. Powers the Global Macro Risk Brief's FX + real-yield
+  block.
+query: |-
+  index="indexes/fx/fred_fx_yields/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | sort +series_type, -change_30d_pct
+  | table series_id, description, pair_code, series_type, latest_value, change_30d_pct, change_90d_pct, regime_flag, investment_thesis, etf_ticker
+  | head 15
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

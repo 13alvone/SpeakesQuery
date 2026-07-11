@@ -1,0 +1,105 @@
+tests:
+  # ── count ────────────────────────────────────────────────────
+  - id: func_agg_001
+    title: "stats count - total row count"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 100
+
+  # ── avg ──────────────────────────────────────────────────────
+  - id: func_agg_002
+    title: "stats avg - average attempts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats avg(attempts)
+    expect:
+      row_count: 1
+      columns_include: ["avg(attempts)"]
+
+  # ── sum ──────────────────────────────────────────────────────
+  - id: func_agg_003
+    title: "stats sum - total attempts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats sum(attempts)
+    expect:
+      row_count: 1
+      columns_include: ["sum(attempts)"]
+
+  # ── min / max ────────────────────────────────────────────────
+  - id: func_agg_004
+    title: "stats min max - attempts range"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats min(attempts), max(attempts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: "min(attempts)"
+          value: 1
+        - row: 0
+          column: "max(attempts)"
+          value: 9
+
+  # ── dc (distinct count) ─────────────────────────────────────
+  - id: func_agg_005
+    title: "stats dc - distinct regions"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats dc(region)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: "dc(region)"
+          value: 3
+
+  # ── first / last ─────────────────────────────────────────────
+  - id: func_agg_006
+    title: "stats first - first status value"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | stats first(level)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: "first(level)"
+          value: "DEBUG"
+
+  # ── values ───────────────────────────────────────────────────
+  - id: func_agg_007
+    title: "stats values - collect all regions"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats values(region)
+    expect:
+      row_count: 1
+      columns_include: ["values(region)"]
+
+  # ── median ───────────────────────────────────────────────────
+  - id: func_agg_008
+    title: "stats median - median attempts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats median(attempts)
+    expect:
+      row_count: 1
+      columns_include: ["median(attempts)"]
+
+  # ── range ────────────────────────────────────────────────────
+  - id: func_agg_009
+    title: "stats range - attempts range"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats range(attempts)
+    expect:
+      row_count: 1
+      columns_include: ["range(attempts)"]

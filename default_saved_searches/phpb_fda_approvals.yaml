@@ -1,0 +1,33 @@
+name: phpb_fda_approvals
+description: |
+  Alert-group feed: recent FDA drug application approvals (NDA / BLA /
+  ANDA) and significant supplements from the past 30 days. Reuses indexes/
+  fda/drug_approvals parquet emitted by fda_drug_approvals. Filtered to
+  HIGH or MEDIUM impact tier (original NDA/BLA approvals + efficacy
+  supplements that add new indications). Powers the Public Health & Pharma
+  Catalyst Brief's approval block - original drug approvals on day-of
+  move sponsors 5-30%; new indications often produce sustained 10-50%
+  multi-week moves.
+query: |-
+  index="indexes/fda/drug_approvals/*.parquet"
+  | sort -_epoch
+  | dedup application_number, submission_status_date
+  | where impact_tier IN ("HIGH","MEDIUM")
+  | sort -submission_status_date
+  | table application_number, application_type, sponsor_name, brand_names, generic_names, submission_type, submission_status, submission_status_date, route, dosage_form, impact_tier
+  | head 20
+cron_schedule: 0 3 * * mon-fri
+lookback: -7d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

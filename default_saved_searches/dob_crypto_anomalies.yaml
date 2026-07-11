@@ -1,0 +1,26 @@
+name: dob_crypto_anomalies
+description: |
+  Alert-group feed: CoinGecko top-200-by-mcap coins with HIGH or CRITICAL
+  volume / market-cap anomaly.  Accumulation or distribution signal that often
+  precedes multi-day moves.  Capped at 15.
+query: |-
+  index="indexes/crypto/coingecko_volume_anomalies_pro/*.parquet"
+  | where alert_level IN ("HIGH","CRITICAL") AND rank <= 200
+  | table rank, symbol, name, price_usd, volume_24h, market_cap, ratio_vs_median, robust_z_score, percentile_rank, anomaly_strength, change_1h_pct, change_24h_pct, change_7d_pct, is_divergence, direction_signal, alert_level, is_statistical_outlier
+  | sort -anomaly_strength
+  | head 15
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

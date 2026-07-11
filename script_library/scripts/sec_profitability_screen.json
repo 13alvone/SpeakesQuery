@@ -1,0 +1,23 @@
+{
+  "title": "SEC Profitability Screen XBRL Frames",
+  "description": "Optional credential: SEC_EDGAR_CONTACT overrides the default SEC fair-access User-Agent. SEC EDGAR doesn't issue API keys - it just wants a reachable email in the User-Agent string. Leave it unset and the script uses the SpeakesQuery default; set it (e.g. \"your.name@example.com\") to supply your own contact. Screens all SEC-reporting companies by net income using the XBRL frames API. Captures quarterly net income and calculates profit margin where revenue data overlaps. Profitable companies with expanding margins tend to outperform. Also flags companies that swung from loss to profit (turnaround plays) or profit to loss (deterioration warnings). One API call returns data for thousands of companies.",
+  "category": "SEC Filings",
+  "api_url": "https://data.sec.gov/api/xbrl/frames/",
+  "requires_credentials": [],
+  "suggested_cron": "0 8 * * *",
+  "suggested_subdirectory": "sec/profitability_screen",
+  "suggested_overwrite": false,
+  "tags": [
+    "sec",
+    "edgar",
+    "xbrl",
+    "earnings",
+    "net-income",
+    "profitability",
+    "screening"
+  ],
+  "code": "import pandas as pd\nimport requests\nimport time\nfrom datetime import datetime, timezone\n\ncontact = (CREDENTIALS.get('SEC_EDGAR_CONTACT') or '').strip()\nif not contact or '@' not in contact:\n    # SEC EDGAR's fair-access policy accepts any User-Agent that contains\n    # a reachable email - it is NOT an API key / authentication token. Fall\n    # back to the project default so scheduled SEC jobs run out of the box;\n    # users can override by setting SEC_EDGAR_CONTACT in Settings → Credentials.\n    contact = 'SpeakesQuery EDGAR (noreply@speakesquery.local)'\nHEADERS = {'User-Agent': contact}\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nnow = datetime.now(timezone.utc)\nyear = now.year\nmonth = now.month\nif month <= 3:\n    q_year = year - 1\n    quarter = 4\nelif month <= 6:\n    q_year = year\n    quarter = 1\nelif month <= 9:\n    q_year = year\n    quarter = 2\nelse:\n    q_year = year\n    quarter = 3\n\nperiod = f'CY{q_year}Q{quarter}'\n\n# Fetch net income\nurl = f'https://data.sec.gov/api/xbrl/frames/us-gaap/NetIncomeLoss/USD/{period}.json'\nresp = requests.get(url, headers=HEADERS, timeout=30)\nresp.raise_for_status()\ndata = resp.json()\n\nrows = []\nentries = data.get('data', [])\nfor entry in entries:\n    cik = int(entry.get('cik', 0))\n    val = float(entry.get('val', 0))\n\n    if val > 0:\n        profitability = 'PROFITABLE'\n    elif val == 0:\n        profitability = 'BREAKEVEN'\n    else:\n        profitability = 'LOSS'\n\n    rows.append({\n        'cik': cik,\n        'entity_name': entry.get('entityName', ''),\n        'period': period,\n        'net_income_usd': val,\n        'net_income_millions': round(val / 1_000_000, 2),\n        'profitability': profitability,\n        'accession': entry.get('accn', ''),\n        'filed_date': entry.get('filed', ''),\n        'form': entry.get('form', ''),\n        'fiscal_year': entry.get('fy', 0),\n        'fiscal_period': entry.get('fp', ''),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('net_income_usd', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)",
+  "credential_kinds": {
+    "SEC_EDGAR_CONTACT": "contact"
+  }
+}

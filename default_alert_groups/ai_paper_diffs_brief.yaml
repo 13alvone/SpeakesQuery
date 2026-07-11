@@ -1,0 +1,73 @@
+name: ai_paper_diffs_brief
+description: |
+  Slice C1 (2026-06-23). Your personal daily "what's new in AI" journal: an
+  ELI5 digest of papers newly added to your curated AI-paper GitHub lists
+  (masamasa59/ai-agent-papers, aimerou/awesome-ai-papers,
+  CYHSM/awesome-neuro-ai-papers, dair-ai/ML-Papers-Explained, and
+  dair-ai/AI-Papers-of-the-Week) plus Hugging Face's Daily Papers feed,
+  written entirely by the local 122B
+  (llamacpp-qwen35-122b-a10b, $0/token, zero cloud dependency).
+
+  Uses Slice A's `model_id` (route to the local model) AND Slice C1's
+  `skip_on_empty` (a quiet day with no newly-added papers skips cleanly -
+  no email, no error, no circuit-breaker trip). Sets no `output_kind` and
+  asks for a plain-text digest (no JSON tail), so nothing lands in the OEB
+  ag_picks trading record. The "diff" - only NEW papers surface - is
+  handled by the feeder (ai_papers_new_today) via a first-seen dedup over
+  the accumulating ingestion parquets.
+
+  NOTE on dair-ai/AI-Papers-of-the-Week: its README is a newsletter pointer,
+  so it contributes ~0 entries - the other four lists carry the signal.
+
+  Ships DISABLED with no recipient. To turn it on: set your email and enable
+  it in the Alert Groups UI. The ai_papers_github_lists ingestion must be
+  deployed and have run at least once first. The very first digest is large
+  (cold start - every current paper is "new"); after that it's a daily diff.
+  Cron daily 07:30 America/Los_Angeles (30 minutes after the 07:00 ingestion).
+search_names:
+  - ai_papers_new_today
+model_id: llamacpp-qwen35-122b-a10b
+skip_on_empty: true
+prompt_text: |-
+  You are an AI researcher's daily "what's new in AI" digest writer, writing
+  for ONE curious developer who wants to stay current without drowning.
+
+  Below are research papers that were newly ADDED today to a set of curated
+  AI-paper lists (agent papers, awesome-AI, neuro-AI, ML-papers-explained).
+  Each row has a title, a link, and which list it came from. You have the
+  title and source only - you cannot open the links, so summarize from the
+  title plus your own knowledge. If a title is too cryptic to ELI5 honestly,
+  say so briefly rather than inventing.
+
+  YOUR JOB
+  1. Open with a 1-2 sentence read on today's overall theme(s) - what
+     direction is the field moving, based on what got added?
+  2. Under a "Most significant" heading, pick the 3-5 papers you judge most
+     important (YOUR discernment - novelty, potential impact, or how much it
+     could shift the field) and give each a 1-2 sentence ELI5 of what it
+     likely is and why it matters.
+  3. Under an "Also added today" heading, list every remaining paper as a
+     one-line ELI5 (terser). Include each paper's title and its URL on the
+     line so the reader can click through.
+  4. If the same paper appears from more than one list, mention it once.
+
+  FORMAT
+  - Plain text / light markdown. No JSON, no tables.
+  - Always include the URL next to each paper.
+  - Keep it skimmable in a few minutes. Honesty over hype - if a batch looks
+    incremental, say so plainly.
+
+  If the list below is empty (you should not normally see this - the
+  dispatcher skips empty days), reply with a single line that there were no
+  new papers today.
+schedule: "30 7 * * *"
+timezone: America/Los_Angeles
+max_rows: 25
+max_dispatches_per_day: 1
+min_interval_between_runs_hours: 18
+max_output_tokens: 8192
+email_address: ""
+admin_error_email: ""
+disabled: true
+created_at: "2026-06-23T00:00:00"
+updated_at: "2026-06-23T00:00:00"

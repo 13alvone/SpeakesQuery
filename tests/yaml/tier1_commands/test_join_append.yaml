@@ -1,0 +1,29 @@
+tests:
+  # ── join on userRole ─────────────────────────────────────────
+  - id: join_001
+    title: "join - join test0 and test1 on userRole"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | join userRole [index="indexes/default_test/output_parquets/test1.parquet"]
+    expect:
+      row_count: 5
+      columns_include: ["userRole", "level_x", "message_x"]
+
+  # ── append - union two indexes ───────────────────────────────
+  - id: append_001
+    title: "append - combine test0 and subsearch results"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | append [index="indexes/default_test/output_parquets/test1.parquet"]
+    expect:
+      min_rows: 8
+
+  # ── append with filter in subsearch ──────────────────────────
+  - id: append_002
+    title: "append - subsearch with filter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 2
+      | append [index="indexes/default_test/output_parquets/test1.parquet" | head 1]
+    expect:
+      row_count: 3

@@ -1,0 +1,10 @@
+tests:
+  # ── appendpipe - append stats to original ────────────────────
+  - id: appendpipe_001
+    title: "appendpipe - append stats count to data"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | appendpipe [stats count]
+    expect:
+      min_rows: 6
+      columns_include: ["count"]

@@ -1,0 +1,59 @@
+name: github_hot_repos_brief
+description: |
+  Slice B (2026-06-23). Daily digest of the 10 repositories newly trending
+  on GitHub, each with a one-line "why it's hot" written by a local
+  model (llamacpp-qwen35-122b-a10b, self-hosted llama.cpp - $0/token,
+  zero cloud dependency). This is the first alert group to use the Slice A `model_id`
+  field: when set, the dispatcher routes the analysis through the
+  provider-agnostic LLM router instead of the Claude API.
+
+  NO-REPEAT-FOR-30-DAYS is handled entirely by the feeder
+  (github_hot_repos_today) via a first-seen dedup over the accumulating
+  ingestion parquets. This AG does NOT set `output_kind` and the prompt
+  asks for a readable digest (NOT a machine-parsed JSON tail), so the
+  dispatcher's pick extraction is a clean no-op - nothing lands in the OEB
+  `ag_picks` trading record.
+
+  Ships DISABLED with no email recipient. To turn it on: set your email
+  address and enable it in the Alert Groups UI. The ingestion script
+  (github_trending_repos) must be deployed and have run at least once first.
+
+  Cron: daily at 08:30 America/Los_Angeles - 30 minutes after the 08:00
+  ingestion so the feeder sees the freshest snapshot.
+search_names:
+  - github_hot_repos_today
+model_id: llamacpp-qwen35-122b-a10b
+prompt_text: |-
+  You are a developer's daily "what's hot on GitHub" digest writer.
+
+  Below is today's list of repositories that are NEWLY trending on GitHub
+  (they entered the trending list for the first time in the last 30 days),
+  ranked by stars gained. For each repo, write ONE punchy, plain-English
+  line explaining what it is and why a developer might care - ELI5 where
+  the topic is niche. Be concrete; avoid marketing fluff.
+
+  FORMAT
+  - Open with a one-sentence summary of today's overall theme (e.g. "Today
+    leans heavily toward AI agent tooling and Rust CLIs").
+  - Then a numbered list, hottest first, one entry per repo:
+      N. owner/name (language, +X stars today) - your one-line take.
+         <the html_url on its own line so it is clickable>
+  - If a repo's purpose is unclear from its description, say so honestly
+    rather than guessing.
+  - Keep the whole thing skimmable in under a minute. No JSON, no tables -
+    just the summary sentence and the numbered list.
+
+  Do not invent repos or star counts; only use the rows provided. If the
+  list is empty (a quiet day with no new entrants), say so in one friendly
+  line.
+schedule: "30 8 * * *"
+timezone: America/Los_Angeles
+max_rows: 20
+max_dispatches_per_day: 1
+min_interval_between_runs_hours: 18
+max_output_tokens: 8192
+email_address: ""
+admin_error_email: ""
+disabled: true
+created_at: "2026-06-23T00:00:00"
+updated_at: "2026-06-23T00:00:00"

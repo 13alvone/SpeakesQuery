@@ -1,0 +1,34 @@
+name: cpb_wikipedia_top_pageviews
+description: |
+  Alert-group feed: top Wikipedia pageviews across major-language
+  editions (English, Spanish, German, French, Japanese, Russian, Chinese,
+  Portuguese) for the past complete day. Reuses indexes/wikipedia/
+  top_weekly parquet emitted by wikipedia_top_pageviews_weekly. Each
+  row carries a category_tag (Person / Place / Event / Concept /
+  Entertainment / Science / Other) so Claude can spot what kinds of
+  things humanity looked up. Powers the Civilization Pulse Brief's
+  attention-allocation block - top-of-mind queries are leading
+  indicators of cultural / political / commercial spend.
+query: |-
+  index="indexes/wikipedia/top_weekly/*.parquet"
+  | sort -_epoch
+  | dedup article, language_code
+  | where rank <= 30
+  | sort +language_code, +rank
+  | table article, language_code, rank, views, snapshot_date, category_tag, page_url
+  | head 50
+cron_schedule: 30 11 * * sun
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

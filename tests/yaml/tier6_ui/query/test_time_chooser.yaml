@@ -1,0 +1,247 @@
+tests:
+  # ── Time Chooser - Initial State ───────────────────────────────
+
+  - id: ui_tc_001
+    title: "Time chooser button is visible on query page"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      visible: ["#time-chooser-btn"]
+
+  - id: ui_tc_002
+    title: "Time chooser dropdown is hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#time-chooser-dropdown.open"]
+
+  # ── Time Chooser - Toggle ──────────────────────────────────────
+
+  - id: ui_tc_010
+    title: "Click time chooser button - dropdown opens"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+    expect:
+      visible: ["#time-chooser-dropdown.open"]
+
+  - id: ui_tc_011
+    title: "Click time chooser button twice - dropdown closes"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: wait
+        selector: "#time-chooser-dropdown.open"
+        state: visible
+      - action: click
+        selector: "#time-chooser-btn"
+    expect:
+      hidden: ["#time-chooser-dropdown.open"]
+
+  # ── Time Chooser - Preset Tabs ─────────────────────────────────
+
+  - id: ui_tc_020
+    title: "Presets tab is active by default"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+    expect:
+      visible: ["[data-tc-panel='presets'].active"]
+
+  - id: ui_tc_021
+    title: "Clicking Relative tab shows relative panel"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='relative']"
+    expect:
+      visible: ["[data-tc-panel='relative'].active"]
+
+  - id: ui_tc_022
+    title: "Clicking Exact tab shows exact panel"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='exact']"
+    expect:
+      visible: ["[data-tc-panel='exact'].active"]
+
+  # ── Time Chooser - Preset Selection ────────────────────────────
+
+  - id: ui_tc_030
+    title: "Selecting 'Last 15 minutes' preset inserts earliest/latest into query"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: fill
+        selector: "#query"
+        value: '| head 5'
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: ".tc-preset-list li[data-minutes='15']"
+    expect:
+      input_value_contains:
+        - selector: "#query"
+          value: "earliest="
+
+  - id: ui_tc_031
+    title: "Selecting 'All Time' preset removes earliest/latest line from query"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: fill
+        selector: "#query"
+        value: '| head 5'
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: ".tc-preset-list li[data-minutes='15']"
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: ".tc-preset-list li[data-minutes='0']"
+    expect:
+      input_value:
+        - selector: "#query"
+          value: "| head 5"
+
+  - id: ui_tc_032
+    title: "Time chooser button label updates to preset name"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: ".tc-preset-list li[data-minutes='1440']"
+    expect:
+      text_contains:
+        - selector: "#time-chooser-btn"
+          value: "Last 24 hours"
+
+  # ── Time Chooser - Exact Panel ─────────────────────────────────
+
+  - id: ui_tc_040
+    title: "Exact panel - both date inputs visible"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='exact']"
+    expect:
+      visible: ["#tc-exact-earliest", "#tc-exact-latest", "#tc-exact-apply"]
+
+  - id: ui_tc_041
+    title: "Exact panel - apply without dates shows error"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='exact']"
+      - action: click
+        selector: "#tc-exact-apply"
+    expect:
+      notification:
+        type: error
+        text: "Please set both earliest and latest"
+
+  # ── Time Chooser - Relative Panel ──────────────────────────────
+
+  - id: ui_tc_050
+    title: "Relative panel - inputs and apply button visible"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='relative']"
+    expect:
+      visible: ["#tc-rel-earliest-val", "#tc-rel-earliest-unit", "#tc-rel-latest", "#tc-rel-apply"]
+
+  - id: ui_tc_051
+    title: "Relative panel - selecting custom latest shows custom fields"
+    steps:
+      - action: navigate
+        page: query
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='relative']"
+      - action: select
+        selector: "#tc-rel-latest"
+        value: "custom"
+    expect:
+      visible: ["#tc-rel-latest-custom"]
+
+  - id: ui_tc_052
+    title: "Relative panel - apply inserts earliest/latest into query"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: fill
+        selector: "#query"
+        value: '| head 10'
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: "[data-tc-tab='relative']"
+      - action: fill
+        selector: "#tc-rel-earliest-val"
+        value: "2"
+      - action: click
+        selector: "#tc-rel-apply"
+    expect:
+      input_value_contains:
+        - selector: "#query"
+          value: "earliest="
+
+  # ── Time Chooser - Query Precedence ────────────────────────────
+
+  - id: ui_tc_060
+    title: "Preset replaces previous time-chooser line, preserves rest of query"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: fill
+        selector: "#query"
+        value: '| head 5'
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: ".tc-preset-list li[data-minutes='60']"
+      - action: click
+        selector: "#time-chooser-btn"
+      - action: click
+        selector: ".tc-preset-list li[data-minutes='1440']"
+    expect:
+      input_value_contains:
+        - selector: "#query"
+          value: "earliest="

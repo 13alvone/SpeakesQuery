@@ -1,0 +1,105 @@
+tests:
+  # ── sort ascending (default) ─────────────────────────────────
+  - id: sort_001
+    title: "sort - ascending by x"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sort x
+    expect:
+      row_count: 5
+      # sort without +/- defaults to descending in SPQL
+      values:
+        - row: 0
+          column: x
+          value: 6
+
+  # ── sort descending ──────────────────────────────────────────
+  - id: sort_002
+    title: "sort - descending with minus"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sort -x
+    expect:
+      row_count: 5
+      values:
+        - row: 0
+          column: x
+          value: 6
+
+  # ── sort with standalone minus and numeric limit ─────────────
+  - id: sort_003
+    title: "sort - descending with standalone minus and limit 0"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by team
+      | sort - 0 count
+    expect:
+      row_count: 3
+      values:
+        - row: 0
+          column: count
+          value: 34
+
+  # ── sort with standalone minus (no limit) ────────────────────
+  - id: sort_004
+    title: "sort - standalone minus without limit"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by team
+      | sort - count
+    expect:
+      row_count: 3
+      values:
+        - row: 0
+          column: count
+          value: 34
+
+  # ── head with explicit count ─────────────────────────────────
+  - id: head_001
+    title: "head - first 2 rows"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 2
+    expect:
+      row_count: 2
+      values:
+        - row: 0
+          column: level
+          value: "DEBUG"
+        - row: 1
+          column: level
+          value: "INFO"
+
+  # ── head default (5) ─────────────────────────────────────────
+  - id: head_002
+    title: "head - default returns 5 rows"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head
+    expect:
+      row_count: 5
+
+  # ── head 1 ───────────────────────────────────────────────────
+  - id: head_003
+    title: "head - single row"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 1
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: level
+          value: "DEBUG"
+
+  # ── reverse ──────────────────────────────────────────────────
+  - id: reverse_001
+    title: "reverse - flip row order"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | reverse
+    expect:
+      row_count: 5
+      column_values:
+        - column: level
+          values: ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]

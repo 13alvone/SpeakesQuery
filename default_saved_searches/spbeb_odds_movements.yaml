@@ -1,0 +1,34 @@
+name: spbeb_odds_movements
+description: |
+  Alert-group feed: current sportsbook line snapshot across the major US
+  books for upcoming games (next 4 days). Reuses the indexes/sports/
+  odds_movements parquet emitted by odds_api_line_movements. Each row is
+  one game-market-outcome with consensus (median) price, book count,
+  range across books, and the best / worst book. Powers the Sports
+  Betting Edge Brief's primary line block - across-time SPQL queries on
+  this index also reveal line drift if dispatcher needs that context.
+query: |-
+  index="indexes/sports/odds_movements/*.parquet"
+  | sort -_epoch
+  | dedup game_id, market_key, outcome_name
+  | eval ahead_4d = now() + 345600
+  | where commence_time_epoch >= now()
+  | where commence_time_epoch <= ahead_4d
+  | sort +commence_time_epoch
+  | table game_id, sport_title, home_team, away_team, market_key, outcome_name, outcome_point, consensus_price, book_count, range_abs, range_pct, best_book, worst_book, commence_time_epoch
+  | head 30
+cron_schedule: 0 13,15 * * *
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

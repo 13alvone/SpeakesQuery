@@ -1,0 +1,15 @@
+id: claude-sonnet-4-6
+provider: anthropic
+model_name: claude-sonnet-4-6
+description: |
+  Claude Sonnet 4.6 - Anthropic's balanced model. Best for nuanced
+  analysis, structured extraction, and per-row LLM stages where Haiku
+  is too weak. The default "primary" model in the existing
+  claude_analyzer pipeline.
+endpoint: ""
+cost_per_input_million_usd: 3.00
+cost_per_output_million_usd: 15.00
+max_output_tokens: 8192
+default_timeout_seconds: 600
+created_at: "2026-05-08T00:00:00"
+updated_at: "2026-05-08T00:00:00"

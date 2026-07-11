@@ -1,0 +1,190 @@
+tests:
+  # ── Basic equality filter ────────────────────────────────────
+  - id: search_001
+    title: "search - single equality filter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search level="INFO"
+    expect:
+      row_count: 1
+      columns_include: ["level", "message"]
+      values:
+        - row: 0
+          column: message
+          value: "Info message"
+
+  # ── Not-equal filter ─────────────────────────────────────────
+  - id: search_002
+    title: "search - not-equal filter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search level!="INFO"
+    expect:
+      row_count: 4
+      column_values:
+        - column: level
+          values: ["DEBUG", "WARNING", "ERROR", "CRITICAL"]
+
+  # ── Numeric comparison ───────────────────────────────────────
+  - id: search_003
+    title: "search - greater-than numeric filter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | where x > 4
+    expect:
+      row_count: 2
+
+  # ── Greater-than-or-equal ────────────────────────────────────
+  - id: search_004
+    title: "search - gte comparison"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | where errorCode >= 403
+    expect:
+      row_count: 2
+      column_values:
+        - column: errorCode
+          values: ["403", "500"]
+
+  # ── Less-than comparison ─────────────────────────────────────
+  - id: search_005
+    title: "search - less-than comparison"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | where x < 5
+    expect:
+      row_count: 3
+
+  # ── OR expression ────────────────────────────────────────────
+  - id: search_006
+    title: "search - OR expression"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search level="INFO" OR level="ERROR"
+    expect:
+      row_count: 2
+      column_values:
+        - column: level
+          values: ["INFO", "ERROR"]
+
+  # ── IN expression ────────────────────────────────────────────
+  - id: search_007
+    title: "search - IN expression"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search level IN ("INFO", "ERROR")
+    expect:
+      row_count: 2
+
+  # ── Search on system_alerts with string match ────────────────
+  - id: search_008
+    title: "search - filter system_alerts by region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | search region="US"
+    expect:
+      row_count: 34
+
+  # ── Index-level filter (no pipe) ─────────────────────────────
+  - id: search_009
+    title: "search - index-level equality filter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet" level="INFO"
+    expect:
+      row_count: 1
+
+  # ── Wildcard index ───────────────────────────────────────────
+  - id: search_010
+    title: "search - wildcard index matches both files"
+    query: |
+      index="indexes/default_test/output_parquets/*"
+    expect:
+      row_count: 8
+
+  # ── Function call as comparison RHS (2026-05-16 regression) ──
+  # Pre-fix: ``where field >= relative_time("-7d")`` silently
+  # returned 0 rows because the where parser didn't know how to
+  # handle function calls as operands - it parsed ``relative_time``
+  # as a bare column identifier and the orphan ``("-7d")`` tokens
+  # crashed downstream, caught by run_search's catch-all which
+  # returned an empty DataFrame. Caught while prototyping curator
+  # slice 2 scoring SPQL. Fix: parse_operand detects identifier+`(`
+  # and delegates to EvalHandler.safe_eval to evaluate at parse
+  # time, substituting the scalar result as a LITERAL operand.
+
+  - id: search_where_func_relative_time
+    title: "where field >= relative_time(\"-1h\") - function-call RHS"
+    query: |
+      | makeresults count=3
+      | eval e=now()
+      | where e >= relative_time("-1h")
+    expect:
+      row_count: 3
+
+  - id: search_where_func_floor
+    title: "where field >= floor(literal) - pure math func RHS"
+    query: |
+      | makeresults count=3
+      | eval x=5.7
+      | where x >= floor(3.2)
+    expect:
+      row_count: 3
+
+  - id: search_where_func_ceil
+    title: "where field <= ceil(literal) - companion to floor"
+    query: |
+      | makeresults count=3
+      | eval x=5.7
+      | where x <= ceil(7.1)
+    expect:
+      row_count: 3
+
+  - id: search_where_func_round
+    title: "where field > round(literal)"
+    query: |
+      | makeresults count=3
+      | eval x=5.7
+      | where x > round(4.4)
+    expect:
+      row_count: 3
+
+  - id: search_where_func_abs_negative
+    title: "where field >= abs(-N) - abs returns positive scalar"
+    query: |
+      | makeresults count=3
+      | eval x=10
+      | where x >= abs(-5)
+    expect:
+      row_count: 3
+
+  - id: search_where_func_lhs
+    title: "where func(...) <= field - function on LHS works too"
+    query: |
+      | makeresults count=3
+      | eval e=now()
+      | where relative_time("-1h") <= e
+    expect:
+      row_count: 3
+
+  - id: search_where_func_nested
+    title: "where field >= floor(func(...) / N) - nested function calls"
+    query: |
+      | makeresults count=3
+      | eval e=now()
+      | where e >= floor(relative_time("-1d"))
+    expect:
+      row_count: 3
+
+  - id: search_where_func_no_silent_empty
+    title: "where + relative_time(...) MUST NOT return silent empty (canary)"
+    query: |
+      | makeresults count=10
+      | eval e=now()
+      | where e >= relative_time("-1h")
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 10

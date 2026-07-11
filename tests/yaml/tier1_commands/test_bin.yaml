@@ -1,0 +1,10 @@
+tests:
+  # ── bin on timestamp ─────────────────────────────────────────
+  - id: bin_001
+    title: "bin - bucket by day"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | bin span=1d timestamp
+    expect:
+      row_count: 100
+      columns_include: ["timestamp"]

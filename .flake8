@@ -1,0 +1,21 @@
+[flake8]
+max-line-length = 120
+# Ignored codes:
+#   E127/E128 - continuation-line indent (project uses visual alignment in mock data and config maps)
+#   E131 - continuation indent (same reason)
+#   E203 - whitespace before ':' (conflicts with PEP-8 in slice expressions)
+#   E265 - block comment style
+#   E272 - multiple spaces before keyword (we align lookup tables, e.g. handlers/EvalHandler.py)
+#   E302/E305/E306 - blank-line counts around defs (overly strict)
+#   E303 - too many blank lines
+#   E402 - module-level imports not at top (used in scripts that need sys.path patching)
+#   E501 - line length (covered by max-line-length above)
+#   E702 - statement on same line as compound statement
+#   E721/E731 - bare except / lambda style
+#   F401/F541/F821/F824/F841 - unused names / undefined refs (false-positive prone)
+#   W291/W391 - trailing whitespace / blank line at end of file
+extend-ignore = E127,E128,E131,E203,E265,E272,E302,E303,E305,E306,E402,E501,E702,E721,E731,F401,F541,F821,F824,F841,W291,W391
+# Only exclude generated, vendored, and binary trees.  Production source
+# (handlers/, scheduled_input_engine/, query_engine/, desktop_app/, tests/,
+# functionality/, validation/, *_store.py) is fully linted.
+exclude = .speakesQueryDevEnv,env,.venv,build,*/build,dist,lexers/antlr4_active,indexes,scheduled_input_scripts,changelog_archive,.claude

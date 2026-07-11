@@ -1,0 +1,32 @@
+name: gmrb_severe_weather
+description: |
+  Alert-group feed: currently-active NOAA NWS severe weather alerts
+  (Extreme or Severe) that map to investable sectors - hurricanes (oil +
+  reinsurance), tornadoes (reinsurance), blizzards (natgas), heat
+  (utilities), floods (agriculture), wildfires (utilities + insurance),
+  droughts (grains). Region tier flags major-state coverage. Powers the
+  Global Macro Risk Brief.
+query: |-
+  index="indexes/climate/severe_weather_alerts/*.parquet"
+  | sort -_epoch
+  | dedup alert_id
+  | eval now_epoch = now()
+  | where expires_epoch > now_epoch OR expires_epoch = 0
+  | sort +severity, -effective_epoch
+  | table alert_id, event_type, severity, area_description, investable_sector, economic_thesis, region_tier, headline, expires_epoch
+  | head 15
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

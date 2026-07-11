@@ -1,0 +1,15 @@
+id: claude-haiku-4-5-20251001
+provider: anthropic
+model_name: claude-haiku-4-5-20251001
+description: |
+  Claude Haiku 4.5 - Anthropic's cheapest and fastest model. Best for
+  high-volume per-row triage and classification stages. The default
+  "triage" model in the existing claude_analyzer pipeline. ~3× cheaper
+  per call than Sonnet and ~5× lower latency.
+endpoint: ""
+cost_per_input_million_usd: 1.00
+cost_per_output_million_usd: 5.00
+max_output_tokens: 4096
+default_timeout_seconds: 120
+created_at: "2026-05-08T00:00:00"
+updated_at: "2026-05-08T00:00:00"

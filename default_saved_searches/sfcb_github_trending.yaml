@@ -1,0 +1,31 @@
+name: sfcb_github_trending
+description: |
+  Alert-group feed: recent high-volume GitHub events (PullRequestEvent,
+  ReleaseEvent, CreateEvent for repos) projected from existing indexes/
+  github/public_events parquet emitted by github_public_events. Counts
+  events by repo over the recent window so the brief sees the most active
+  open-source projects. Powers the Science & Forecasting Community
+  Brief: GitHub momentum is a leading indicator of capability + adoption
+  (e.g., LangChain commits preceded the LLM equity wave).
+query: |-
+  index="indexes/github/public_events/*.parquet"
+  | where type IN ("PullRequestEvent","ReleaseEvent","PushEvent","CreateEvent")
+  | stats count by repo, type
+  | sort -count
+  | rename count as event_count
+  | head 30
+cron_schedule: 0 4 * * *
+lookback: -36h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

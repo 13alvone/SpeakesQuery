@@ -1,0 +1,32 @@
+name: cpb_gdelt_tone
+description: |
+  Alert-group feed: GDELT global geopolitical events from past 7 days
+  with severity_tier classification, projected from existing
+  indexes/geopolitics/gdelt_events parquet. Aggregated by tension_theme
+  to surface the dominant news themes humanity has paid attention to
+  this week. Powers the Civilization Pulse Brief's news-flow block -
+  what storylines defined the week.
+query: |-
+  index="indexes/geopolitics/gdelt_events/*.parquet"
+  | sort -_epoch
+  | dedup article_url
+  | where severity_tier IN ("HIGH","CRITICAL")
+  | stats count by tension_theme, severity_tier, source_country
+  | sort -count
+  | rename count as event_count
+  | head 30
+cron_schedule: 30 11 * * sun
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

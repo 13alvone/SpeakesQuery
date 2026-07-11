@@ -1,0 +1,30 @@
+{
+  "title": "FRED Market Fear Gauges Pro",
+  "description": "Pro-tier variant of fred_fear_gauges. Keeps the same five FRED series (VIX, HY spread, IG spread, STLFSI2, dollar index) but fetches 5 years of daily history per series (limit=1250) instead of 5 points. Computes percentile_rank within that history, rolling z-score vs a 1-year mean/std, and a regime label derived from the percentile (CALM/NORMAL/ELEVATED/STRESSED/CRISIS). Rolls up to one row per metric (same shape as the sandboxed variant) so it drops into the existing alert-group feeder. trust_level: unrestricted - requires scipy.stats.",
+  "category": "Macro Economics",
+  "api_url": "https://api.stlouisfed.org/fred/series/observations",
+  "requires_credentials": [
+    "FRED_API_KEY"
+  ],
+  "credential_kinds": {
+    "FRED_API_KEY": "api_key"
+  },
+  "suggested_cron": "0 */6 * * *",
+  "suggested_subdirectory": "macro/fred_fear_gauges_pro",
+  "suggested_overwrite": false,
+  "trust_level": "unrestricted",
+  "tags": [
+    "fred",
+    "macro",
+    "vix",
+    "credit-spreads",
+    "fear",
+    "volatility",
+    "stress",
+    "risk",
+    "pro",
+    "unrestricted",
+    "scipy"
+  ],
+  "code": "import pandas as pd\nimport numpy as np\nimport requests\nfrom datetime import datetime, timezone\nfrom scipy import stats\n\nBASE = 'https://api.stlouisfed.org/fred/series/observations'\nAPI_KEY = CREDENTIALS.get('FRED_API_KEY', '')\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nSERIES = [\n    ('VIXCLS', 'vix', 'CBOE Volatility Index (VIX)'),\n    ('BAMLH0A0HYM2', 'hy_spread', 'ICE BofA US High Yield Option-Adjusted Spread'),\n    ('BAMLC0A0CM', 'ig_spread', 'ICE BofA US Corporate Index Option-Adjusted Spread'),\n    ('STLFSI2', 'stress_index', 'St. Louis Fed Financial Stress Index'),\n    ('DTWEXBGS', 'dollar_index', 'Trade Weighted U.S. Dollar Index (Broad Goods & Services)'),\n]\n\nrows = []\nfor series_id, label, description in SERIES:\n    resp = requests.get(\n        BASE,\n        params={\n            'series_id': series_id,\n            'api_key': API_KEY,\n            'file_type': 'json',\n            'sort_order': 'desc',\n            'limit': 1250,  # ~5 years of daily observations\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    obs = resp.json().get('observations', [])\n\n    values_with_dates = []\n    for o in obs:\n        v = o.get('value', '.')\n        if v != '.':\n            try:\n                values_with_dates.append((o.get('date', ''), float(v)))\n            except (TypeError, ValueError):\n                continue\n    if not values_with_dates:\n        continue\n\n    # observations arrive desc-sorted; position 0 is the latest\n    latest_date, latest = values_with_dates[0]\n    prev = values_with_dates[1][1] if len(values_with_dates) >= 2 else latest\n    change = round(latest - prev, 4)\n    change_pct = round(((latest - prev) / prev) * 100, 2) if prev != 0 else 0.0\n\n    values_arr = np.array([v for _, v in values_with_dates], dtype=float)\n\n    # Percentile rank of the latest value over the full 5y history\n    sorted_vals = np.sort(values_arr)\n    pct_rank = float((np.searchsorted(sorted_vals, latest) / max(len(sorted_vals), 1)) * 100.0)\n\n    # Rolling 1-year window z-score (252 trading days when available)\n    window = values_arr[:252] if len(values_arr) >= 252 else values_arr\n    mean_1y = float(np.mean(window))\n    std_1y = float(np.std(window, ddof=1)) if len(window) > 1 else 0.0\n    z_score = ((latest - mean_1y) / std_1y) if std_1y > 0 else 0.0\n\n    # Regime from percentile rank (higher = more stress for all series except stress_index which is already directional)\n    if pct_rank >= 95:\n        regime = 'CRISIS'\n    elif pct_rank >= 80:\n        regime = 'STRESSED'\n    elif pct_rank >= 60:\n        regime = 'ELEVATED'\n    elif pct_rank >= 30:\n        regime = 'NORMAL'\n    else:\n        regime = 'CALM'\n\n    # Preserve base script's fear_level logic so saved searches keep working\n    if label == 'vix':\n        if latest > 35:\n            fear_level = 'EXTREME_FEAR'\n        elif latest > 25:\n            fear_level = 'HIGH_FEAR'\n        elif latest > 18:\n            fear_level = 'ELEVATED'\n        elif latest > 12:\n            fear_level = 'NORMAL'\n        else:\n            fear_level = 'COMPLACENCY'\n    elif label == 'hy_spread':\n        if latest > 600:\n            fear_level = 'CRISIS'\n        elif latest > 450:\n            fear_level = 'HIGH_STRESS'\n        elif latest > 350:\n            fear_level = 'ELEVATED'\n        else:\n            fear_level = 'NORMAL'\n    elif label == 'stress_index':\n        if latest > 1.5:\n            fear_level = 'HIGH_STRESS'\n        elif latest > 0.5:\n            fear_level = 'ELEVATED'\n        elif latest > -0.5:\n            fear_level = 'NORMAL'\n        else:\n            fear_level = 'CALM'\n    else:\n        fear_level = 'RISING' if change > 0 else 'FALLING'\n\n    rows.append({\n        'series_id': series_id,\n        'metric': label,\n        'description': description,\n        'latest_value': latest,\n        'latest_date': latest_date,\n        'prior_value': prev,\n        'change': change,\n        'change_pct': change_pct,\n        'fear_level': fear_level,\n        # Pro additions:\n        'percentile_rank': round(pct_rank, 2),\n        'z_score_1y': round(z_score, 3),\n        'mean_1y': round(mean_1y, 4),\n        'std_1y': round(std_1y, 4),\n        'history_points': len(values_arr),\n        'regime': regime,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

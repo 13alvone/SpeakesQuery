@@ -1,0 +1,33 @@
+name: rcpb_wikipedia_religion
+description: |
+  Alert-group feed: Wikipedia pageview momentum on a curated list of
+  religious figures, institutions, and major cultural events. Reuses
+  indexes/wikipedia/curated_religion parquet emitted by
+  wikipedia_curated_pageviews. Filtered to articles with momentum_tier
+  SURGING or RISING for actionable signal - sustained pageview spikes on
+  religious figures often precede major cultural events (papal health,
+  beatifications) by days-to-weeks. Powers the Religion & Cultural
+  Prediction Brief's attention-shift block.
+query: |-
+  index="indexes/wikipedia/curated_religion/*.parquet"
+  | sort -_epoch
+  | dedup article
+  | where momentum_tier IN ("SURGING","RISING","STABLE")
+  | sort -change_7d_vs_baseline_pct
+  | table article, category, total_views_30d, avg_daily_views_30d, recent_7d_views, change_7d_vs_baseline_pct, momentum_tier, page_url
+  | head 25
+cron_schedule: 0 17 * * sun
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

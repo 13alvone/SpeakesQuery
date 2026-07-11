@@ -1,0 +1,67 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  - id: api_ss_001
+    title: "GET /api/ss/list - returns search list"
+    method: GET
+    path: /api/ss/list
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [searches]
+
+  # ── Validation ─────────────────────────────────────────────
+  - id: api_ss_002
+    title: "POST /api/ss/create - missing name returns 400"
+    method: POST
+    path: /api/ss/create
+    body:
+      query: "index=\"logs\" | head 5"
+      cron_schedule: "0 * * * *"
+      lookback: "-24h"
+      email_address: "test@example.com"
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ss_003
+    title: "POST /api/ss/create - missing query returns 400"
+    method: POST
+    path: /api/ss/create
+    body:
+      name: "test_search"
+      cron_schedule: "0 * * * *"
+      lookback: "-24h"
+      email_address: "test@example.com"
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ss_004
+    title: "POST /api/ss/create - missing email returns 400"
+    method: POST
+    path: /api/ss/create
+    body:
+      name: "test_search"
+      query: "index=\"logs\" | head 5"
+      cron_schedule: "0 * * * *"
+      lookback: "-24h"
+    expect:
+      status_code: 400
+      json_status: error
+
+  # ── Not found ──────────────────────────────────────────────
+  - id: api_ss_005
+    title: "GET /api/ss/nonexistent_search_abc123 - returns 404"
+    method: GET
+    path: /api/ss/nonexistent_search_abc123
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ss_006
+    title: "DELETE /api/ss/nonexistent_search_abc123 - returns 404"
+    method: DELETE
+    path: /api/ss/nonexistent_search_abc123
+    expect:
+      status_code: 404
+      json_status: error

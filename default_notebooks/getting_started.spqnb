@@ -1,0 +1,145 @@
+id: getting_started
+schema_version: 1
+name: "Getting Started with Notebooks"
+description: |
+  A short walk-through of every notebook cell type. Run cells one by
+  one (▶ Run on each card) or all at once (Run All). Edits cascade
+  through the cache: change cell N, only N+ re-executes; cells before
+  it stay cached. Iterating becomes free until you choose to spend.
+default_max_cost_usd: 0.0
+cells:
+  - id: intro
+    type: markdown
+    source: |
+      # Welcome to Notebooks
+
+      A SpeakesQuery notebook is a **cell stream** - each cell's output
+      can flow into the next. Cells come in six types, color-coded
+      across the top of every card:
+
+      | Type | Use it for |
+      |------|------------|
+      | `spql` | Run a SPQL query against an index → DataFrame |
+      | `python` | Full Python (pandas / numpy / etc.) over the namespace |
+      | `markdown` | Notes, headings, formatted text (this cell!) |
+      | `chart` | Vega-Lite JSON spec → rendered visualization |
+      | `param` | Operator-set values (text / select / number) |
+      | `pipe` | LLM stage with a model picker affordance |
+
+      You can change a cell's type from the dropdown in its header.
+      You can run a single cell at a time with **▶ Run** on its card,
+      or all of them at once with **Run All** at the top.
+
+      **Iteration economics:** every cell's output is cached by
+      content hash. Edit cell N → cells `<N` stay cached, cell N
+      re-runs, cells `>N` re-run only if N's output changed. The
+      `⚡ cached` badge shows you which cells served from disk.
+    metadata: {}
+
+  - id: load_data
+    type: spql
+    source: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+    metadata: {}
+
+  - id: python_intro
+    type: markdown
+    source: |
+      ## Step 2 · Compose with Python
+
+      The cell above (`load_data`) populated a DataFrame in the shared
+      namespace under its own name. Any downstream Python cell can
+      reference that name directly. Below: count rows per `level`.
+    metadata: {}
+
+  - id: analyze
+    type: python
+    source: |
+      # The `load_data` SPQL cell exposed its DataFrame at namespace["load_data"].
+      # Reference it directly here - full pandas/numpy power, no sandbox.
+      load_data["level"].value_counts().rename_axis("level").reset_index(name="count")
+    metadata: {}
+
+  - id: chart_intro
+    type: markdown
+    source: |
+      ## Step 3 · Visualize
+
+      Chart cells are Vega-Lite JSON specs. They render without a Run -
+      the spec IS the output. Vega-Lite is loaded lazily from CDN; if
+      you're offline, the JSON spec falls back to a `<pre>` block.
+    metadata: {}
+
+  - id: chart
+    type: chart
+    source: |
+      {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Log levels in the test parquet",
+        "data": {
+          "values": [
+            {"level": "DEBUG", "count": 1},
+            {"level": "INFO", "count": 1},
+            {"level": "WARNING", "count": 1},
+            {"level": "ERROR", "count": 1},
+            {"level": "CRITICAL", "count": 1}
+          ]
+        },
+        "mark": {"type": "bar", "tooltip": true},
+        "encoding": {
+          "x": {"field": "level", "type": "nominal", "sort": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]},
+          "y": {"field": "count", "type": "quantitative"},
+          "color": {"field": "level", "type": "nominal"}
+        }
+      }
+    metadata: {}
+
+  - id: caching
+    type: markdown
+    source: |
+      ## Step 4 · The cache makes iteration free
+
+      Click **Run All** twice. The second run shows `⚡ cached` on
+      every cell - total runtime drops to milliseconds. Now edit
+      `analyze`'s source (e.g. add `.head(3)`) and click its **▶ Run**:
+
+      * `load_data` (upstream): `⚡ cached`
+      * `analyze` (edited): re-executes
+      * `chart` and below: skipped (per-cell Run only goes through `analyze`)
+
+      Click **Run All** to re-execute everything fresh, or pass
+      `?use_cache=false` via the toggle to disable caching for this run.
+    metadata: {}
+
+  - id: next_steps
+    type: markdown
+    source: |
+      ## What's next
+
+      * **Pipe cells** add an "Insert model" dropdown above the editor.
+        Try adding a `pipe` cell with source like:
+        ```spql
+        index="indexes/default_test/output_parquets/test0.parquet"
+        | llm model="claude-haiku-4-5-20251001" prompt="rate each row 1-10 as JSON"
+        ```
+        Pick a model from the dropdown and the `model="..."` snippet inserts at your cursor.
+
+      * **Param cells** let you parameterise the notebook - e.g. a `select`
+        with options for the model id, then reference the param value in
+        downstream cells. Form values feed `namespace_overrides` on Run.
+
+      * **Export this notebook** as HTML (renders charts + tables) or PDF
+        (static; charts render as the underlying spec).
+
+      * **Coming in a future slice:** a `promote_to_alert_group` cell
+        type that turns this notebook into a recurring scheduled alert
+        group with one cell - the dev → prod loop closes there.
+
+      ## Dual-audience principle
+
+      Every cell's output carries BOTH a structured form (JSON-safe
+      primitives, schema metadata) AND a rendered form (HTML table,
+      visualization). AI agents read the structured form; humans read
+      the visualization. The same notebook serves both audiences from
+      the same source. That's why this works.
+    metadata: {}

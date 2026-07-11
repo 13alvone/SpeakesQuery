@@ -1,0 +1,26 @@
+{
+  "title": "FRED Money Supply and Liquidity",
+  "description": "Tracks M2 money supply, the Fed's balance sheet (WALCL), overnight reverse repo (RRPONTSYD), and the Fed Funds rate. M2 expansion is the single best predictor of asset price inflation - when the money printer runs, asset prices follow with a 6-12 month lag. Reverse repo drawdowns signal liquidity re-entering the system. Fed balance sheet shrinkage (QT) is bearish for risk assets.",
+  "category": "Macro Economics",
+  "api_url": "https://api.stlouisfed.org/fred/series/observations",
+  "requires_credentials": [
+    "FRED_API_KEY"
+  ],
+  "credential_kinds": {
+    "FRED_API_KEY": "api_key"
+  },
+  "suggested_cron": "0 8 * * *",
+  "suggested_subdirectory": "macro/fred_liquidity",
+  "suggested_overwrite": false,
+  "tags": [
+    "fred",
+    "macro",
+    "money-supply",
+    "m2",
+    "fed",
+    "liquidity",
+    "qt",
+    "balance-sheet"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.stlouisfed.org/fred/series/observations'\nAPI_KEY = CREDENTIALS.get('FRED_API_KEY', '')\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nSERIES = [\n    ('M2SL', 'm2_money_supply', 'M2 Money Supply (billions)'),\n    ('WALCL', 'fed_balance_sheet', 'Fed Total Assets (millions)'),\n    ('RRPONTSYD', 'reverse_repo', 'Overnight Reverse Repo (billions)'),\n    ('FEDFUNDS', 'fed_funds_rate', 'Effective Federal Funds Rate'),\n    ('BOGMBASE', 'monetary_base', 'St. Louis Adjusted Monetary Base (billions)'),\n]\n\nrows = []\nfor i in range(len(SERIES)):\n    series_id = SERIES[i][0]\n    label = SERIES[i][1]\n    description = SERIES[i][2]\n\n    resp = requests.get(\n        BASE,\n        params={\n            'series_id': series_id,\n            'api_key': API_KEY,\n            'file_type': 'json',\n            'sort_order': 'desc',\n            'limit': 13,\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    obs = resp.json().get('observations', [])\n\n    valid = []\n    for o in obs:\n        if o.get('value', '.') != '.':\n            valid.append(o)\n\n    if not valid:\n        continue\n\n    latest = float(valid[0]['value'])\n    prev = float(valid[1]['value']) if len(valid) >= 2 else latest\n    change_pct = round(((latest - prev) / prev) * 100, 4) if prev != 0 else 0.0\n\n    yoy_change_pct = 0.0\n    if len(valid) >= 13:\n        year_ago = float(valid[12]['value'])\n        yoy_change_pct = round(((latest - year_ago) / year_ago) * 100, 2) if year_ago != 0 else 0.0\n\n    # Liquidity signal\n    if label == 'm2_money_supply':\n        signal = 'EXPANDING' if yoy_change_pct > 0 else 'CONTRACTING'\n    elif label == 'fed_balance_sheet':\n        signal = 'QE_MODE' if change_pct > 0 else 'QT_MODE'\n    elif label == 'reverse_repo':\n        signal = 'DRAINING_TO_MARKETS' if change_pct < -5 else 'ABSORBING_LIQUIDITY'\n    elif label == 'fed_funds_rate':\n        if latest > 5.0:\n            signal = 'RESTRICTIVE'\n        elif latest > 3.0:\n            signal = 'MODERATELY_TIGHT'\n        elif latest > 1.0:\n            signal = 'NEUTRAL'\n        else:\n            signal = 'ACCOMMODATIVE'\n    else:\n        signal = 'EXPANDING' if change_pct > 0 else 'CONTRACTING'\n\n    rows.append({\n        'series_id': series_id,\n        'metric': label,\n        'description': description,\n        'latest_value': latest,\n        'latest_date': valid[0].get('date', ''),\n        'period_change_pct': change_pct,\n        'yoy_change_pct': yoy_change_pct,\n        'liquidity_signal': signal,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

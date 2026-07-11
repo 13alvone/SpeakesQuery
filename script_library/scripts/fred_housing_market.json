@@ -1,0 +1,24 @@
+{
+  "title": "FRED Housing Market Indicators",
+  "description": "Tracks U.S. housing market health via housing starts, building permits, existing home sales, the Case-Shiller Home Price Index, and 30-year mortgage rates. Housing is the most interest-rate-sensitive sector - when mortgage rates drop, housing leads the recovery. Permits are a leading indicator (6-9 months ahead of completions). Falling permits + rising rates = housing slowdown incoming.",
+  "category": "Macro Economics",
+  "api_url": "https://api.stlouisfed.org/fred/series/observations",
+  "requires_credentials": [
+    "FRED_API_KEY"
+  ],
+  "credential_kinds": {
+    "FRED_API_KEY": "api_key"
+  },
+  "suggested_cron": "0 8 * * *",
+  "suggested_subdirectory": "macro/fred_housing",
+  "suggested_overwrite": false,
+  "tags": [
+    "fred",
+    "macro",
+    "housing",
+    "mortgage",
+    "real-estate",
+    "construction"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.stlouisfed.org/fred/series/observations'\nAPI_KEY = CREDENTIALS.get('FRED_API_KEY', '')\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nSERIES = [\n    ('HOUST', 'housing_starts', 'Housing Starts (thousands, SAAR)'),\n    ('PERMIT', 'building_permits', 'Building Permits (thousands, SAAR)'),\n    ('EXHOSLUSM495S', 'existing_home_sales', 'Existing Home Sales (millions, SAAR)'),\n    ('CSUSHPINSA', 'case_shiller_index', 'Case-Shiller U.S. National Home Price Index'),\n    ('MORTGAGE30US', 'mortgage_30y', '30-Year Fixed Mortgage Rate'),\n    ('MORTGAGE15US', 'mortgage_15y', '15-Year Fixed Mortgage Rate'),\n    ('MSACSR', 'months_supply', 'Monthly Supply of New Houses'),\n]\n\nrows = []\nfor i in range(len(SERIES)):\n    series_id = SERIES[i][0]\n    label = SERIES[i][1]\n    description = SERIES[i][2]\n\n    resp = requests.get(\n        BASE,\n        params={\n            'series_id': series_id,\n            'api_key': API_KEY,\n            'file_type': 'json',\n            'sort_order': 'desc',\n            'limit': 13,\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    obs = resp.json().get('observations', [])\n\n    valid = []\n    for o in obs:\n        if o.get('value', '.') != '.':\n            valid.append(o)\n\n    if not valid:\n        continue\n\n    latest = float(valid[0]['value'])\n    prev = float(valid[1]['value']) if len(valid) >= 2 else latest\n    mom_change_pct = round(((latest - prev) / prev) * 100, 2) if prev != 0 else 0.0\n\n    yoy_change_pct = 0.0\n    if len(valid) >= 13:\n        year_ago = float(valid[12]['value'])\n        yoy_change_pct = round(((latest - year_ago) / year_ago) * 100, 2) if year_ago != 0 else 0.0\n\n    # Housing market signal\n    if 'mortgage' in label:\n        if latest > 7.0:\n            signal = 'RESTRICTIVE'\n        elif latest > 6.0:\n            signal = 'ELEVATED'\n        elif latest > 5.0:\n            signal = 'MODERATE'\n        else:\n            signal = 'STIMULATIVE'\n    elif label == 'months_supply':\n        if latest > 8.0:\n            signal = 'BUYERS_MARKET'\n        elif latest < 4.0:\n            signal = 'SELLERS_MARKET'\n        else:\n            signal = 'BALANCED'\n    else:\n        if mom_change_pct > 3.0:\n            signal = 'STRONG_GROWTH'\n        elif mom_change_pct > 0:\n            signal = 'GROWING'\n        elif mom_change_pct > -3.0:\n            signal = 'SOFTENING'\n        else:\n            signal = 'DECLINING'\n\n    rows.append({\n        'series_id': series_id,\n        'metric': label,\n        'description': description,\n        'latest_value': latest,\n        'latest_date': valid[0].get('date', ''),\n        'prior_value': prev,\n        'mom_change_pct': mom_change_pct,\n        'yoy_change_pct': yoy_change_pct,\n        'market_signal': signal,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

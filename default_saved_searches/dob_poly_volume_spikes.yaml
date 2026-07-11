@@ -1,0 +1,26 @@
+name: dob_poly_volume_spikes
+description: |
+  Alert-group feed: Polymarket markets with HIGH or CRITICAL volume spikes in
+  the edge zone (yes price 0.30-0.70) and meaningful liquidity.  Volume precedes
+  price - these often signal breaking news before odds adjust.  Capped at 15.
+query: |-
+  index="indexes/polymarket/volume_spikes_pro/*.parquet"
+  | where alert_level IN ("HIGH","CRITICAL") AND yes_price >= 0.30 AND yes_price <= 0.70 AND liquidity > 10000
+  | sort -outlier_strength
+  | table question, slug, yes_price, volume_24h, spike_multiple, volume_24h_ratio, outlier_strength, iqr_outlier, robust_z_score, spike_percentile, market_age_days, liquidity, alert_level, is_statistical_outlier
+  | head 15
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

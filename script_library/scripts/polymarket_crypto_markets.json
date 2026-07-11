@@ -1,0 +1,20 @@
+{
+  "title": "Polymarket Crypto and DeFi Markets",
+  "description": "Tracks prediction markets related to cryptocurrency, blockchain, DeFi, and Web3. Monitor what the crowd thinks about Bitcoin price targets, ETF approvals, protocol upgrades, regulatory actions, and crypto market events. Cross-reference with actual crypto prices for edge detection.",
+  "category": "Prediction Markets",
+  "api_url": "https://gamma-api.polymarket.com/markets",
+  "requires_credentials": [],
+  "suggested_cron": "0 */4 * * *",
+  "suggested_subdirectory": "polymarket/crypto",
+  "suggested_overwrite": false,
+  "tags": [
+    "free",
+    "no-auth",
+    "polymarket",
+    "prediction-markets",
+    "crypto",
+    "bitcoin",
+    "defi"
+  ],
+  "code": "import pandas as pd\nimport requests\nimport json\nimport re\nfrom datetime import datetime, timezone\n\nBASE = 'https://gamma-api.polymarket.com'\nLIMIT = 100\nMAX_PAGES = 5\n\nCRYPTO_KEYWORDS = re.compile(\n    r'\\b(bitcoin|btc|ethereum|eth|crypto|blockchain|defi|nft|web3|'\n    r'solana|sol|cardano|ada|polkadot|dot|avalanche|avax|chainlink|'\n    r'ripple|xrp|dogecoin|doge|shiba|pepe|memecoin|stablecoin|'\n    r'usdt|usdc|tether|binance|coinbase|kraken|ftx|sec.crypto|'\n    r'etf.bitcoin|etf.ethereum|halving|mining|staking|validator|'\n    r'airdrop|token|altcoin|whale|rug.pull|smart.contract|'\n    r'layer.2|rollup|zk|bridge|dao|yield|liquidity.pool|'\n    r'\\$[0-9]+k.*btc|btc.*\\$[0-9]+k)\\b',\n    re.IGNORECASE\n)\n\nCRYPTO_TAGS = {'crypto', 'bitcoin', 'ethereum', 'defi', 'web3', 'nft',\n               'blockchain', 'cryptocurrency', 'altcoins', 'stablecoins',\n               'mining', 'trading'}\n\nrows = []\nfor page in range(MAX_PAGES):\n    offset = page * LIMIT\n    resp = requests.get(\n        f'{BASE}/markets',\n        params={'limit': LIMIT, 'offset': offset, 'active': 'true', 'closed': 'false'},\n        timeout=30,\n    )\n    resp.raise_for_status()\n    markets = resp.json()\n    if not markets:\n        break\n    for m in markets:\n        question = m.get('question', '')\n        desc = m.get('description', '')\n        category = (m.get('category', '') or '').lower()\n        tags_raw = m.get('tags', [])\n        if isinstance(tags_raw, str):\n            tags_raw = json.loads(tags_raw)\n        tag_labels = []\n        tag_slugs = set()\n        for t in (tags_raw or []):\n            if isinstance(t, dict):\n                label = t.get('label', t.get('slug', ''))\n                tag_labels.append(label)\n                tag_slugs.add(label.lower())\n                if t.get('slug'):\n                    tag_slugs.add(t['slug'].lower())\n            else:\n                tag_labels.append(str(t))\n                tag_slugs.add(str(t).lower())\n        is_crypto = bool(CRYPTO_KEYWORDS.search(question) or CRYPTO_KEYWORDS.search(desc))\n        is_crypto = is_crypto or bool(tag_slugs.intersection(CRYPTO_TAGS))\n        is_crypto = is_crypto or 'crypto' in category\n        if not is_crypto:\n            continue\n        prices = m.get('outcomePrices', '[]')\n        if isinstance(prices, str):\n            prices = json.loads(prices)\n        yes_price = float(prices[0]) if prices else None\n        no_price = float(prices[1]) if len(prices) > 1 else None\n        rows.append({\n            'market_id': m.get('id', ''),\n            'question': question,\n            'slug': m.get('slug', ''),\n            'yes_price': yes_price,\n            'no_price': no_price,\n            'volume': float(m.get('volume', 0) or 0),\n            'liquidity': float(m.get('liquidity', 0) or 0),\n            'category': m.get('category', ''),\n            'tags': ','.join(tag_labels),\n            'end_date': m.get('endDate', ''),\n            'condition_id': m.get('conditionId', ''),\n            '_epoch': int(datetime.now(timezone.utc).timestamp()),\n        })\n\ndf = pd.DataFrame(rows)\ndf = df.sort_values('volume', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)"
+}

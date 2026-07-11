@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 210" width="940" height="210">
+
+  <!-- THE MARK - near-black with faint neon border -->
+  <rect x="14" y="14" width="174" height="182" rx="24" fill="none" stroke="#FF2E8B" stroke-width="2" opacity="0.6"/>
+  <rect x="16" y="16" width="170" height="178" rx="22" fill="#08060E"/>
+
+  <!-- Title bar -->
+  <rect x="16" y="16" width="170" height="28" rx="22" fill="#0C0A14"/>
+  <rect x="16" y="32" width="170" height="12" fill="#0C0A14"/>
+  <circle cx="42" cy="30" r="3.5" fill="#FF2E8B" opacity="0.9"/>
+  <circle cx="56" cy="30" r="3.5" fill="#FFE224" opacity="0.9"/>
+  <circle cx="70" cy="30" r="3.5" fill="#00FFD0" opacity="0.9"/>
+
+  <!-- Data bars - alternating neon cyan + hot magenta -->
+  <rect x="38" y="56" width="88" height="7" rx="3" fill="#00FFD0" opacity="0.18"/>
+  <rect x="38" y="71" width="124" height="7" rx="3" fill="#FF2E8B" opacity="0.24"/>
+  <rect x="38" y="86" width="66" height="7" rx="3" fill="#00FFD0" opacity="0.34"/>
+  <rect x="38" y="101" width="108" height="7" rx="3" fill="#FF2E8B" opacity="0.42"/>
+  <rect x="38" y="116" width="78" height="7" rx="3" fill="#00FFD0" opacity="0.54"/>
+  <rect x="38" y="131" width="130" height="7" rx="3" fill="#FF2E8B" opacity="0.68"/>
+  <rect x="38" y="146" width="96" height="7" rx="3" fill="#00FFD0" opacity="0.85"/>
+
+  <!-- >_ prompt + cursor - neon cyan -->
+  <text x="38" y="174" font-family="'SF Mono','Cascadia Code','Fira Code',monospace" font-size="13" font-weight="600" fill="#00FFD0" opacity="0.65">&gt;_</text>
+  <rect x="62" y="164" width="2.5" height="12" rx="1" fill="#FF2E8B" opacity="0.9">
+    <animate attributeName="opacity" values="0.9;0.9;0;0;0.9" keyTimes="0;0.45;0.5;0.95;1" dur="1.8s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Wordmark - hot magenta + neon cyan -->
+  <text x="216" y="124"
+        font-family="'Segoe UI','SF Pro Display','Helvetica Neue',sans-serif"
+        font-size="90" font-weight="700" letter-spacing="-2"
+        fill="#FF2E8B">Speakes</text>
+  <text x="612" y="124"
+        font-family="'Segoe UI','SF Pro Display','Helvetica Neue',sans-serif"
+        font-size="90" font-weight="700" letter-spacing="1"
+        fill="#00FFD0">Query</text>
+</svg>

@@ -1,0 +1,164 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  - id: api_si_001
+    title: "GET /api/si/list - returns task list"
+    method: GET
+    path: /api/si/list
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [tasks]
+
+  # ── Validation ─────────────────────────────────────────────
+  - id: api_si_002
+    title: "POST /api/si/add - missing title returns 400"
+    method: POST
+    path: /api/si/add
+    body:
+      code: "import pandas as pd"
+      cron_schedule: "0 * * * *"
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_si_003
+    title: "POST /api/si/add - missing code returns 400"
+    method: POST
+    path: /api/si/add
+    body:
+      title: "test"
+      cron_schedule: "0 * * * *"
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_si_004
+    title: "POST /api/si/add - missing cron returns 400"
+    method: POST
+    path: /api/si/add
+    body:
+      title: "test"
+      code: "import pandas as pd"
+    expect:
+      status_code: 400
+      json_status: error
+
+  # ── Not found ──────────────────────────────────────────────
+  - id: api_si_005
+    title: "GET /api/si/999999 - nonexistent task returns 404"
+    method: GET
+    path: /api/si/999999
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Lint ───────────────────────────────────────────────────
+  - id: api_si_006
+    title: "POST /api/si/lint - valid code returns no errors"
+    method: POST
+    path: /api/si/lint
+    body:
+      code: "import pandas as pd\ndf = pd.DataFrame()"
+    expect:
+      status_code: 200
+      json_values:
+        - key: status
+          value: ok
+
+  - id: api_si_007
+    title: "POST /api/si/lint - syntax error returns error list"
+    method: POST
+    path: /api/si/lint
+    body:
+      code: "def foo(\n"
+    expect:
+      status_code: 200
+      json_values:
+        - key: status
+          value: ok
+      list_length:
+        - key: errors
+          min: 1
+
+  # ── Test code ──────────────────────────────────────────────
+  - id: api_si_008
+    title: "POST /api/si/test-code - empty code returns 400"
+    method: POST
+    path: /api/si/test-code
+    body:
+      code: ""
+    expect:
+      status_code: 400
+      json_status: error
+
+  # ── Status ─────────────────────────────────────────────────
+  - id: api_si_009
+    title: "GET /api/si/status - returns scheduler status"
+    method: GET
+    path: /api/si/status
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [jobs]
+
+  # ── History ────────────────────────────────────────────────
+  - id: api_si_010
+    title: "GET /api/si/history - returns execution history"
+    method: GET
+    path: /api/si/history
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [history]
+
+  # ── Check subdirectory ─────────────────────────────────────
+  - id: api_si_011
+    title: "GET /api/si/check-subdirectory - empty path is valid"
+    method: GET
+    path: /api/si/check-subdirectory
+    expect:
+      status_code: 200
+      json_status: success
+
+  # ── Trust-tier escalation validation ───────────────────────
+  # These guard the unrestricted/_pro tier opt-in: the field must be
+  # absent (default sandboxed) or one of the two recognised values.
+  - id: api_si_020
+    title: "POST /api/si/add - invalid trust_level returns 400"
+    method: POST
+    path: /api/si/add
+    body:
+      title: "tier_test_bad_trust"
+      code: "import pandas as pd"
+      cron_schedule: "0 * * * *"
+      trust_level: "root"
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_si_021
+    title: "POST /api/si/add - empty trust_level string returns 400"
+    method: POST
+    path: /api/si/add
+    body:
+      title: "tier_test_empty_trust"
+      code: "import pandas as pd"
+      cron_schedule: "0 * * * *"
+      trust_level: ""
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_si_022
+    title: "POST /api/si/add - numeric trust_level returns 400"
+    method: POST
+    path: /api/si/add
+    body:
+      title: "tier_test_numeric_trust"
+      code: "import pandas as pd"
+      cron_schedule: "0 * * * *"
+      trust_level: 7
+    expect:
+      status_code: 400
+      json_status: error
+

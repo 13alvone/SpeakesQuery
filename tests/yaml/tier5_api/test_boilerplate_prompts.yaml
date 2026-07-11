@@ -1,0 +1,109 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  - id: api_bp_001
+    title: "GET /api/boilerplate-prompts/list - returns prompts list"
+    method: GET
+    path: /api/boilerplate-prompts/list
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [prompts]
+
+  # ── Create validation ──────────────────────────────────────
+  - id: api_bp_010
+    title: "POST /api/boilerplate-prompts/create - missing name returns 400"
+    method: POST
+    path: /api/boilerplate-prompts/create
+    body:
+      template: "Hello world template body."
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_bp_011
+    title: "POST /api/boilerplate-prompts/create - missing template returns 400"
+    method: POST
+    path: /api/boilerplate-prompts/create
+    body:
+      name: "test_bp_missing_template"
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_bp_012
+    title: "POST /api/boilerplate-prompts/create - empty body returns 400"
+    method: POST
+    path: /api/boilerplate-prompts/create
+    body: {}
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_bp_013
+    title: "POST /api/boilerplate-prompts/create - whitespace-only name returns 400"
+    method: POST
+    path: /api/boilerplate-prompts/create
+    body:
+      name: "    "
+      template: "Body."
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_bp_014
+    title: "POST /api/boilerplate-prompts/create - whitespace-only template returns 400"
+    method: POST
+    path: /api/boilerplate-prompts/create
+    body:
+      name: "test_bp_blank_template"
+      template: "   "
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_bp_015
+    title: "POST /api/boilerplate-prompts/create - invalid name characters returns 400"
+    method: POST
+    path: /api/boilerplate-prompts/create
+    body:
+      name: "bad/name/with/slashes"
+      template: "Body."
+    expect:
+      status_code: 400
+      json_status: error
+
+  # ── Not found (read paths) ─────────────────────────────────
+  - id: api_bp_020
+    title: "GET /api/boilerplate-prompts/nonexistent_xyz - returns 404"
+    method: GET
+    path: /api/boilerplate-prompts/nonexistent_bp_xyz123
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_bp_021
+    title: "GET /api/boilerplate-prompts/nonexistent_xyz/yaml - returns 404"
+    method: GET
+    path: /api/boilerplate-prompts/nonexistent_bp_xyz123/yaml
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Not found (write paths) ────────────────────────────────
+  - id: api_bp_030
+    title: "PUT /api/boilerplate-prompts/nonexistent_xyz - returns 404"
+    method: PUT
+    path: /api/boilerplate-prompts/nonexistent_bp_xyz123
+    body:
+      template: "ignored"
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_bp_031
+    title: "DELETE /api/boilerplate-prompts/nonexistent_xyz - returns 404"
+    method: DELETE
+    path: /api/boilerplate-prompts/nonexistent_bp_xyz123
+    expect:
+      status_code: 404
+      json_status: error

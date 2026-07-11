@@ -1,0 +1,55 @@
+tests:
+  # ── fields + (include) ───────────────────────────────────────
+  - id: fields_001
+    title: "fields - include specific columns"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | fields level, message
+    expect:
+      row_count: 5
+      columns: ["level", "message"]
+
+  # ── fields - (exclude) ──────────────────────────────────────
+  - id: fields_002
+    title: "fields - exclude columns"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | fields - timestamp, _source_file
+    expect:
+      row_count: 5
+      columns_exclude: ["timestamp", "_source_file"]
+      columns_include: ["level", "message", "userRole"]
+
+  # ── table command ────────────────────────────────────────────
+  - id: fields_003
+    title: "table - select specific columns"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | table level, message
+    expect:
+      row_count: 5
+      columns: ["level", "message"]
+
+  # ── table with single column ─────────────────────────────────
+  - id: fields_004
+    title: "table - single column"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | table level
+    expect:
+      row_count: 5
+      columns: ["level"]
+      column_values:
+        - column: level
+          values: ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+  # ── table on system_alerts ───────────────────────────────────
+  - id: fields_005
+    title: "table - multiple columns from system_alerts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | table status, userRole, region
+    expect:
+      row_count: 3
+      columns: ["status", "userRole", "region"]

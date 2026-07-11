@@ -1,0 +1,89 @@
+tests:
+  # ── Time range without index searches all data ───────────────
+  # In SPQL, a bare time range without index still returns data
+  # from default sources - this is NOT an error.
+  - id: mistake_001
+    title: "mistake - time range without index returns data"
+    query: |
+      earliest="2024-01-01" latest="2024-12-31"
+    expect:
+      not_empty: true
+
+  # ── Using = instead of == in eval if_() ──────────────────────
+  # Single = in if_() condition is a Python keyword arg, not a
+  # comparison - this causes a parse error.
+  - id: mistake_002
+    title: "mistake - = in if_() condition causes error"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval is_admin=if_(userRole="admin", "yes", "no")
+    expect_error: true
+
+  # ── Unquoted string in where clause ──────────────────────────
+  # Unquoted string values fail because the parser tries to
+  # interpret them as variable names.
+  - id: mistake_005
+    title: "mistake - unquoted string in where fails"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | where level=INFO
+    expect_error: true
+
+  # ── Using lookup on non-existent file ────────────────────────
+  - id: mistake_006
+    title: "mistake - inputlookup non-existent file"
+    query: |
+      | inputlookup nonexistent.csv
+    expect_error: true
+
+  # ── stats count field (missing BY) works as just count ───────
+  # SPQL silently ignores extra tokens after count and just
+  # performs a global count.
+  - id: mistake_007
+    title: "mistake - stats count field without BY does global count"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | stats count level
+    expect:
+      row_count: 1
+      columns_include: ["count"]
+
+  # ── Eval without field assignment ────────────────────────────
+  - id: mistake_008
+    title: "mistake - eval without field name"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval "hello"
+    expect_error: true
+
+  # ── Single quotes around index path ──────────────────────────
+  # SPQL index requires double quotes. Single quotes cause the
+  # path to be misinterpreted.
+  - id: mistake_009
+    title: "mistake - single quotes on index path fails"
+    query: |
+      index='indexes/default_test/output_parquets/test0.parquet'
+    expect_error: true
+
+  # ── Leading pipe without valid init command ──────────────────
+  - id: mistake_010
+    title: "mistake - leading pipe with search (no data source)"
+    query: |
+      | search level="INFO"
+    expect_error: true
+
+  # ── head 0 ───────────────────────────────────────────────────
+  - id: mistake_011
+    title: "mistake - head 0 returns empty or error"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 0
+    expect_error: true
+
+  # ── if() without underscore ──────────────────────────────────
+  - id: mistake_012
+    title: "mistake - if() instead of if_() is not recognized"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval x=if(level=="INFO", 1, 0)
+    expect_error: true

@@ -1,0 +1,108 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_docs_001
+    title: "Docs page - sidebar and content area visible"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      active_page: page-docs
+      visible: ["#docs-nav", "#docs-content", "#docs-search"]
+
+  - id: ui_docs_002
+    title: "Docs page - search input has correct placeholder"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      attribute:
+        - selector: "#docs-search"
+          attr: "placeholder"
+          value: "Search docs…"
+
+  # ── Tour Cards ──────────────────────────────────────────────────
+
+  - id: ui_docs_010
+    title: "Docs page - guided tour section visible"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      visible: ["#docs-tour-section"]
+
+  - id: ui_docs_011
+    title: "Docs page - three guided tour cards present"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      count:
+        - selector: "#docs-tour-section .tour-card"
+          value: 3
+
+  - id: ui_docs_012
+    title: "Docs page - each tour card has a Start button"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      count:
+        - selector: "#docs-tour-section .tc-start"
+          value: 3
+
+  - id: ui_docs_013
+    title: "Docs page - tour cards have correct tour IDs"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      # Tour cards exist on both welcome overlay and docs page, so >= 1 each
+      count_gte:
+        - selector: '.tour-card[data-tour="github_security"]'
+          value: 1
+        - selector: '.tour-card[data-tour="hackernews_trends"]'
+          value: 1
+        - selector: '.tour-card[data-tour="weather_alerting"]'
+          value: 1
+
+  # ── Sidebar Navigation ─────────────────────────────────────────
+
+  - id: ui_docs_020
+    title: "Docs page - sidebar nav populates with doc links"
+    steps:
+      - action: navigate
+        page: docs
+      - action: wait
+        selector: "#docs-nav .docs-nav-link"
+        timeout: 8000
+    expect:
+      count_gte:
+        - selector: "#docs-nav .docs-nav-link"
+          value: 1
+
+  - id: ui_docs_021
+    title: "Docs page - clicking a sidebar link loads content"
+    steps:
+      - action: navigate
+        page: docs
+      - action: wait
+        selector: "#docs-nav .docs-nav-link"
+        timeout: 8000
+      - action: click
+        selector: "#docs-nav .docs-nav-link:first-child"
+      - action: wait
+        selector: "#docs-content h1, #docs-content h2, #docs-content p"
+        timeout: 5000
+    expect:
+      hidden: ["#docs-placeholder"]
+
+  # ── Placeholder ─────────────────────────────────────────────────
+
+  - id: ui_docs_030
+    title: "Docs page - content area exists"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      visible: ["#docs-content"]

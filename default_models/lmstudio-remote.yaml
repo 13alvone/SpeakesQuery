@@ -1,0 +1,36 @@
+id: lmstudio-remote
+provider: lmstudio
+# Whatever model identifier the LM Studio server reports for the loaded
+# model. With LM Studio running and a model loaded, query:
+#   curl http://<endpoint>/v1/models
+# Common values: "local-model", or the full HuggingFace path of the
+# loaded checkpoint (e.g. "mistralai/Mistral-7B-Instruct-v0.3").
+model_name: local-model
+description: |
+  Self-hosted LLM via LM Studio (https://lmstudio.ai). LM Studio
+  exposes an OpenAI-compatible HTTP API (default port 1234) - the
+  industry-standard Chat Completions wire shape used by self-hosted
+  servers - so the router's shared transport works against any LM
+  Studio endpoint with a different URL.
+
+  Designed for the cost-cascade pattern's "bigger local model on a
+  dedicated machine" tier - frees the SpeakesQuery host from the LLM's
+  RAM/GPU footprint at the cost of a network round-trip.
+
+  IMPORTANT - set `endpoint` to your LM Studio host's URL before use.
+  Default `http://localhost:1234/v1` only works when LM Studio runs on
+  the SAME machine as SpeakesQuery. For a dedicated remote box (the
+  recommended setup for serious use), set `endpoint` to that machine's
+  reachable URL on your LAN, e.g. `http://192.168.1.50:1234/v1`.
+
+  No API key required by default. LM Studio supports optional auth if
+  you expose the server beyond a trusted network - wire that through
+  the credential vault (slice 2 router); the registry record itself
+  doesn't carry secrets.
+endpoint: http://localhost:1234/v1
+cost_per_input_million_usd: 0.0
+cost_per_output_million_usd: 0.0
+max_output_tokens: 8192
+default_timeout_seconds: 300
+created_at: "2026-05-08T00:00:00"
+updated_at: "2026-05-08T00:00:00"

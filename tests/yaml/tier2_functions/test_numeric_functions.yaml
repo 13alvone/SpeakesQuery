@@ -1,0 +1,329 @@
+tests:
+  # ── round ────────────────────────────────────────────────────
+  - id: func_num_001
+    title: "round() - round amount to 2 decimals"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | eval rounded=round(amount, 2)
+    expect:
+      row_count: 3
+      columns_include: ["rounded"]
+      values:
+        - row: 0
+          column: rounded
+          approx: 1233.05
+        - row: 1
+          column: rounded
+          approx: 1034.64
+        - row: 2
+          column: rounded
+          approx: 3474.73
+
+  # ── abs ──────────────────────────────────────────────────────
+  - id: func_num_002
+    title: "abs() - absolute value"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval neg=-5
+      | eval pos=abs(neg)
+    expect:
+      row_count: 5
+      values:
+        - row: 0
+          column: pos
+          value: 5
+
+  # ── sqrt ─────────────────────────────────────────────────────
+  - id: func_num_003
+    title: "sqrt() - square root"
+    query: |
+      | makeresults count=1
+      | eval val=16
+      | eval root=sqrt(val)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: root
+          approx: 4.0
+
+  # ── tonumber ─────────────────────────────────────────────────
+  - id: func_num_004
+    title: "tonumber() - string to number"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval xstr=tostring(x)
+      | eval xnum=tonumber(xstr)
+    expect:
+      row_count: 5
+      columns_include: ["xnum"]
+
+  # ── random ───────────────────────────────────────────────────
+  # Fixed 2026-05-16 - was previously broken (env_template gap; the
+  # old test asserted `expect_error: true` which codified the bug).
+  # random() with no args now returns a uniform float in [0.0, 1.0);
+  # with 2 args returns a uniform float in [min, max]. Documented
+  # in docs/lang/03_functions.md.
+  - id: func_num_005
+    title: "random() - no-arg returns 0..1 float (not an error)"
+    query: |
+      | makeresults count=1
+      | eval r=random()
+      | eval in_range=if_(r >= 0.0, if_(r < 1.0, "yes", "no"), "no")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: in_range
+          value: yes
+
+  - id: func_num_005b
+    title: "random(min, max) - 2-arg returns float in [min, max]"
+    query: |
+      | makeresults count=1
+      | eval r=random(100, 200)
+      | eval in_range=if_(r >= 100.0, if_(r <= 200.0, "yes", "no"), "no")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: in_range
+          value: yes
+
+  # ── floor ────────────────────────────────────────────────────
+  # Phase 6 / Bet 5 follow-up (2026-05-16). Surfaced via live-API
+  # validation. Standard math builtin; missing from env_template
+  # until this fix. Per the user's "SPQL bugs are top priority"
+  # rule, the regression test ships in the same slice as the fix.
+  - id: func_num_floor_001
+    title: "floor() - positive float"
+    query: |
+      | makeresults count=1
+      | eval r=floor(1.7) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 1
+
+  - id: func_num_floor_002
+    title: "floor() - negative float (rounds toward -infinity)"
+    query: |
+      | makeresults count=1
+      | eval r=floor(-1.7) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: -2
+
+  - id: func_num_floor_003
+    title: "floor() - integer input is identity"
+    query: |
+      | makeresults count=1
+      | eval r=floor(5) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 5
+
+  - id: func_num_floor_004
+    title: "floor() - zero edge case"
+    query: |
+      | makeresults count=1
+      | eval r=floor(0.5) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 0
+
+  - id: func_num_floor_005
+    title: "floor() - time-bucket idiom (days-since-epoch)"
+    query: |
+      | makeresults count=1
+      | eval e=86400 * 1000 + 12345
+      | eval days=floor(e / 86400)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: days
+          value: 1000
+
+  # ── ceil ─────────────────────────────────────────────────────
+  - id: func_num_ceil_001
+    title: "ceil() - positive float"
+    query: |
+      | makeresults count=1
+      | eval r=ceil(1.2) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 2
+
+  - id: func_num_ceil_002
+    title: "ceil() - negative float (rounds toward +infinity)"
+    query: |
+      | makeresults count=1
+      | eval r=ceil(-1.7) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: -1
+
+  - id: func_num_ceil_003
+    title: "ceil() - integer input is identity"
+    query: |
+      | makeresults count=1
+      | eval r=ceil(5) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 5
+
+  - id: func_num_ceil_004
+    title: "ceil() - zero edge case"
+    query: |
+      | makeresults count=1
+      | eval r=ceil(0.1) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 1
+
+  # ── sum (eval, variadic) ─────────────────────────────────────
+  # ``sum`` is documented in CLAUDE.md but was missing from
+  # env_template until 2026-05-16. Eval form is variadic:
+  # ``sum(a, b, c)`` returns the element-wise sum (NOT the stats
+  # command column aggregate - that path goes through statsHandler).
+  - id: func_num_sum_eval_001
+    title: "sum() - three-arg variadic"
+    query: |
+      | makeresults count=1
+      | eval r=sum(1, 2, 3) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 6
+
+  - id: func_num_sum_eval_002
+    title: "sum() - two-arg with negative"
+    query: |
+      | makeresults count=1
+      | eval r=sum(10, -3) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 7
+
+  # ── median (eval, variadic) ──────────────────────────────────
+  - id: func_num_median_eval_001
+    title: "median() - three-arg variadic"
+    query: |
+      | makeresults count=1
+      | eval r=median(1, 2, 3) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          approx: 2.0
+
+  - id: func_num_median_eval_002
+    title: "median() - four-arg (avg of two middle)"
+    query: |
+      | makeresults count=1
+      | eval r=median(1, 2, 3, 4) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          approx: 2.5
+
+  # ── mode (eval, variadic) ────────────────────────────────────
+  - id: func_num_mode_eval_001
+    title: "mode() - most-common value"
+    query: |
+      | makeresults count=1
+      | eval r=mode(1, 2, 2, 3) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 2
+
+  # ── range (eval, variadic) ───────────────────────────────────
+  - id: func_num_range_eval_001
+    title: "range() - max minus min across args"
+    query: |
+      | makeresults count=1
+      | eval r=range(1, 7, 3) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 6
+
+  - id: func_num_range_eval_002
+    title: "range() - two-arg span"
+    query: |
+      | makeresults count=1
+      | eval r=range(10, 50) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          value: 40
+
+  # ── round compound-expression regression ─────────────────────
+  # 2026-05-16: the previous round() early-dispatch had a naive
+  # paren-slicing bug. ``round(1.7) + len("x")*0`` got sliced
+  # into ``1.7) + len("x"`` → SyntaxError. Removed the early
+  # dispatch; round() now goes through env_template via
+  # complex_round (MV-aware).
+  - id: func_num_round_compound_001
+    title: "round() - compound expression (no early-dispatch slicing bug)"
+    query: |
+      | makeresults count=1
+      | eval r=round(1.7) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          approx: 2.0
+
+  - id: func_num_round_compound_002
+    title: "round() - 2-arg with precision in compound expression"
+    query: |
+      | makeresults count=1
+      | eval r=round(1.7777, 2) + len("x")*0
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: r
+          approx: 1.78

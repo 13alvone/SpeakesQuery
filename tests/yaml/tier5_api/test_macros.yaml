@@ -1,0 +1,70 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  - id: api_macros_001
+    title: "GET /api/macros/list - returns macro list"
+    method: GET
+    path: /api/macros/list
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [macros]
+
+  # ── Validation ─────────────────────────────────────────────
+  - id: api_macros_002
+    title: "POST /api/macros/create - missing name returns 400"
+    method: POST
+    path: /api/macros/create
+    body:
+      definition: "search level=\"ERROR\""
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_macros_003
+    title: "POST /api/macros/create - missing definition returns 400"
+    method: POST
+    path: /api/macros/create
+    body:
+      name: "test_macro"
+    expect:
+      status_code: 400
+      json_status: error
+
+  # ── Not found ──────────────────────────────────────────────
+  - id: api_macros_004
+    title: "GET /api/macros/nonexistent_macro_abc123 - returns 404"
+    method: GET
+    path: /api/macros/nonexistent_macro_abc123
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_macros_005
+    title: "DELETE /api/macros/nonexistent_macro_abc123 - returns 404"
+    method: DELETE
+    path: /api/macros/nonexistent_macro_abc123
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Expand validation ──────────────────────────────────────
+  - id: api_macros_006
+    title: "POST /api/macros/expand - empty query returns 400"
+    method: POST
+    path: /api/macros/expand
+    body:
+      query: ""
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_macros_007
+    title: "POST /api/macros/expand - query without macros returns unchanged"
+    method: POST
+    path: /api/macros/expand
+    body:
+      query: 'index="logs" | head 5'
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [original, expanded]

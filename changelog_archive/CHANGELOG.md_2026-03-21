@@ -1,0 +1,1339 @@
+# Changelog
+
+> **Policy:** Append only. Never overwrite. Add a new entry immediately before each merge/pull request.
+> Entries are used verbatim as PR descriptions on GitHub - keep them concise and precise.
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Added - `| makeresults` command
+
+Generates a synthetic result set for testing and building logical SPQL, mirroring
+Splunk's `| makeresults` behaviour. This is a generating command - it produces its own
+data rather than transforming an upstream result.
+
+**Usage:**
+
+```
+| makeresults
+| makeresults count=5
+| makeresults count=3 annotate=true
+```
+
+**Parameters:**
+
+| Parameter   | Default | Description                                              |
+|-------------|---------|----------------------------------------------------------|
+| `count`     | `1`     | Number of rows to generate                               |
+| `annotate`  | `false` | When `true`, adds `_raw` (empty string) and `splunk_server` (`local`) columns |
+
+**Output:**
+
+Each row contains a single `_epoch` field set to the current Unix epoch at generation
+time. Additional fields can be created downstream with `| eval`.
+
+**Subsearch behaviour:**
+
+When used inside a subsearch (e.g. `| append [ | makeresults | eval ... ]`),
+`makeresults` generates a fresh `_epoch` value independently - it does **not** copy
+`_epoch` from the outer pipeline. This is consistent with Splunk. Conversely, a bare
+transforming subsearch like `| append [ | eval field="value" ]` (without a generating
+command) runs against a copy of the current result set and inherits existing field
+values, including `_epoch`.
+
+**Grammar - `lexers/speakesQuery.g4`**
+
+- Added `makeresultsInit` rule as an initial command and `MAKERESULTS` directive
+- Added `makeresultsArg` sub-rule accepting `COUNT` and `VARIABLE` tokens as keys
+- Supports `count=N` (default 1) and `annotate=true` parameters
+
+**Listener - `lexers/speakesQueryListener.py`**
+
+- Added `exitMakeresultsInit` for initial-command usage
+- Added `_cmd_makeresults` for mid-pipeline usage
+- Both paths parse `count=` and `annotate=` arguments
+- Full pipeline processing after `makeresults` - all subsequent commands (eval, table,
+  stats, append, etc.) are dispatched through `_apply_command`
+
+**Handler - `handlers/GeneralHandler.py`**
+
+- Added `make_results(count, annotate)` - creates a DataFrame with `_epoch` set to
+  current epoch; optionally adds `_raw` and `splunk_server` columns when annotate is
+  enabled
+
+---
+
+### Added - Metadata fields on `| loadjob` output
+
+When `| loadjob` retrieves saved results, two new columns are now appended
+automatically, derived from the epoch encoded in the job ID:
+
+- `_loadjob_time` - the raw epoch value (float) from the job name
+- `_loadjob_time_human` - human-readable UTC timestamp (e.g. `2026-03-21 20:12:26 UTC`)
+
+**Handler - `handlers/GeneralHandler.py`**
+
+- Added `add_loadjob_metadata(df, job_id)` - extracts the epoch prefix from the
+  `<epoch>_<uuid>` job ID format; falls back to the job store metadata when the user
+  supplies a custom name
+
+**Listener - `lexers/speakesQueryListener.py`**
+
+- Both `exitLoadjobInit` and the manual `loadjob` path in `exitSpeakesQuery` now call
+  `add_loadjob_metadata()` after loading
+
+---
+
+### Added - `| addinfo` command
+
+Adds informational search metadata fields to every row, mirroring Splunk's `| addinfo`
+behaviour. This is a transforming command - it enriches existing results with metadata
+about the search itself.
+
+**Usage:**
+
+```
+index="my_index" | addinfo
+| makeresults count=5 | addinfo
+```
+
+**Output fields:**
+
+| Field              | Description                                                    |
+|--------------------|----------------------------------------------------------------|
+| `info_min_time`    | Earliest `_epoch` value in the current result set (or `0`)     |
+| `info_max_time`    | Latest `_epoch` value in the current result set (or `0`)       |
+| `info_sid`         | Synthetic search ID derived from the query                     |
+| `info_search_time` | Unix epoch when `| addinfo` was executed                       |
+
+If the result set does not contain an `_epoch` column, `info_min_time` and
+`info_max_time` default to `0`.
+
+**Grammar - `lexers/speakesQuery.g4`**
+
+- Added `ADDINFO` token and directive rule
+
+**Listener - `lexers/speakesQueryListener.py`**
+
+- Added `_cmd_addinfo` handler
+
+**Handler - `handlers/GeneralHandler.py`**
+
+- Added `add_info(df, query)` - appends the four info fields described above
+
+---
+
+### Fixed - Subsearch pipeline splitting and bracket-aware segment handling
+
+Commands that use subsearches (`append`, `appendpipe`, `join`, `multisearch`) were
+broken when the subsearch contained pipes, because the pipeline splitter naively split
+on `|` without respecting `[...]` bracket boundaries.
+
+**Listener - `lexers/speakesQueryListener.py`**
+
+- Added `split_pipeline(raw)` - bracket-aware splitter that only splits on `|` at
+  depth 0, keeping subsearch content (e.g. `[ | makeresults | eval ... ]`) as a single
+  segment
+- Both the `makeresults` and normal index pipeline paths now use `split_pipeline()`
+- Rewrote `_cmd_append` to extract raw subsearch text (preserving quotes), then route
+  through `_run_subsearch_pipeline()` which handles generating commands (`makeresults`),
+  transforming commands (`eval`, `stats`, etc.), and index calls as subsearch sources
+- Transforming-only subsearches (e.g. `[ | eval field="X" ]`) run against a copy of the
+  current result set - inheriting all existing field values including `_epoch` - matching
+  Splunk behaviour
+
+**Grammar - `lexers/speakesQuery.g4`**
+
+- Relaxed the `subsearch` rule from `LBRACK expression RBRACK` to
+  `LBRACK subsearchContent RBRACK` (where `subsearchContent` accepts any token except
+  `]`) so ANTLR does not emit parse warnings for pipes inside brackets
+
+---
+
+### Fixed - Parquet serialisation crash on mixed-type columns
+
+Queries returning columns with a mix of NaN and numeric values (e.g. `errorCode`)
+crashed when the job store tried to write the result to Parquet. `fillna('')` produced
+object columns containing both strings and floats, which PyArrow cannot serialise.
+
+**`job_store.py`**
+
+- `_write_data()` now coerces all object-dtype columns to `str` before calling
+  `df.to_parquet()`, preventing the "Expected bytes, got a 'float' object" error
+
+---
+
+### Changed - Default UI theme from dark to light
+
+**`desktop_app/ui.html`**
+
+- Set `data-theme="light"` on the `<html>` element so first-time visitors see the
+  light theme by default
+- Swapped the `active` class on theme-switcher buttons to match
+- Existing users who previously chose a theme are unaffected (localStorage preference
+  is still respected)
+
+---
+
+### Added - Loadjob system: auto-saved query results, Save Job UI, and fixed `| loadjob` retrieval
+
+Implemented a complete job storage system that auto-saves the last 10 query results
+and lets users promote any result to a named, time-bounded snapshot retrievable with
+`| loadjob`. Fixes the previously broken loadjob command (path mismatch between
+save location and load validation).
+
+**New module - `job_store.py`**
+
+- Thread-safe `JobStore` class with JSON index (`jobs/_index.json`) and Parquet/pickle
+  data files in `jobs/`
+- Auto-save ring buffer: every query execution saves its results (keeps most recent 10,
+  rotates oldest automatically)
+- User-save with configurable TTL (1–365 days, default 10), optional custom name, and
+  optional CSV copy to `lookups/` for `| inputlookup` access
+- Retrieval by exact `job_id` or custom name, with TTL enforcement
+- `cleanup_expired()` runs at startup; `get_default_job_store()` module-level singleton
+
+**Query engine - `query_engine/CmdExecutionBackend.py`**
+
+- `run_query_and_return_results_df()` now returns `(DataFrame, job_id)` tuple
+- Auto-saves every result via `_job_store.save_auto()` (replaces old pickle-to-temp)
+- Removed `save_dataframe()` (legacy pickle writer to `frontend/static/temp/`)
+- Added `get_job_store()` accessor
+- All callers updated: `desktop_app/main.py`, `desktop_app/server.py` (3 sites),
+  `query_engine/QueryEngine.py`
+
+**Fixed - `handlers/GeneralHandler.py`**
+
+- Replaced broken `loadjob_pickle_file()` (validated against non-existent `jobs/`
+  directory while data lived in `frontend/static/temp/`) with `load_job(job_id)` that
+  delegates to the `JobStore` singleton - supports both `job_id` and custom name lookup
+
+**Fixed - `lexers/speakesQueryListener.py`**
+
+- Removed stale `self.loadjob_root` path to `frontend/static/temp/`
+- Both loadjob code paths (`exitLoadjobInit` and manual tokenisation) now pass the bare
+  `job_id` string to `GeneralHandler.load_job()` instead of constructing filesystem paths
+
+**API - `desktop_app/server.py`**
+
+- `/api/query` response now includes `job_id`
+- Added `GET /api/jobs` - list all non-expired jobs (newest first)
+- Added `GET /api/jobs/<job_id>` - single job metadata
+- Added `POST /api/jobs/<job_id>/save` - promote auto-job with name, TTL, save-to-lookups
+- Added `DELETE /api/jobs/<job_id>` - delete a job
+
+**UI - `desktop_app/ui.html`**
+
+- Added **Save Job** button (enabled after query returns results) - opens an inline form
+  with custom name, retention days (1–365), and "Also save to Lookups as CSV" checkbox
+- Added **Copy loadjob** button - copies `| loadjob "<job_id>"` to clipboard
+- Added **Job ID bar** below the button row showing the auto-generated job ID after each
+  query execution
+- All new elements reset on each new query run
+
+---
+
+### Added - Depth-controlled macro expansion with inline annotations on Query page
+
+Added an "Expand Macros" button to the Query page that expands backtick macro calls
+in-place with configurable depth control and inline annotation comments. Users can
+inspect exactly which macros were expanded, at which nesting level, and then run the
+annotated query directly - annotations are stripped automatically before execution.
+
+**UI - `desktop_app/ui.html`**
+
+- Added "Expand Macros" button and depth input (0–100) to the Query page button bar,
+  visually separated from the primary action buttons
+- Depth 0 = expand all nesting levels; 1 = first-level only; N = N levels deep
+- Expanded macros are wrapped in triple-backtick annotation comments in the query box:
+  `` ```[+] Expanded: macro_name``` `` / `` ```macro_name END``` ``
+- Informational notification when no macro calls are found
+
+**Expansion engine - `handlers/MacroHandler.py`**
+
+- Added `expand_annotated(query, target_depth, max_depth)` - depth-controlled expansion
+  that wraps each substitution in triple-backtick annotation comment lines
+- Added `strip_annotations()` static method - removes annotation lines so annotated
+  queries can be executed cleanly
+- Added `_ANNOTATION_LINE_RE` regex and `_expand_annotated_recursive()` inner recursion
+
+**Execution engine - `query_engine/CmdExecutionBackend.py`**
+
+- Added `strip_annotations()` call before macro expansion in `execute_query()` so
+  annotation comments from the UI are transparently removed before parsing
+
+**API - `desktop_app/server.py`**
+
+- Added `POST /api/macros/expand-annotated` endpoint accepting `query`, `depth`, and
+  `max_depth` parameters
+
+---
+
+### Changed - Strict case sensitivity for all field/column name references
+
+Enforced strict case sensitivity across the entire query engine. Field names must now
+match the exact casing stored in the data - no automatic fallback resolution. This
+upholds data immutability: the column names your ingestion scripts produce are the
+authoritative names you use in queries.
+
+**UI - `desktop_app/ui.html`**
+
+- Removed `text-transform: uppercase` from `.data-table th`, `.docs-content table th`,
+  and `.si-test-preview-table th` - column headers now display exactly as stored
+- UI chrome styles (`.settings-section-title`, `.lib-card-category`) retain uppercase
+  as those are not data
+
+**Query engine - `handlers/GeneralHandler.py`**
+
+- Removed `_resolve_column()` case-insensitive fallback method
+- All column lookups in `filter_df_columns` (`fields`, `table`), `rename_column`,
+  `sort_dataframe`, `execute_base64`, `execute_fillnull`, `execute_mvfind`,
+  `execute_coalesce`, `update_dataframe_column`, `execute_dedup`, and
+  `filter_by_regex` now use exact case matching
+
+**Query engine - `handlers/StatsHandler.py`**
+
+- Removed `_resolve_column()` and `_resolve_fields()` methods
+- `stats`, `eventstats`, `streamstats` group-by and aggregation fields now require
+  exact casing
+
+**Query engine - `handlers/EvalHandler.py`**
+
+- Removed case-insensitive `col_map` from `run_eval`, `safe_eval` (concat handler),
+  `custom_eval`, and `_eval_mvfilter`
+- Removed `re.IGNORECASE` flag from mvfilter field placeholder substitution
+- All eval field references now require exact casing
+
+**Documentation - `docs/lang/`**
+
+- `01_fundamentals.md` - "Field References" section rewritten: states strict case
+  sensitivity with correct/wrong examples
+- `02_commands.md` - `search` notes updated: "case-insensitive" → "case-sensitive"
+- `04_advanced.md` - "Case-Insensitive Field Resolution" section replaced with
+  "Case Sensitivity" section explaining strict enforcement, noting that only command
+  keywords (not field names) are case-insensitive, with practical tips
+
+---
+
+### Fixed - `isnull()` / `isnotnull()` and other function calls in `search` / `where`
+
+The `SearchCmdHandler` parser had no concept of function calls - expressions like
+`isnotnull(warningCode)` were incorrectly parsed as two separate identifiers, producing
+invalid Pandas queries (e.g., `... & isnotnull) & warningCode)`).
+
+**Query engine - `handlers/SearchCmdHandler.py`**
+
+- Added `FUNCTION_CALL` AST node type
+- Added `_SEARCH_FUNCTIONS` set: `isnull`, `isnotnull`, `isnum`, `isint`, `isstr`
+- Added function call detection in `parse_comparison()` - recognises
+  `func_name(field)` syntax and builds a proper `FUNCTION_CALL` AST node
+- Added `_peek_ahead_parenthesis()` helper for lookahead during function detection
+- Added Pandas query generation for each function:
+  - `isnull(field)` → `field.isna()`
+  - `isnotnull(field)` → `field.notna()`
+  - `isnum(field)` → digit check via `str.replace().isdigit()`
+  - `isint(field)` → integer check via `str.replace().isdigit()`
+  - `isstr(field)` → `isinstance(x, str)` check
+- Functions work standalone and combined with `AND`, `OR`, `IN`, and parenthesised
+  sub-expressions
+
+---
+
+### Added - Splunk-style macro system with full CRUD, nested expansion, and test UI
+
+Added a complete macro subsystem: define reusable query fragments as named macros,
+invoke them with backtick syntax (`` `macro_name(arg1, arg2)` ``), and let the engine
+perform text substitution before ANTLR4 parsing - exactly like Splunk macros.
+
+**New module - `macro_store.py`**
+
+- YAML-based CRUD store for macro definitions (`macros/*.yaml`)
+- Thread-safe writes with `threading.Lock()`
+- Fields: `name`, `definition`, `parameters` (list), `description`, `created_at`, `updated_at`
+
+**New module - `validation/MacroValidation.py`**
+
+- `validate_name()` - letters, digits, underscores only
+- `validate_definition()` - non-empty string check
+- `validate_parameters()` - ensures declared parameters match `$param$` tokens in definition
+- `validate_no_circular_reference()` - self-reference sanity check
+
+**Rewritten - `handlers/MacroHandler.py`**
+
+- Complete rewrite from DataFrame-based stub to pure text-substitution engine
+- `expand(query)` - scans for backtick-delimited macro calls, looks up definitions,
+  substitutes `$param$` placeholders with positional arguments
+- Nested macro support - definitions can contain macro calls that are recursively expanded
+- Cycle detection via expansion chain set - raises `ValueError` on circular references
+- Configurable `max_depth` (default 10) - raises `RecursionError` on runaway nesting
+- Comma-separated argument parsing with proper quoted-string handling via `csv.reader`
+
+**Integration - `query_engine/CmdExecutionBackend.py`**
+
+- Macro expansion now runs as a pre-parse step before `antlr4.InputStream` creation
+- Module-level `MacroStore`/`MacroHandler` singletons (matches existing pattern)
+
+**Removed - old backtick dispatch from `lexers/speakesQueryListener.py`**
+
+- Deleted the `if seg_str.startswith("`")` block in `_apply_command()` (lines 340-348)
+- Removed `MacroHandler` import and instantiation (no longer needed at parse time)
+- Added comment noting that macro expansion is now handled pre-parse
+
+**Backend - 7 new API endpoints (`desktop_app/server.py`)**
+
+- `GET /api/macros/list` - list all macros
+- `POST /api/macros/create` - create a new macro
+- `GET /api/macros/<name>` - get a single macro
+- `PUT /api/macros/<name>` - update a macro
+- `DELETE /api/macros/<name>` - delete a macro
+- `POST /api/macros/expand` - expand macro calls in a query (preview only)
+- `POST /api/macros/test` - expand + execute and return results
+
+**UI - new "Macros" tab (`desktop_app/ui.html`)**
+
+- 10th navigation tab with lazy-loaded content
+- Macro list table: Name, Parameters, Definition (truncated), Description, Updated, Actions
+- Create/Edit form with auto-detected parameters (extracted live from `$param$` tokens)
+- Delete with confirmation dialog
+- Test panel: "Expand Only" (preview expanded query) and "Expand & Run" (execute and
+  show results table)
+
+---
+
+### Added - Create Search: email body templates, token validation, and CSV attachment
+
+Enhanced the Create Search page with full email body authoring, variable substitution, and
+pre-save validation to ensure alert emails never contain blank fields.
+
+**UI - Create Search page (`desktop_app/ui.html`)**
+
+- Renamed "Email Address" label to "To Email Address" with hint clarifying it is the recipient
+- Added immutable "From Email Address" field that auto-populates from Settings → Email (SMTP)
+- Added "Email Body" textarea supporting inline `$variable_name$` token references - tokens are
+  replaced with result field values when the alert fires
+- Added "Multivalue Truncation Limit" input (default 3) - multivalue fields exceeding the limit
+  render as `entry1, entry2, entry3, ... [+] Truncated 47 Entries`
+- Added "Attach CSV of Results" radio button (Yes / No, defaults to No) - optionally attaches a
+  CSV of full search results to each alert email
+- Added "Token Validation Lookback" input (1–90 days, default 30, integer-second fidelity) -
+  before saving, the UI extracts `$token$` variables from the body, runs a historical query, and
+  warns if any token column is null/blank so the user can fix the template before it fires
+
+**Backend - new endpoint (`desktop_app/server.py`)**
+
+- `POST /api/ss/validate-tokens` - executes the saved search query, checks each referenced token
+  against result columns for null/blank/missing values, returns per-token null counts and totals
+
+**Data model (`saved_search_store.py`)**
+
+- New YAML fields: `email_body`, `mv_truncate_limit`, `attach_csv`, `token_validation_days`
+- All new fields are included in `update_search()` updatable set
+
+**Email engine (`query_engine/Alert.py`)**
+
+- `render_email_body(template, row, mv_truncate_limit)` - replaces `$var$` tokens with row values;
+  list fields auto-truncated per the configurable limit
+- `_truncate_multivalue(values, limit)` - formatting helper for list-typed fields
+- `build_email_message()`, `send_email_async()`, `send_email()` - added optional `csv_bytes` /
+  `csv_filename` parameters for CSV attachment support
+
+---
+
+### Removed - Root-level Docker files consolidated into desktop_app/
+
+Deleted the orphaned root `Dockerfile` and `docker-compose.yml` which were stale duplicates
+of the canonical files in `desktop_app/`. The root `Dockerfile` still referenced the
+previously-deleted `requirements-dev.txt`. Updated `.dockerignore` to cover databases
+(`.db`, `.sqlite`, `.sqlite3`), runtime data dirs, and IDE artifacts. Bumped
+`desktop_app/Dockerfile` base image from Python 3.11 to 3.12 to match the project venv.
+Fixed `README.md` Docker instructions to point to `desktop_app/docker-compose.yml`.
+
+- **Deleted:** `Dockerfile` (root) - stale duplicate, referenced non-existent `requirements-dev.txt`
+- **Deleted:** `docker-compose.yml` (root) - stale duplicate with obsolete PyCharm debug env vars
+- **Kept:** `.dockerignore` (root) - still needed; `desktop_app/docker-compose.yml` uses `context: ..`
+- **Updated:** `.dockerignore` - added `.sqlite`, `.sqlite3`, `scheduled_input_scripts/`, IDE files
+- **Updated:** `desktop_app/Dockerfile` - base image `python:3.11-slim` → `python:3.12-slim`
+- **Updated:** `README.md` - Docker command now references `desktop_app/docker-compose.yml`
+
+### Removed - Orphaned files, obsolete docs, and tracked database files
+
+Pruned the repository of files that were no longer referenced, duplicated active content, or described features (authentication, multi-user admin) that were never wired into the current architecture. Also hardened `.gitignore` to exclude all database files project-wide and untracked 9 `.db`/`.sqlite` files that were committed to the repo.
+
+**Deleted - orphaned code (0 import references)**
+
+- `functionality/FindNextCron.py` - cron suggestion utility superseded by APScheduler; never imported
+- `utils/auth.py` - multi-user auth decorator (`admin_required`); never imported; conflicts with local-first design
+
+**Deleted - obsolete documentation**
+
+- `docs/api.md` - described authentication tokens, admin account creation, and `app.py` entry point, none of which exist; replaced by the in-app Documentation tab (`docs/lang/`)
+- `docs/syntax.md` - early query syntax reference superseded by `docs/lang/01_fundamentals.md` and `docs/lang/02_commands.md`
+- `docs/manual_tests.yaml` - test cases for auth workflows (`/register.html`, `/login.html`, `/change_password.html`) that were never implemented
+
+**Deleted - redundant/outdated config files**
+
+- `environment.yml` - Conda environment specifying Python 3.11; project enforces 3.12 via pip/venv
+- `macos_requirements.txt` - incomplete (8 packages); superseded by `requirements.txt`
+- `ubuntu_requirements.txt` - incomplete (8 packages); superseded by `requirements.txt`
+- `update_notes/` (2 files) - historical changelogs superseded by `desktop_app/CHANGELOG.md`
+- `workspace.xml` - PyCharm IDE artifact leaked to repo root
+
+**`.gitignore`**
+
+- Changed `/*.db` and `/*.sqlite` (root-only) to `*.db` and `*.sqlite` (project-wide) so database files in any subdirectory are excluded; added explanatory comment that these are user-generated runtime data and should be backed up externally
+- Removed now-redundant `/credentials.sqlite` line (covered by the global `*.sqlite` pattern)
+- Added `workspace.xml` to IDE/Editor section
+
+**Untracked from git index (files remain on disk, now gitignored)**
+
+- `history.db`, `saved_search_history.db`, `saved_searches.db`, `scheduled_inputs.db`, `scheduled_inputs_history.db` (root)
+- `indexes/archive/test_dbs/congress_members.db`, `senate_trading.db`, `test_db0.db`, `test_db1.db`
+
+**`README.md`**
+
+- Updated nav links: replaced dead `docs/syntax.md` → `docs/lang/01_fundamentals.md`, `docs/api.md` → `docs/lang/06_application_guide.md`
+
+**`desktop_app/DEBUGGING.md`**
+
+- Rewrote local setup to recommend `./setup.sh` (with manual fallback using `python3.12` and `env/`)
+- Updated all `.venv` references to `env/` (interpreter path, activate command, PyCharm config)
+- Updated Python version requirement from 3.11+ to 3.12.x
+- Updated Docker command from `./desktop_app/run.sh` to `docker compose up --build -d`
+- Added `./run_all.sh` to quick reference
+- Updated `.env` setup to reference root `.env.example` and mention the Settings page alternative
+
+---
+
+### Fixed - SMTP TLS certificate verification failure on macOS
+
+`ssl.create_default_context()` failed with `CERTIFICATE_VERIFY_FAILED` on macOS because Python 3.12's default CA file path (`/Library/Frameworks/…/cert.pem`) is typically missing. Also fixed a positional-only argument error in `aiosmtplib` 3.x where `message` was passed as a keyword argument.
+
+**`query_engine/Alert.py`**
+
+- SSL context now uses `certifi.where()` as the CA bundle, with a graceful fallback to the system default if `certifi` is not installed. Verified: TLS handshake to `smtp.gmail.com:465` succeeds with the `certifi` bundle on macOS
+- Changed `aiosmtplib.send(message=msg, …)` to `aiosmtplib.send(msg, …)` - in aiosmtplib 3.x the `message` parameter is positional-only (denoted by `/` in the signature); passing it as a keyword raised `TypeError`
+
+**`requirements.txt` / `desktop_app/requirements.txt`**
+
+- Added `certifi>=2024.0` as an explicit dependency (previously only a transitive dep of `requests`) with a comment explaining why it is needed
+
+**`setup.sh`**
+
+- Added `certifi` to the critical-package verification list so missing CA bundles are caught at setup time, not at first email send
+
+---
+
+### Fixed - Test email button auto-saves SMTP settings before sending
+
+The "Send Test Email" button now automatically persists the current SMTP form values to `global_settings.yaml` before dispatching the test email. Previously, users who filled in the Email section and clicked Test (without first clicking Save Settings) received a circular "SMTP credentials not configured - set them on the Settings page" error, because the backend read from persisted settings which were still empty. Also improved the error message to specify exactly which field is missing (username, password, or both) and added a client-side pre-flight check for empty password.
+
+**`desktop_app/ui.html`**
+
+- Test Email click handler now collects all 6 SMTP fields from the form (`smtp_server`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_from`, `smtp_starttls`), POSTs them to `/api/settings` to persist, then sends the test - eliminating the save-first requirement
+- Added client-side validation: blocks the test with a clear message if the password field is empty (in addition to the existing username check)
+- Status text shows "Saving settings & sending…" during the combined operation
+
+**`query_engine/Alert.py`**
+
+- Replaced generic "SMTP credentials not configured" error with a diagnostic message that names the specific missing field(s): "SMTP credentials incomplete - missing: SMTP username" / "SMTP password" / "SMTP username and SMTP password"
+- Updated log message to match
+
+**`docs/lang/06_application_guide.md`**
+
+- Updated Send Test Email description: clarified that the button auto-saves settings, no need to click Save first
+
+**`docs/lang/07_email_setup.md`**
+
+- Updated troubleshooting section header and text to match the new error message wording
+- Added note about auto-save behavior
+
+---
+
+### Changed - Dependency hardening, venv auto-activation, and setup documentation
+
+Hardened the bootstrap pipeline so that critical packages are verified immediately after install (fail-fast instead of surfacing cryptic `ImportError`s at runtime), and ensured the project venv is consistently activated across all launch paths.
+
+**`setup.sh`**
+
+- Added post-install critical-package verification step: imports `pandas`, `pyarrow`, `flask`, `requests`, `bs4`, `lxml`, `cryptography`, `restrictedpython`, `apscheduler`, and `aiosmtplib` in the venv Python and fails fast with OS-specific remediation hints (compiler, dev headers) if any are missing
+- Verification runs after `pip install` and before C++ component builds, so failures surface early
+
+**`run_all.sh`**
+
+- Added automatic venv activation: detects `env/bin/activate` or `.venv/bin/activate` and sources it before launching services, so `python` resolves to the project interpreter without manual activation
+
+**`desktop_app/requirements.txt`**
+
+- Updated setup instructions to recommend `./setup.sh` as the primary path, with manual steps as an alternative
+- Updated venv directory references from `.venv` to `env/` (matching `setup.sh` default)
+- Updated PyCharm interpreter hint to reference `env/`
+
+**`README.md`**
+
+- Added dependency verification and venv auto-activation to the Quick Start feature list
+- Added note that `run_all.sh` auto-activates the venv
+
+---
+
+### Added - CodeMirror code editor, live lint, improved error messages, and overwrite mode warning
+
+Replaced the plain textarea on the Create Ingestion page with a full-featured Python code editor, added server-side syntax linting, improved test error messages for common failure modes, enforced timeout on test runs, and added a dynamic warning when overwrite mode is selected.
+
+**`desktop_app/ui.html`**
+
+- **CodeMirror 5 editor**: replaced the `#si-code` textarea with a CodeMirror instance featuring Python syntax highlighting, line numbers, bracket matching, auto-close brackets, active line highlight, auto-indent/dedent (`Tab`/`Shift-Tab`), and comment toggle (`Ctrl`+`/` or `Cmd`+`/`)
+- **Autocomplete**: custom completion source with 50+ entries covering sandbox modules (`pd`, `requests`, `bs4`, `lxml`, etc.), common library methods (`pd.DataFrame`, `requests.get`, `soup.find_all`, etc.), builtins (`import`, `def`, `for`, `try`, etc.), and the SpeakesQuery API (`GENERATE_RESULTS`, `CREDENTIALS`, `get_cached_or_fetch`). Triggers on every letter/dot keystroke; also available via `Ctrl`+`Space`
+- **Live syntax linting**: debounced (500ms) `POST /api/si/lint` call on every code change; syntax errors are shown as red dot markers in the lint gutter with tooltip messages on hover
+- **Overwrite mode warning**: dynamic hint text on the Overwrite Mode select - turns amber with an explicit data-loss warning when "Overwrite" is selected, reverts to neutral hint for "Append"
+- **CSS**: ~60 lines of CodeMirror theme overrides mapping to SpeakesQuery design tokens (background, text, gutter, cursor, selection, active line, all syntax token colors); autocomplete dropdown styled to match; lint gutter markers styled in `#f87171`
+- **CDN assets**: CodeMirror 5.65.18 core + Python mode + show-hint, matchbrackets, closebrackets, comment, and active-line addons (~85KB gzipped total)
+- Updated all `$siCode.value` references to use `_cmEditor.getValue()` / `_cmEditor.setValue()` (clearSiForm, populateSiForm, testSiCode, saveSiScript, library deploy)
+- Added `_cmEditor.refresh()` call on tab switch to Create Ingestion (CodeMirror requires visibility to calculate dimensions)
+- Updated sandbox hint text to include `bs4` and `lxml` and to document keyboard shortcuts
+
+**`desktop_app/server.py`**
+
+- **`POST /api/si/lint`** (new endpoint): runs `compile(code, '<user_code>', 'exec')` and returns structured syntax errors with line number, column offset, error message, and source text. Near-instant (<1ms) with zero side effects
+
+**`scheduled_input_engine/executor.py`**
+
+- Replaced generic `except Exception` in `execute_test()` with 8 targeted exception handlers:
+  - `SyntaxError` - includes line number and source text
+  - `ImportError` - lists all available sandbox modules
+  - `NameError` - suggests similar sandbox globals for likely typos
+  - `TypeError` - special guidance when GENERATE_RESULTS is involved
+  - `ValueError` - passed through as-is
+  - `RuntimeError` - distinguishes budget/timeout errors from other runtime failures
+  - `ConnectionError` / `ConnectTimeout` - suggests checking URL and Allowed API Domains
+  - `HTTPError` - suggests checking credentials for 401/403
+
+**`scheduled_input_engine/engine.py`**
+
+- **Test run timeout enforcement**: `test_task()` now wraps `execute_test()` in a `concurrent.futures.ThreadPoolExecutor` with the configured script timeout. Returns a structured fail result with an actionable error message if the test exceeds the timeout
+
+**`docs/lang/06_application_guide.md`**
+
+- Added **Code editor** subsection documenting syntax highlighting, autocomplete, live linting, bracket matching, auto-close, comment toggle, and keyboard shortcuts
+- Added **Common test errors and what they mean** table with 12 error types and remediation guidance
+- Updated Overwrite Mode field description with explicit data-loss warning and use-case guidance
+- Updated "Key things to remember" with editor behavior notes and overwrite warning
+
+**`docs/lang/04_advanced.md`**
+
+- Added **Code editor features** subsection documenting autocomplete, live lint endpoint, and keyboard shortcuts
+- Expanded **Test gate** section with resource budget enforcement and error message improvements
+- Added **Overwrite vs. Append** comparison table with use cases, behavior details, and atomic write guarantees
+
+---
+
+### Added - Web scraping support (BeautifulSoup + lxml) and per-execution resource budgets
+
+Enabled HTML scraping as a first-class ingestion method alongside REST APIs, and added defense-in-depth resource budgets that prevent runaway scripts from exhausting memory, threads, or network resources.
+
+**`scheduled_input_engine/executor.py`**
+
+- Added `bs4` (BeautifulSoup4) and `lxml` to the RestrictedPython sandbox allowlist, enabling `from bs4 import BeautifulSoup` and lxml-based HTML/XML parsing in ingestion scripts
+- Updated `_safe_import()` to also permit `lxml.html` sub-imports
+- Updated module docstring to reflect the expanded allowlist
+
+**`scheduled_input_engine/cache.py`**
+
+- Added thread-local per-execution budget tracking (`reset_budget()`, `_check_budget()`, `_check_response_size()`)
+- `get_cached_or_fetch()` now increments the request counter and checks response body size against the budget before returning data
+- Added `BudgetAwareRequests` proxy class: a drop-in replacement for the `requests` module that wraps `get`, `post`, `put`, `patch`, `delete`, and `head` with budget enforcement - so scripts calling `requests.get()` directly (not just `get_cached_or_fetch()`) also count against both budgets
+- Error messages include the setting name so users know which limit to adjust
+
+**`scheduled_input_engine/engine.py`**
+
+- **Script timeout enforcement** (bug fix): Python ingestion scripts now execute inside a `concurrent.futures.ThreadPoolExecutor` with a wall-clock timeout matching `default_script_timeout_seconds`. Previously, only subprocess-based repo scripts had timeout enforcement - Python scripts ran indefinitely.
+- **Max output rows enforcement**: after execution, DataFrames exceeding `max_output_rows` are truncated via `.head()` before the parquet write, with a warning logged
+- Budget reset and `BudgetAwareRequests` injection: each script run calls `reset_budget()` with the configured limits and receives the budget-aware `requests` proxy in its sandbox globals - both in production runs (`_run_task`) and test runs (`test_task`)
+
+**`global_settings.py` / `global_settings.defaults.yaml`**
+
+- Added 3 new per-execution resource budget settings with validation:
+  - `max_output_rows` - default 500,000, range 1,000–10,000,000
+  - `max_requests_per_execution` - default 50, range 1–500
+  - `max_response_size_mb` - default 10, range 1–100
+
+**`desktop_app/ui.html`**
+
+- Added **Max Output Rows**, **Max Requests / Execution**, and **Max Response Size (MB)** fields to the Ingestion section of the Settings page, with validation hints matching the backend ranges
+- Extended `settingsFields` JS object with the three new integer fields
+
+**`requirements.txt` / `desktop_app/requirements.txt`**
+
+- Added `beautifulsoup4~=4.12` and `lxml~=5.2`
+
+**`docs/lang/04_advanced.md`**
+
+- Added **Available libraries** subsection listing all sandbox-allowed modules (including bs4 and lxml)
+- Added **Per-execution resource budgets** subsection with a table of all four budget types, their defaults, and descriptions
+
+**`docs/lang/06_application_guide.md`**
+
+- Updated Create Ingestion standard libraries list to include `bs4` and `lxml`
+- Updated Settings > Ingestion table with three new resource budget settings and their defaults/ranges
+- Changed Script Timeout description to note enforcement on both Python and subprocess scripts
+
+---
+
+### Added - Email (SMTP) settings UI, test email, and setup documentation
+
+Integrated outbound email configuration directly into the application so users no longer need to manually edit `.env` files. Gmail with App Passwords remains the default and recommended path.
+
+**`global_settings.py` / `global_settings.defaults.yaml`**
+
+- Added 6 new SMTP settings to the global settings store: `smtp_server` (default `smtp.gmail.com`), `smtp_port` (default `587`), `smtp_user`, `smtp_password`, `smtp_from`, `smtp_starttls` (default `true`)
+- Added validators: port range 1–65535, string type checks for server/user/password/from, boolean check for starttls
+
+**`query_engine/Alert.py`**
+
+- Rewrote `load_smtp_config_from_env()` with 3-tier precedence: environment variables (highest) → global settings (Settings page) → built-in defaults
+- Added `_settings_value()` helper for lazy, fail-safe reads from `global_settings` (avoids circular imports, never raises)
+- Error messages now direct users to the Settings page Email section instead of only mentioning env vars
+
+**`desktop_app/ui.html`**
+
+- Added **Email (SMTP)** settings section between Security and the Save/Reset buttons: SMTP Server + Port (side-by-side), Username + Password (masked input), From Address + STARTTLS checkbox
+- Added **Send Test Email** button with inline status feedback (sending/success/error states)
+- Added link to the Email Setup Guide documentation from the section header
+- Extended `settingsFields` JS object with `smtp_server`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_from`, `smtp_starttls`
+- Extended `populateSettings()` and `collectSettings()` to handle `password` (masked) and `bool` (checkbox) field types
+
+**`desktop_app/server.py`**
+
+- **`POST /api/email/test`** (new endpoint): sends a test email to a specified address using the currently saved SMTP configuration; returns success/error with descriptive messages; 15-second timeout
+
+**`desktop_app/main.py`**
+
+- **`email_test(to)`** (new pywebview API method): mirrors the Flask `/api/email/test` endpoint for native desktop mode
+
+**`docs/lang/07_email_setup.md`** (new file)
+
+- Step-by-step Gmail App Password setup with direct links to Google account pages
+- Alternative SMTP providers table (Outlook, Yahoo, Zoho, SendGrid, Mailgun) with server/port details
+- Configuration precedence explanation (env vars vs Settings page)
+- Troubleshooting section: authentication errors, missing alerts, connection timeouts, domain requirements
+- Security notes on credential storage and TLS encryption
+
+**`docs/lang/06_application_guide.md`**
+
+- Added Email (SMTP) settings table to the Settings section with field descriptions and defaults
+- Added cross-link to the full Email Setup Guide
+
+**`.env.example`**
+
+- Updated SMTP section with clearer comments, App Password link, and note that Settings page is an alternative
+
+---
+
+### Fixed - Credential form hidden on initial Create Ingestion tab load
+
+**`desktop_app/ui.html`**
+
+- Removed `display:none` from the `#si-cred-form` div's inline style so the Key Name, Value, and Store Credential inputs are visible immediately when the Create Ingestion tab loads, without requiring `clearSiForm()` to run first
+
+### Added - Comprehensive SpeakesQuery language documentation and in-app Documentation tab
+
+Built a full language reference for the SpeakesQuery query language across five documentation files, and integrated them into the desktop UI as a new "Docs" tab with sidebar navigation, Markdown rendering, and full-text search.
+
+**Documentation files (`docs/lang/`)**
+
+- **`01_fundamentals.md`** - Query structure and pipeline model, data sources (`index`, `inputlookup`, `loadjob`), time ranges (absolute and relative), comparison/logical/arithmetic operators, `IN` operator, case-insensitive field resolution, field quoting with single quotes, string/number/boolean/null literals, comments, multiline queries, timespan syntax, subsearch overview, macro invocation, pipeline execution model and performance tips, complete reserved words list
+- **`02_commands.md`** - Full reference for all 42+ pipeline commands organized into 8 categories: Filtering (`search`/`where`, `regex`), Column Operations (`fields`, `table`, `maketable`, `rename`), Aggregation (`stats` with 15 aggregation functions, `eventstats`, `streamstats`, `timechart`), Sorting & Limiting (`sort`, `head`/`limit`, `reverse`), Evaluation & Transformation (`eval`, `bin`), Data Enrichment (`lookup`, `join` with 3 join types, `append`, `appendpipe`, `multisearch`), Data Quality (`dedup` with consecutive mode, `fieldsummary`, `fillnull`, `coalesce`), Field Extraction (`rex` regex and sed modes, `spath`), Output (`outputlookup`, `outputnew`, `base64`), Multi-Value (all 12 `mv*` commands), plus quick-reference summary table
+- **`03_functions.md`** - All eval functions grouped by category: String (18 functions including `concat`, `replace`, `match`, `split`, `defang`/`fang`), Numeric (6 functions), Conditional (`if_`, `case`, `coalesce`, `isnull`/`isnotnull`, `null()`), Encoding (`base64_encode`/`base64_decode`), Multi-Value eval functions (10 functions with detailed `mvfilter` predicate documentation), Stats aggregation functions (15 functions with `streamstats` cumulative behavior table), MV-awareness summary showing which functions apply per-element vs. operate on the list itself
+- **`04_advanced.md`** - Subsearch execution model and nesting, joins and enrichment decision table, macro definition and invocation, rex deep dive (regex mode with named groups/`max_match`/collision handling, sed mode), timechart workflows with eval patterns, saved search YAML structure with all fields and cron examples, scheduled input lifecycle and test gate, credential vault encrypted storage model, lookup management with all supported formats, spath JSON path extraction, case-insensitive field resolution internals, `!` (NOT) shorthand
+- **`05_cookbook.md`** - 80+ task-oriented "I want to..." recipes across 16 categories: Filtering & Searching, Counting & Aggregating, Transforming Data, Time-Series Analysis, Column Management, Sorting & Limiting, Deduplication, Field Extraction & Parsing, Multi-Value Fields, Enrichment & Joining, Output & Export, Encoding & Security, Data Investigation, Running Totals & Row Numbers, Eventstats patterns, Common Recipes (percentage breakdowns, week-over-week comparison, anomaly detection, dashboard tables)
+
+**`desktop_app/server.py`**
+
+- **`GET /api/docs/`** (new endpoint): returns an ordered JSON array of doc files with titles parsed from each file's `# H1` heading; scans `docs/lang/` for `.md` files sorted alphabetically
+- **`GET /api/docs/<filename>`** (new endpoint): returns raw Markdown content for a specific documentation file; validates filename against `^[\w\-]+\.md$` regex to prevent path traversal
+
+**`desktop_app/ui.html`**
+
+- **"Docs" nav tab**: added between Script Library and Settings in the navigation bar
+- **Documentation page** (`#page-docs`): two-panel layout using flexbox - 240px sidebar + scrollable content area, both using `--bg-box` background with consistent `--border` and `--radius` styling
+- **Sidebar** (`.docs-sidebar`): header with "Documentation" title and search input (`.docs-search`), navigation list (`.docs-nav`) with numbered section links, active state with left-border accent in `--primary` color, hover states matching existing UI patterns
+- **Content area** (`.docs-content-wrap`): rendered Markdown with max-width 820px, comfortable padding, and scroll-to-top on navigation
+- **Markdown rendering**: `marked.js` v12 loaded from CDN; configured for GFM (GitHub Flavored Markdown); internal doc links (e.g., `02_commands.md`) rewritten to in-app click handlers via regex replacement
+- **Full-text search**: search input filters sidebar links by title AND cached content; highlights matches in the rendered content using `<mark>` tags via TreeWalker-based text node replacement; skips `<code>` and `<pre>` elements to avoid breaking syntax examples
+- **Content caching**: docs are lazy-loaded on first tab visit; after the first doc loads, `precacheAllDocs()` fetches all remaining files in the background for instant navigation and complete search coverage
+- **~200 lines of CSS** for documentation styling, all using existing design tokens: `h1` with `--primary` bottom border, `h2` with `--border` separator, `h3` in `--th-color`, code blocks with `--bg-input` background and `--code-text` color, tables matching `.data-table` styling (striped rows, sticky headers, hover states), blockquotes with `--primary` left border for notes, `<mark>` highlighting with `--primary-glow` background
+- **Theme support**: all documentation styles inherit from CSS custom properties, working correctly across dark, light, and night themes
+
+### Added - Application Guide documentation (`docs/lang/06_application_guide.md`)
+
+Created a comprehensive application usage guide covering every tab in the desktop UI - form fields, workflows, key tips, and common task walkthroughs. This is a new section in the Docs tab focused on *using the application* rather than language syntax.
+
+- **Query tab**: query textarea, keyboard shortcuts (Enter to run, Shift+Enter for newline), file browser sidebar usage, export (CSV/JSON), pagination, multi-value cell rendering, last-query persistence
+- **Lookups tab**: upload/preview/download/delete workflow for CSV, JSON, TSV, and Parquet reference files; 200-row preview cap
+- **Create Search tab**: all form fields (name, query, cron, lookback, trigger, email, description), Import from Query flow, schedule-from-query flow, duplicate name handling
+- **Searches tab**: table columns, edit/view/delete actions, YAML viewer modal, 30-day soft-delete recovery
+- **Create Ingestion tab**: all form fields (title, code, cron, subdirectory, overwrite mode, API URL), subdirectory color-coded validation, test gate mechanism, supported libraries list, code editor Tab-key behavior
+- **Credentials sidebar**: staging mode for new scripts, validation rules (ASCII-only, no spaces, no percent-encoding, no shell metacharacters), credential lifecycle (store before test, auto-migrate on save)
+- **Ingestion Scripts tab**: toggle enable/disable, edit/test/history/delete actions, history modal with execution records
+- **Script Library tab**: card display, preview modal, deploy workflow, credential requirements
+- **Docs tab**: sidebar navigation, full-text search, content caching, cross-doc links
+- **Settings tab**: all settings grouped by category (Storage, Maintenance, Subdirectory, Ingestion, Security) with descriptions, defaults, and validation ranges
+- **Common Workflows section**: 5 step-by-step walkthroughs for frequent tasks (API ingestion with credentials, library script deployment, alert creation, failure investigation, querying new data)
+
+### Fixed - Credential chicken-and-egg bug: credentials can now be saved before a script exists
+
+Previously, API credentials could only be stored after an ingestion script was saved, but scripts must pass a test before saving, and some scripts need credentials to pass the test. This created a deadlock for any script that requires an API key on its first run.
+
+**`scheduled_input_engine/credentials.py`**
+
+- **`_validate_credential_input()` (new static method)**: strict input validation applied to both key names and values before encryption:
+  - Rejects non-ASCII characters
+  - Rejects all whitespace (spaces, tabs, newlines)
+  - Rejects percent-encoded sequences (`%XX`) that could bypass text filters
+  - Rejects null bytes and shell metacharacters (`` ` $ \ ; | & < > ( ) { } ! ``) to prevent command injection
+- **`store()` updated**: now calls `_validate_credential_input()` for both key_name and plaintext_value before encryption
+- **`migrate_staging()` (new method)**: moves all credentials from staging (`script_id=0`) to a real script ID on save; overwrites any existing credentials with the same key name; cleans up staging rows after migration
+
+**`scheduled_input_engine/engine.py`**
+
+- **`migrate_staging_credentials()` (new method)**: exposes `CredentialVault.migrate_staging()` to the API layer
+
+**`desktop_app/server.py`**
+
+- **`si_add` endpoint updated**: after creating a new script, automatically calls `migrate_staging_credentials(task["id"])` to move any pre-saved staging credentials to the new script
+- **`si_test_code` endpoint updated**: when no `task_id` is provided (new script being tested), defaults to `task_id=0` so the test sandbox picks up staging credentials
+
+**`desktop_app/ui.html`**
+
+- **Credential form always visible**: removed the "Save the script first to manage credentials" gate; the credential form now appears immediately on the Create Ingestion tab
+- **Staging mode for new scripts**: the Store Credential button uses `script_id=0` when no script is loaded for editing; credentials are stored server-side in staging and automatically migrated when the script is saved
+- **Client-side validation**: `_validateCredInput()` function mirrors the server-side rules - rejects non-ASCII, whitespace, percent-encoding, and shell metacharacters with clear error messages before the API call is made
+- **Library deploy message updated**: changed from "Save the script first, then add credentials" to "Add them in the sidebar before testing"
+
+---
+
+### Fixed - Rex MV support, MV eval functions, max_match=0 semantics, and NaN-in-list JSON serialization
+
+Fixed rex extraction against multi-value fields, added 9 multi-value eval functions (`mvdedup`, `mvsort`, `mvcount`, `mvjoin`, `mvfind`, `mvindex`, `mvreverse`, `mvappend`, `mvzip`), corrected `max_match=0` to mean "unlimited" (Splunk semantics), and eliminated a JSON serialization crash caused by NaN values nested inside list-typed cells.
+
+**`handlers/GeneralHandler.py`** (`execute_rex`)
+
+- **Case-insensitive field resolution**: `rex field=ACTOR` now resolves to actual column `actor`
+- **MV-aware extraction**: `extract_matches` iterates each element in a list cell, collecting matches across all values; scalar cells work unchanged
+- **`max_match=0` = unlimited**: converted to `float('inf')` so all matches are collected; previously `matches[:0]` returned nothing
+- **Named group syntax fix**: corrected regex conversion from `r"P<\1>"` to `r"?P<\1>"` - was producing invalid `(P<name>)` instead of `(?P<name>)`
+- **No-match rows produce `None`**: previously `apply(pd.Series)` on empty dicts created NaN cells which `mvdedup` wrapped as `[nan]`; now explicitly converted to `None`
+- **Single-value flattening**: single-match results unwrapped from `[val]` to scalar; multi-match results stay as MV fields
+- **MV-aware sed mode**: `s/regex/replacement/` applies to each element in a list individually
+
+**`handlers/EvalHandler.py`**
+
+- **9 MV eval functions** added to `custom_eval`: `mvdedup` (order-preserving dedup via `dict.fromkeys`), `mvsort` (lexicographic), `mvcount` (length), `mvreverse`, `mvjoin(x, delim)`, `mvfind(x, regex)` (returns index, -1 if none), `mvindex(x, idx)`, `mvappend(v1, v2, ...)`, `mvzip(a, b, delim)`
+- **`_mv_eval_unary`**, **`_mv_eval_binary`**, **`_mv_eval_ternary`** (new helpers): operate on the list as a whole (dedup, sort, join) rather than per-element; scalar cells promoted to single-element lists; NaN/None/empty cells pass through unchanged
+- **`_eval_mvappend`** (new static method): concatenates values and lists from variadic args into a single MV field per row
+- **NaN guard in `_mv_eval_unary`**: added `v != v` NaN detection to emptiness check so MV functions don't wrap NaN in `[nan]`
+- **Special keywords expanded**: added `mvdedup(`, `mvsort(`, `mvcount(`, `mvreverse(`, `mvjoin(`, `mvfind(`, `mvindex(`, `mvappend(`, `mvzip(` to route through `custom_eval`
+
+**`desktop_app/server.py`** and **`desktop_app/main.py`**
+
+- **NaN-in-list scrub**: after `fillna("")`, iterates list-typed columns and strips `float('nan')` values from inside lists before JSON serialization; prevents `JSON.parse` crash from bare `NaN` tokens in the response
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Fixed - MV-aware eval functions and case-insensitive column resolution in eval expressions
+
+All applicable eval functions now transparently operate on multi-value fields: when a cell contains a list (from `values()` aggregation), the function is applied to each element individually, preserving the list structure. Previously, functions like `upper(ACTOR)` on an MV field would fail with `"Use of name 'ACTOR' is not allowed"` due to case-sensitive column lookup, and `.str` accessor calls would choke on list-typed cells.
+
+**`handlers/EvalHandler.py`**
+
+- **`_mv_apply(fn)`**, **`_mv_apply2(fn)`**, **`_mv_apply3(fn)`** (new static methods): wrap scalar functions to handle list-typed cells - scalar cells pass through directly, list cells map the function over each element; three variants for unary, binary, and ternary functions
+- **16 functions made MV-aware** via wrappers: `upper`, `lower`, `capitalize`, `trim`, `ltrim`, `rtrim`, `len`, `tostring`, `tonumber`, `urlencode`, `urldecode`, `base64_encode`, `base64_decode`, `abs`, `sqrt`; plus multi-arg: `match` (2-arg), `substr` (3-arg), `replace` (3-arg)
+- **Case-insensitive column resolution in `custom_eval`**: adds both lowercase and uppercase variants of every column name to the eval environment so `ACTOR`, `Actor`, and `actor` all resolve to the same Series
+- **`pandas.eval` fallback**: now falls back to `custom_eval` when `df.eval()` fails, ensuring case-insensitive column support for simple arithmetic expressions
+- **Concat branch fixed**: nested `tostring()`/`lower()`/`upper()` calls inside `concat()` now delegate through `safe_eval` for MV-awareness and case-insensitive column resolution; bare column lookups use case-insensitive map
+- **Special keywords list expanded**: added `capitalize(`, `len(`, `tostring(`, `substr(`, `replace(`, `urlencode(`, `urldecode(`, `base64_encode(`, `base64_decode(` so these route through MV-aware `custom_eval` instead of falling through to `pandas.eval`
+- **`urlencode`/`urldecode` imports**: moved from per-call `__import__` to module-level `from urllib.parse import quote, unquote` for efficiency
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Added - Eval `mvfilter()` function, `match()` support, `!` operator, multi-value cell rendering, and case-insensitive eval field resolution
+
+Implemented Splunk-compatible `mvfilter()` as an eval function with full per-element predicate evaluation on multi-value fields. Added `match()` regex function and SPL `!` (NOT) operator support to the eval expression engine. Multi-value fields now render as Splunk-style stacked values with individual hover highlighting in the Query results table. Eval field assignments now resolve case-insensitively against existing DataFrame columns.
+
+**`handlers/EvalHandler.py`**
+
+- **`_eval_mvfilter(expr, df)`** (new method): Splunk-compatible `mvfilter()` - identifies the multi-value field referenced in the boolean expression, builds a sandboxed per-element AST evaluator, and filters each row's list keeping only values where the predicate is true; supports `match()`, `not`, `isnull`, `isnotnull`, `lower`, `upper`, `len`, `like`, comparisons, and boolean combinators
+- **`mvfilter(` branch** in `safe_eval`: intercepts mvfilter expressions before other routing
+- **`!` → `not` preprocessing** in `safe_eval`: converts SPL's `!` operator to Python's `not` before AST parsing via `re.sub(r'!(?=\s*[a-zA-Z_])', 'not ', expr)`
+- **`match()` function** added to `custom_eval` local environment: `bool(re.search(pattern, str(val)))` - supports full regex including inline flags like `(?si)`
+- **Case-insensitive field resolution** in `run_eval`: assignment target (LHS of `field=expr`) now resolves to existing column casing, so `eval ACTOR=...` correctly overwrites the `actor` column instead of creating a duplicate
+
+**`lexers/speakesQueryListener.py`**
+
+- **Eval bypasses ANTLR token extraction**: removed `"eval"` from the ANTLR parse-tree override block; eval commands now use the raw segment string instead of ANTLR-parsed tokens, preventing token mangling for functions and operators (`!`, `mvfilter`) that the grammar doesn't recognize in eval context
+- **`_cmd_eval` uses raw `seg_str`**: extracts everything after `"eval "` from the raw pipeline segment to preserve `!`, quotes, and nested parentheses verbatim
+
+**`desktop_app/ui.html`**
+
+- **Multi-value cell rendering**: `renderPage()` now detects JavaScript arrays (from `values()` aggregation) and renders them as stacked `<span class="mv-val">` elements inside a `<div class="mv-container">` flexbox column, matching Splunk ES's multi-value field presentation
+- **Hover highlighting**: individual values within multi-value cells highlight on hover with a translucent primary-color glow (`--primary-glow`)
+- **CSS**: new `.mv-cell` (overrides `white-space: normal`, delegates padding to children), `.mv-container` (flex column), `.mv-val` (per-value padding, bottom border separator, hover highlight) styles
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Fixed - Stats command: case-insensitive field resolution and accurate result headers
+
+Stats, eventstats, and streamstats commands now resolve user-supplied field names case-insensitively against actual DataFrame columns, matching Splunk's behavior. Previously, `| stats count by Type` would fail with `"Group fields not in DataFrame: ['Type']"` when the parquet stored the column as `type`. Result table headers in the Query page now reflect the actual stored column casing, not the user's typed casing.
+
+**`handlers/StatsHandler.py`**
+
+- **`_resolve_column(name, df_columns)`** (new static method): returns the actual DataFrame column name matching the input, preferring exact-case match first, falling back to case-insensitive lookup; returns the original name unchanged if no match exists (preserving clear downstream error messages)
+- **`_resolve_fields(specs, group_fields, df)`** (new method): resolves all user-supplied field references - spec fields, group-by fields, and aliases - to stored column casing in a single pass before any aggregation logic runs
+- **`_parse_function_specs()`**: now tracks `alias_explicit` flag to distinguish user-specified `as` aliases from auto-generated ones (e.g., `values(actor)`)
+- **Alias casing rules**: auto-generated aliases are rebuilt with the resolved field name (e.g., `values(ACTOR)` → `values(actor)`); explicit aliases that match a real column name are resolved to stored casing (e.g., `as ACTOR` → `actor`); novel aliases (e.g., `as total`) are kept as-is
+- Resolution applied in `run_stats()` before the `_do_stats` / `_do_eventstats` / `_do_streamstats` dispatch, so all three variants benefit
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Changed - Logo, professional color scheme, and three-mode theme switcher (Dark / Light / Night)
+
+Replaced the text-only "SpeakesQuery" header with the logo image from the README (base64-embedded at 200px width for zero-dependency rendering in both Flask server and pywebview modes). Overhauled the entire color system to derive from the logo's steel-blue palette (`#3B82C4`) rather than the previous indigo (`#4f46e5`). Added a three-mode theme switcher persisted in `localStorage`.
+
+**`desktop_app/ui.html`**
+
+- **Logo in header**: replaced `<h1 class="title">SpeakesQuery</h1>` with an `<img>` element using the base64-encoded, resized (200px wide, ~12KB) version of `logos/speakesQueryLogoREV1_trimmed.png`; rendered at 60px height (1.75x scale from initial 34px) for comfortable visibility relative to the header
+- **Color system overhaul**: introduced 22 CSS custom properties per theme (`--primary`, `--primary-hover`, `--primary-glow`, `--bg-input`, `--border`, `--th-bg`, `--th-color`, `--th-border`, `--accent-purple`, `--code-text`, `--text-muted`, `--success-bg/text`, `--danger-bg/text`, `--notify-primary-bg/fg`); replaced ~40 hardcoded hex colors throughout the stylesheet with variable references
+- **Dark theme** (default): charcoal backgrounds (`#141820`, `#1b2130`) with steel-blue accents (`#3B82C4`, `#5ba3d9`) - matches the logo's blue speech bubble
+- **Light theme**: clean white/slate backgrounds (`#f1f5f9`, `#ffffff`) with darker blue accents (`#2E6DA3`, `#1e5a8a`) - professional, high-contrast daytime mode
+- **Night theme** (f.lux-style): warm amber backgrounds (`#1a1610`, `#231e16`) with gold accents (`#c4943b`, `#d4a853`) - eliminates blue light for extended nighttime use
+- **Theme switcher**: three-button toggle in the app header (right-aligned via flexbox spacer); active theme highlighted with primary color; selection persisted in `localStorage` under `speakesquery_theme`; restored on page load
+- **Bulma overrides**: light-mode-specific box shadow adjustment; all `.button.is-link` elements now derive from `--primary` instead of hardcoded `#2563eb`
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Changed - Query page UX overhaul: Splunk-style keybindings, file browser redesign, table header styling, and schedule-from-query flow
+
+Reworked the Query page for a more polished, Splunk-familiar experience. The Parquet Files sidebar now uses a collapsible tree rooted at "indexes" (replacing the Hide Files button), a live search filter, and a height-capped scrollable container. Keyboard behavior matches Splunk ES: Enter runs the query, Shift+Enter inserts a newline. A new "Schedule This Search" button copies the current query into the Create Search form. The file browser path is now configured in Settings rather than edited inline. Table headers across all pages received a distinct visual treatment for better readability.
+
+**`desktop_app/ui.html`**
+
+- **Parquet Files sidebar redesign**:
+  - Replaced "Hide Files" toggle button with a collapsible `<details open>` "indexes" root - uncollapsed by default, collapsible to hide the tree
+  - Added live search/filter input (`#tree-search-input`) - filters files and directories by name as you type; matching folders auto-expand; recursive `filterTree()` prunes non-matching branches
+  - Capped `#directory-tree` height to 180px (~6 visible root entries) with `overflow-y: auto` scroll
+  - Browse path input changed from editable text field to hidden element; resolved path shown as read-only text (`#browse-path-display`)
+  - Removed `#browse-path-input` CSS (now hidden); added `#tree-search-input` styling consistent with dark theme
+- **Keyboard shortcuts**: Enter now triggers "Run Query" (was Cmd/Ctrl+Enter); Shift+Enter inserts a newline - matches Splunk ES console behavior
+- **"Schedule This Search" button**: copies current query textarea contents into the Create Search form's query field and navigates to the Create Search tab; shows error if query is empty
+- **Table header styling** (applied globally to `.data-table th` and `.si-test-preview-table th`):
+  - Background: `#1a1a2e` (dark navy), text: `#818cf8` (indigo), uppercase, 11px, `letter-spacing: 0.05em`, `font-weight: 600`
+  - 2px solid `#4f46e5` bottom border for visual separation from data rows
+  - Consistent across Query results, Lookups list, Lookups preview, Scheduled Searches, Ingestion Scripts, History modal, and ingestion test preview tables
+- **Browse path in Settings**: new "Browse Path (Parquet Files)" field in the Storage section; value persisted in `localStorage`; saving Settings reloads the file tree with the updated path
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Added - Script Library: curated, deploy-ready ingestion scripts
+
+Added a new "Script Library" page to the desktop app - a curated collection of premade, tested Python3 ingestion scripts that users can preview and deploy into the Create Ingestion form with one click. Ships with 4 initial scripts covering free/no-auth APIs and one API-key example. Library scripts are stored as JSON files in `script_library/scripts/` and can be extended by adding new `.json` files.
+
+**`script_library/__init__.py`** (new)
+
+- `list_scripts()` - returns metadata (title, description, category, tags, credential requirements, suggested settings) for all library scripts; code excluded from listing for performance
+- `get_script(script_id)` - returns full script details including Python3 code; sanitised by filename convention (`[a-zA-Z0-9_-]`)
+
+**`script_library/scripts/`** (new - 4 premade scripts)
+
+- `jsonplaceholder_posts.json` - Fetches 100 sample posts from JSONPlaceholder (free, no auth); ideal for pipeline verification
+- `github_public_events.json` - Latest 30 public events from GitHub Events API (free, no auth, 60 req/hr)
+- `openweathermap_current.json` - Current weather for 5 major US cities from OpenWeatherMap (requires free API key)
+- `hackernews_top_stories.json` - Top 30 HackerNews stories via Firebase API (free, no auth)
+
+**`desktop_app/server.py`**
+
+- `GET /api/library/list` - returns metadata for all library scripts
+- `GET /api/library/<script_id>` - returns full script details including code; script ID validated against `[\w\-]+` regex
+
+**`desktop_app/main.py`**
+
+- `library_list()` - pywebview API equivalent for listing library scripts
+- `library_get(script_id)` - pywebview API equivalent for fetching full script details
+
+**`desktop_app/ui.html`**
+
+- New "Script Library" navigation tab between "Ingestion Scripts" and "Settings"
+- **Library page**: responsive card grid (`auto-fill, minmax(340px, 1fr)`) displaying each script's category, title, description, auth tags (green "No Auth" / amber "API Key Required"), and topic tags
+- **Preview modal**: full code display in a syntax-highlighted `<pre>` block with metadata row (category, cron, subdirectory, overwrite mode, API URL, credential requirements) and a "Deploy to Create Ingestion" button
+- **Deploy flow**: populates the Create Ingestion form (title, description, code, cron, subdirectory, overwrite, API URL), switches to the Create Ingestion tab, and shows a notification - amber for scripts needing credentials ("save first, then add credentials"), green for no-auth scripts
+- Lazy-loaded on first tab visit; Refresh button reloads the library
+- CSS: `.lib-grid`, `.lib-card`, `.lib-tag`, `.lib-modal-*`, `.lib-code-preview`, `.lib-info-row` styles consistent with dark theme
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Added - Ingestion script UI, unified table styling, nested subdirectory support, and runtime fix
+
+Built the full frontend for creating, testing, and managing Python3 ingestion scripts. Unified all data tables across the app to a single shared style matching the Query results page. Added configurable nested subdirectory support with traversal prevention and real-time existence checking. Fixed a runtime error in a stored ingestion script that referenced a non-existent sandbox function.
+
+**`desktop_app/ui.html`**
+
+- Two new navigation tabs: "Create Ingestion" and "Ingestion Scripts"
+- **Create Ingestion page**: Title, Description, Python3 code editor (monospace, Tab key inserts 4 spaces), Cron schedule, Subdirectory (nested paths via `/`), Overwrite mode (append/replace), API URL; sidebar with encrypted credential management (add/remove API keys per script) and a script guide reference panel
+- **Mandatory test gate**: "Test Code" button calls `POST /api/si/test-code` and renders a structured pass/fail panel - row count, column count, epoch source, duration, data types, validation errors, and a 5-row preview table; "Save Script" is disabled until the test passes and re-disables on any code edit
+- **Ingestion Scripts page**: table listing all scripts with inline enable/disable toggle, Title, Cron, Subdirectory, Mode, Created date, Next Run (from scheduler status); per-row Edit, Test, History, and Delete actions; "New Script" button navigates to the create form
+- **Edit flow**: loads script into Create Ingestion form in update mode (title locked, credentials panel enabled); test gate must pass again before update
+- **History modal**: overlay showing execution history per script - status badge (green/red), start time, runtime, attempt number, error message; closes on button, backdrop click, or Escape
+- **Subdirectory validation**: debounced (400ms) client+server check on input - green for new paths, yellow for existing paths with data, blue for empty existing paths, red for invalid/traversal; client-side blocks `..`, `.`, `~` immediately
+- **Unified `.data-table` class**: replaced 5 duplicated per-section table CSS blocks (`#results table`, `#lookups-list table`, `#lookup-preview table`, `#searches-list table`, `#si-scripts-list table`) with a single shared class; all JS table creation updated to use `className = 'data-table'`
+- New "Subdirectory" section on the Settings page with `Max Subdirectory Depth` input (range 5–20, default 5)
+
+**`desktop_app/server.py`**
+
+- `GET /api/si/check-subdirectory?path=...` - validates subdirectory via store logic, checks filesystem existence under indexes/, returns `{valid, exists, has_files}` with `is_relative_to()` traversal guard
+- Added `from pathlib import Path` import
+
+**`scheduled_input_engine/store.py`**
+
+- New `validate_subdirectory()` static method replacing the flat `_VALID_NAME` check:
+  - Allows `/` separators for nested paths (e.g. `github/issues/v2`)
+  - Blocks `..`, `.`, `~`, and any segment containing `..` (covers encoded variants)
+  - Blocks empty segments from `//`
+  - Each segment validated against `[a-zA-Z0-9 _.\-]`
+  - Enforces `max_subdirectory_depth` from global settings (default 5, configurable 5–20)
+
+**`global_settings.py`**
+
+- New setting: `max_subdirectory_depth` (default 5, range 5–20) with integer validation
+
+**`global_settings.defaults.yaml`**
+
+- Added `max_subdirectory_depth: 5` with inline documentation
+
+**`scheduled_inputs.db`** (data fix)
+
+- Task 3 "Unique Title Test": replaced `FETCH_API_DATA(...)` (non-existent sandbox function causing `NameError` on every scheduled run) with `requests.get()` + `resp.json()` - `requests` is in the sandbox allowlist
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Added - Production ingestion engine: atomic Parquet writes, credential vault, global settings, and Settings UI
+
+Built a production-grade ingestion pipeline on top of the rewritten `scheduled_input_engine`. Scripts execute in a RestrictedPython sandbox with a curated module allowlist, API keys are Fernet-encrypted at rest and decrypted only for the duration of a single run, output is written atomically via `.tmp` → `rename`, and a periodic maintenance job compacts small files then enforces configurable disk limits. All tunables are exposed through a new Global Settings page in the desktop app.
+
+**`global_settings.py`** (new)
+
+- Thread-safe YAML-backed singleton with per-key validation and cross-field checks
+- 10 settings: `indexes_root`, `max_total_size_gb`, `max_subdirectory_size_gb`, `max_parquet_file_mb`, `cleanup_interval_hours`, `default_script_timeout_seconds`, `max_retries`, `http_request_timeout_seconds`, `credential_key_dir`, `allowed_api_domains`
+- User overrides persist in `global_settings.yaml` (gitignored); defaults mirrored in `global_settings.defaults.yaml` (committed)
+- Bounded integer ranges with enforced floors/ceilings (e.g. cleanup interval: 1–168 hours)
+
+**`global_settings.defaults.yaml`** (new)
+
+- Committed reference copy of all default values with inline documentation
+
+**`scheduled_input_engine/parquet_writer.py`** (new)
+
+- `write_atomic()`: gzip-compressed Parquet via hidden `.tmp` file → `os.rename()` (POSIX atomic guarantee)
+- `compact_subdirectory()` / `compact_all()`: single-pass merge of files below 80% of `max_parquet_file_mb` target
+- `.compacting` lock file prevents concurrent compaction; cleanup module skips locked subdirectories
+- Path traversal prevention on both subdirectory and filename
+
+**`scheduled_input_engine/credentials.py`** (new)
+
+- `CredentialVault`: Fernet-encrypted API key storage in `credentials.sqlite`
+- Master key auto-generated at `~/.speakes-query/master.key` with `0600` permissions (outside repo)
+- `decrypt_for_script()` returns `MappingProxyType` (immutable) for sandbox injection
+- `store()`, `retrieve()`, `delete()`, `list_keys()`, `has_credentials()` CRUD
+- Per-script encrypt/decrypt lifecycle: decrypt before run, `del` reference in `finally`
+
+**`scheduled_input_engine/executor.py`** (rewritten)
+
+- Curated sandbox allowlist: `pandas`, `requests`, `json`, `datetime`, `time`, `re`, `math`, `hashlib`, `base64`, `collections`, `io`
+- `_safe_getattr()` blocks dunder escape vectors (`__subclasses__`, `__globals__`, `__code__`, etc.)
+- `_safe_import()` restricts `__import__` to allowlisted modules only
+- Shared `_build_sandbox_globals()` used by both `execute()` and `execute_test()`
+- `execute_test()` now returns structured pass/fail: column hygiene, duplicate detection, `_epoch` source validation, row preview, dtypes, duration
+
+**`scheduled_input_engine/cleanup.py`** (enhanced)
+
+- Reads `max_subdirectory_size_gb` and `max_total_size_gb` from `GlobalSettings` at invocation time
+- Skips subdirectories with `.compacting` lock (compaction in progress)
+- Falls back to hardcoded defaults if `GlobalSettings` is unavailable
+
+**`scheduled_input_engine/engine.py`** (enhanced)
+
+- Initialises `ParquetWriter` and `CredentialVault` from `GlobalSettings`
+- Combined maintenance job: compaction → cleanup → telemetry, on `IntervalTrigger` (default 6 hours, floor 1 hour)
+- `_run_task()` decrypts credentials before execution, writes via `ParquetWriter.write_atomic()`, clears credential reference after completion
+- New public methods: `test_task()`, `store_credential()`, `delete_credential()`, `list_credentials()`
+- All timeouts, retry counts, and intervals read from `GlobalSettings` with fallback defaults
+
+**`desktop_app/server.py`**
+
+- 7 new REST endpoints: `POST /api/si/test-code` (pre-save mandatory test gate), `GET/POST /api/credentials/<id>`, `DELETE /api/credentials/<id>/<key>`, `GET/POST /api/settings`, `POST /api/settings/reset`
+- Enhanced `POST /api/si/<id>/test` to use engine's `test_task()` with credential injection
+
+**`desktop_app/main.py`**
+
+- 9 new pywebview `Api` methods: `si_test_code()`, `cred_list()`, `cred_store()`, `cred_delete()`, `settings_get()`, `settings_update()`, `settings_reset()`
+
+**`desktop_app/ui.html`**
+
+- New "Settings" navigation tab with lazy-loaded Global Settings page
+- Grouped sections: Storage (indexes root, total/subdir size caps, parquet target), Maintenance (cleanup interval), Ingestion (script timeout, retries, HTTP timeout), Security (credential key dir, allowed API domains)
+- Save Settings and Reset to Defaults buttons with inline validation feedback and notification toasts
+- CSS: `.settings-section` and `.settings-section-title` styling consistent with dark theme
+
+**`.gitignore`** (rewritten)
+
+- Comprehensive coverage: `/*.db`, `/*.sqlite`, `/credentials.sqlite`, `/global_settings.yaml`, `/saved_searches/`, `/indexes/**/*.parquet`, `/indexes/**/.compacting`, `/input_repos/`, `/executed_scheduled_searches/`, `/tests/**/*.parquet`, `/tests/**/*.db`, `/tests/**/*.sqlite`, `.pytest_cache/`, `.coverage`, `htmlcov/`, `*.egg-info/`, IDE/editor swap files
+
+---
+
+## [Unreleased] - 2026-03-21
+
+### Added - Scheduled Searches: create, manage, and soft-delete search alert configurations
+
+Added two new pages to the desktop app for promoting ad-hoc queries into scheduled search alerts. Users define a cron schedule, lookback window (rule of thumb: 4x the cron interval for `_epoch`-based coverage), and an email recipient. Configurations are stored as human-readable YAML files in `saved_searches/`. Deleted searches are archived in `last_chance.sqlite` for 30-day recovery.
+
+**`saved_search_store.py`** (new)
+
+- `SavedSearchStore` class: full YAML-based CRUD with thread-safe writes
+- YAML files stored in `saved_searches/` (one per search, named by sanitised title)
+- Fields: name, query, cron_schedule, lookback, trigger, email_address, description, disabled, timestamps
+- `last_chance.sqlite` soft-delete: stores all structured fields + verbatim `yaml_raw` for perfect restore
+- Automatic 30-day cleanup of expired `last_chance` records on initialisation
+- Next-run-time computation via `croniter` for each search's cron schedule
+- Validation delegates to existing `SavedSearchValidation` (cron, email, lookback, trigger, UTF-8 name)
+
+**`desktop_app/server.py`**
+
+- 6 new REST endpoints under `/api/ss/`: `list`, `create`, `get/<name>`, `update/<name>`, `delete/<name>`, `<name>/yaml`
+- Create returns `{"status": "exists"}` for duplicate name detection (client handles overwrite confirmation)
+- Delete archives to `last_chance.sqlite` before removing the YAML file
+
+**`desktop_app/main.py`**
+
+- 6 new `ss_*` methods on the pywebview `Api` class mirroring the Flask routes
+- Lazy-initialised `SavedSearchStore` singleton via `_ss_store()` helper
+
+**`desktop_app/ui.html`**
+
+- Two new navigation tabs: "Create Search" and "Searches"
+- **Create Search page**: form with Name, Query, Cron Schedule, Lookback, Trigger (Once / Per Result), Email Address, and Description fields; "Import from Query Page" button copies the query textarea; "Clear Form" resets all fields; overwrite confirmation dialog on duplicate names; edit mode (pre-fills from Searches page Edit action with updated button label)
+- **Searches page**: table displaying Name, Cron Schedule, Lookback, Email, Trigger, Next Run (computed server-side, immutable), and Actions; lazy-loaded on first tab visit
+- **Edit flow**: stores full config in `_pendingEdit`, loads query into Query page textarea, switches to Query tab; navigating to Create Search tab auto-populates all fields from the pending edit (including any query changes made on the Query page)
+- **View Settings**: modal overlay showing raw YAML content in a read-only `<pre>` block; closes on button click, backdrop click, or Escape key
+- **Delete**: confirmation dialog noting 30-day recoverability, then soft-delete via API
+- CSS: dark-mode form inputs (`.ss-input`, `.ss-textarea`, `.ss-select`), searches table styling, YAML viewer modal with backdrop overlay
+
+---
+
+## [Unreleased] - 2026-03-21T00:24:00Z
+
+### Added - Scheduled input engine rewrite: consolidated, efficient background scheduler
+
+Rewrote the `scheduled_input_engine/` from 4 heavy, redundant modules into 5 lean, focused ones. Eliminated two competing schedulers (AsyncIOScheduler + BackgroundScheduler) in favor of a single `BackgroundScheduler` with a 4-thread pool. Removed the catastrophic `ensure_epoch_in_all_files()` that read every parquet file on disk on every task execution. Replaced tight-loop cleanup re-scanning with single-pass size-delta tracking. Integrated the engine into both desktop app entry points with full CRUD + status APIs.
+
+**`scheduled_input_engine/__init__.py`** (new)
+
+- Singleton lifecycle: `start_engine()`, `get_engine()`, `shutdown_engine()` with thread-safe locking
+
+**`scheduled_input_engine/engine.py`** (new - replaces `ScheduledInputEngine.py` + scheduler half of `ScheduledInputBackend.py`)
+
+- Single `BackgroundScheduler` with `coalesce=True`, `max_instances=1`, `misfire_grace_time=300` (handles laptop sleep/wake)
+- `_run_task()` with iterative retry loop (3 attempts, exponential backoff) - replaces recursive retry
+- Non-retryable errors (ValueError, SyntaxError) fail immediately without retry
+- `_run_repo_script()` for subprocess-based repo script execution
+- CRUD wrappers that atomically sync DB state with scheduler jobs
+- `get_status()` returns all jobs with next_run_time for the UI
+
+**`scheduled_input_engine/store.py`** (new - replaces CRUD/validation parts of `ScheduledInputBackend.py`)
+
+- All SQLite CRUD via sync `sqlite3` (no aiosqlite needed - jobs run in thread pool)
+- `execution_history` schema enhanced: added `status`, `error_message`, `attempt` columns
+- Backward-compatible migration: detects old column names (`execution_start_time` vs `start_time`) and adapts queries
+- Input validation carried over: regex patterns for title/subdirectory, cron validation via `CronTrigger.from_crontab()`
+
+**`scheduled_input_engine/executor.py`** (new - replaces `SIExecution.py`)
+
+- `CodeExecutor` with zero side effects in `__init__` - AST parse + RestrictedPython compile only
+- `_ensure_epoch()` adds `_epoch` to a single DataFrame at write time (not a full disk scan)
+- `write_output()` with path traversal prevention for both subdirectory and output filename
+- `execute_test()` dry-run mode returns column list, row count, head preview, and dtypes
+- `backfill_epoch_column()` one-time migration utility for existing parquet files
+- `_GenerateResultsTransformer` updated to handle `ast.Constant` (Python 3.8+) in addition to `ast.Str`
+
+**`scheduled_input_engine/cleanup.py`** (new - replaces `SICleanup.py`)
+
+- Single-pass scan per subdirectory: collects all files with size + mtime, sorts once, deletes oldest while tracking size delta
+- No re-scanning after each deletion (was the old behavior)
+- Same limits: 5 GB/subdir, 100 GB total
+
+**`desktop_app/server.py`**
+
+- 10 new REST endpoints under `/api/si/`: `list`, `add`, `get`, `update`, `delete`, `test`, `toggle`, `status`, `history`
+- Engine auto-starts in standalone mode (`__main__` block)
+
+**`desktop_app/main.py`**
+
+- Engine starts via `webview.start(func=_on_window_loaded)` callback
+- Engine shuts down gracefully after `webview.start()` returns
+- 9 new `si_*` methods on the pywebview `Api` class mirroring the Flask routes
+
+**Removed:**
+
+- `ScheduledInputEngine.py` - async orchestrator with deprecated module-level `asyncio.get_event_loop()`
+- `ScheduledInputBackend.py` - sync backend that created a new `BackgroundScheduler` per instantiation
+- `SIExecution.py` - code executor with `ensure_epoch_in_all_files()` running on every `__init__`
+- `SICleanup.py` - cleanup with tight-loop directory re-scanning
+
+**Kept unchanged:** `cache.py`, `subprocess_runner.py`
+
+---
+
+## [Unreleased] - 2026-03-20T23:40:01Z
+
+### Added - Lookup file management: upload, delete, download, and enhanced metadata
+
+Extended the Lookups page from a read-only browser into a full management interface. Users can now upload, delete, and download lookup files from a single page, with richer metadata (created, modified, accessed timestamps) displayed per file. TSV is now a supported format throughout. All upload paths include server-side security hardening.
+
+**`desktop_app/server.py`**
+
+- `POST /api/lookups/upload` - multipart file upload with layered security:
+  - Extension whitelist: only `.csv`, `.json`, `.tsv`, `.parquet` accepted
+  - Filename sanitisation via regex - rejects path separators, control chars, and non-alphanumeric specials
+  - 200 MB size cap enforced before writing to disk
+  - Content validation - every uploaded file is parsed (pandas for CSV/TSV/JSON, pyarrow for Parquet) to confirm it contains valid data in the declared format; a renamed executable posing as `.csv` will be rejected
+  - Path traversal prevention via `os.path.basename()`
+- `POST /api/lookups/delete` - deletes a lookup file by name (basename-sanitised)
+- `GET /api/lookups/download?file=<name>` - serves a lookup file as a download attachment
+- `GET /api/lookups` - now returns `created` (birthtime on macOS, ctime elsewhere), `modified`, and `accessed` timestamps per file
+- `GET /api/lookups/preview` - added `.tsv` support (tab-separated parsing)
+- Added `.tsv` to `LOOKUP_EXTENSIONS` for directory listing
+
+**`desktop_app/main.py`**
+
+- `upload_lookup()` - opens native file picker (filtered to csv/json/tsv/parquet), validates extension + filename + size + content, then copies to `lookups/`
+- `delete_lookup(filename)` - removes a lookup file from disk
+- `download_lookup(filename)` - opens native save dialog and copies the lookup file to the chosen location
+- `list_lookups()` - now returns `created`, `modified`, and `accessed` timestamps
+- `preview_lookup()` - added `.tsv` support
+- Added `.tsv` to `LOOKUP_EXTENSIONS`
+
+**`desktop_app/ui.html`**
+
+- "Upload File" button in the lookups header - triggers a hidden file input restricted to `.csv`, `.json`, `.tsv`, `.parquet`
+- Lookups table expanded to 7 columns: Name, Type, Size, Created, Modified, Accessed, Actions
+- Per-row "Download" button - triggers browser download of the file
+- Per-row "Delete" button (styled red) - shows a confirmation dialog before deletion, then refreshes the list
+- TSV files are now clickable for preview alongside CSV, JSON, and Parquet
+- Added CSS for `.lookup-action-btn` and `.delete-btn` styling
+
+---
+
+## [Unreleased] - 2026-03-20
+
+### Added - Lookups page for reviewing mutable reference data
+
+Added a new "Lookups" page to the desktop app for browsing and previewing lookup files (CSV, Parquet, JSON) stored in the `lookups/` directory. Lookups are mutable reference data used to augment immutable index queries via `| lookup` directives.
+
+**`desktop_app/ui.html`**
+
+- Added tab navigation (Query / Lookups) to the app header, using the same design tokens and dark theme
+- Lookups list view: table showing file name, type, size, and last-modified date
+- Click-to-preview: opens any CSV, Parquet, or JSON lookup file and displays the first 200 rows in a scrollable data table (same styling as query results)
+- Back button returns to the file list; Refresh button reloads the directory listing
+- Lazy-loads lookup data only when the tab is first visited
+
+**`desktop_app/server.py`**
+
+- `GET /api/lookups` - lists all lookup files with metadata (name, type, size, modified timestamp)
+- `GET /api/lookups/preview?file=<name>&limit=N` - returns first N rows of a CSV/Parquet/JSON lookup as JSON, with total row count; includes path traversal protection
+
+**`desktop_app/main.py`**
+
+- `list_lookups()` - pywebview API equivalent of the server endpoint
+- `preview_lookup(filename, limit)` - pywebview API equivalent for previewing lookup files
+
+**`handlers/LookupHandler.py`**
+
+- Added `.parquet` support to `load_data()` via `pd.read_parquet()`
+
+---
+
+## [Unreleased] - 2026-03-20
+
+### Changed - Desktop app normalization: remove legacy Flask web app
+
+Stripped the codebase down to the desktop app as the sole frontend, removing all legacy Flask web application components that are no longer in use. Backend engines (`query_engine`, `scheduled_input_engine`, `handlers`, `functionality`) are preserved intact for current and planned future use.
+
+**Removed:**
+
+- `app.py` - 2,000-line Flask web application (auth, CSRF, sessions, multi-user admin, login manager, rate limiting, saved search management, CLI admin commands)
+- `frontend/` - entire directory: 18 Jinja2 templates, 13 CSS files, 13 JS files for the old Flask web UI
+- `routes/` - 6 Flask blueprint modules (`query.py`, `api.py`, `users.py`, `repos.py`, `lookups.py`, `settings.py`)
+- `describe_frontend.sh` - utility script that described old `frontend/` components
+- 25 test files that depended on `app.py` (Flask route tests, auth tests, admin page tests, API endpoint tests)
+- `tests/api/` - entire subdirectory of Flask API route tests (9 files: `test_token_auth.py`, `test_ip_ban.py`, `test_saved_searches.py`, `test_login_token_permissions.py`, `test_run_query.py`, `test_auth_permissions.py`, `test_query.py`, `test_directory_tree.py`, `test_lookup.py`)
+- `tests/escapeHtml.test.js` - JS test that referenced deleted `frontend/static/js/common.js`
+
+**Updated:**
+
+- `setup.sh` - removed database initialization block that imported `initialize_database()` from `app.py`
+- `run_all.sh` - replaced `python app.py` with `python desktop_app/server.py`; updated description
+- `Dockerfile` - updated base image from Python 3.11 to 3.12; changed exposed port from 5000 to 5111
+- `docker-compose.yml` - port mapping 5000→5111; removed old database file volume mounts (`saved_searches.db`, `saved_search_history.db`, `scheduled_inputs.db`, `scheduled_inputs_history.db`, `history.db`)
+- `dev_docker_quick_reset.sh` - port 5000→5111
+- `README.md` - rewritten for desktop app as primary interface; removed Flask-specific sections (authentication, admin CLI, web UI upload docs); added desktop app and headless server usage; preserved project ethos, philosophy, and core documentation
+- `scheduled_input_engine/cache.py` - moved `is_allowed_api_url()` inline (previously imported from deleted `app.py`); now reads `ALLOWED_API_DOMAINS` from environment variable instead of Flask config
+
+**Preserved (no changes):**
+
+- `desktop_app/` - main.py, server.py, ui.html (the current application)
+- `query_engine/` - core query execution engine
+- `handlers/` - all 12 command handler modules
+- `scheduled_input_engine/` - background ingestion engine (planned future desktop integration)
+- `functionality/` - C++ extensions and utility functions
+- `validation/`, `utils/`, `lexers/` - supporting infrastructure
+- 41 test files covering core engine functionality (handlers, query parsing, directives, scheduled inputs, stats, eval, macros, etc.)
+
+---
+
+## [Unreleased] - 2026-03-20T00:00:00
+
+### Fixed
+
+**`desktop_app/ui.html`**
+
+- **Invisible alternating table rows** - Bulma's `.table` stylesheet was applying a light background to `td` elements, making white text invisible on odd rows. Fixed by adding an explicit `background: var(--bg-box)` and `color: var(--text)` to `#results table td`, ensuring all rows are legible against the dark theme.
+
+- **Horizontal scroll not working** - Three compounding issues prevented horizontal scrolling in the results table. (1) `#results-container` and `#results-scroll-wrap` both had `overflow-x: auto`, causing the inner container to absorb the overflow and hide the scrollbar from the outer wrapper - fixed by removing `overflow-x` from `#results-container`. (2) The table used `width: 100%`, preventing it from ever exceeding container width - fixed by switching to `width: max-content; min-width: 100%`. (3) `.column` (a Bulma flex item) defaulted to `min-width: auto`, allowing it to grow unbounded to fit the table rather than constraining it - fixed by adding `min-width: 0`, which bounds the column to the flex container and lets `#results-scroll-wrap` properly detect and scroll overflowing content.
+
+---
+
+## [Unreleased] - 2026-03-19T22:59:26
+
+### Fixed
+
+**`functionality/cpp_index_call/src/cpp_index_call.cpp`**
+
+- **Double `indexes/` path bug** - `adjust_pattern()` was prepending `indexes_dir` to patterns that already began with `indexes/`, producing paths like `.../indexes/indexes/...`. Fixed by stripping a leading `indexes/` prefix from the pattern before joining with `indexes_dir`.
+
+- **Wrong project root under `desktop_app/`** - `get_project_root()` fell back to `current_path()`, which resolved to `desktop_app/` when the Flask server started from that directory, causing all index lookups to miss. Fixed by walking up the directory tree from `current_path()` until a directory containing an `indexes/` subdirectory is found, correctly resolving to the repo root regardless of launch directory.
+
+Both fixes required a rebuild of the `cpp_index_call` pybind11 extension (`cmake --build build`).

@@ -1,0 +1,41 @@
+name: oeb_iv_rank
+description: |
+  Options Edge Brief feeder: IV-rank screen across the 40-ticker watchlist.
+  Computes a longitudinal `iv_rank_observed` from the past 90d of stored
+  ATM-IV snapshots (Bollinger-style rank within the observed range, per
+  ticker), AND uses the script's correctly-computed `hv30_pctile` (HV30
+  rank within its own 1-yr distribution) as the regime filter - replacing
+  the script's `iv_rank_proxy` which compared current IV against historical
+  HV (apples-to-oranges, always saturates at 100).  Reclassifies the
+  premium signal in SPQL via `premium_signal_v2` (case() on hv30_pctile).
+  Watchlist-wide regime counts attached via eventstats so Claude can cite
+  "X of N names in HIGH regime" in the executive summary.  Capped at 12
+  unique tickers (latest snapshot per ticker via dedup).
+query: |-
+  index="indexes/equities/options_iv_rank_pro/*.parquet" earliest="-90d"
+  | eventstats min(current_atm_iv) as iv_low_observed, max(current_atm_iv) as iv_high_observed, count(_epoch) as snapshots_observed by ticker
+  | eval iv_rank_observed=if_(iv_high_observed > iv_low_observed, round(((current_atm_iv - iv_low_observed) / (iv_high_observed - iv_low_observed)) * 100.0, 2), 50.0)
+  | sort -_epoch
+  | dedup ticker
+  | eval premium_signal_v2=case(hv30_pctile >= 70.0, "SELL_PREMIUM", hv30_pctile <= 30.0, "BUY_PREMIUM", "NEUTRAL")
+  | eventstats count(_epoch) as watchlist_n
+  | eventstats count(_epoch) as count_in_signal by premium_signal_v2
+  | where (hv30_pctile >= 70.0 OR hv30_pctile <= 30.0) AND sample_size_contracts >= 4
+  | table ticker, current_atm_iv, hv30, iv_premium, hv30_pctile, iv_rank_observed, snapshots_observed, premium_signal_v2, iv_skew_atm, sample_size_contracts, underlying_price, watchlist_n, count_in_signal
+  | sort -hv30_pctile
+  | head 12
+cron_schedule: 0 14,19 * * mon-fri
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-04-30T00:00:00"

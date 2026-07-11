@@ -1,0 +1,22 @@
+{
+  "title": "SEC Company Directory",
+  "description": "Optional credential: SEC_EDGAR_CONTACT overrides the default SEC fair-access User-Agent. SEC EDGAR doesn't issue API keys - it just wants a reachable email in the User-Agent string. Leave it unset and the script uses the SpeakesQuery default; set it (e.g. \"your.name@example.com\") to supply your own contact. Fetches the complete SEC EDGAR company tickers directory - every publicly traded company with their CIK number, ticker symbol, and exchange. This is the foundational reference dataset for all SEC analysis. Useful as a lookup table for cross-referencing company data across other scripts. Over 10,000 companies indexed.",
+  "category": "SEC Filings",
+  "api_url": "https://www.sec.gov/files/company_tickers.json",
+  "requires_credentials": [],
+  "suggested_cron": "0 8 * * mon",
+  "suggested_subdirectory": "sec/company_directory",
+  "suggested_overwrite": true,
+  "tags": [
+    "sec",
+    "edgar",
+    "companies",
+    "tickers",
+    "cik",
+    "reference"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\ncontact = (CREDENTIALS.get('SEC_EDGAR_CONTACT') or '').strip()\nif not contact or '@' not in contact:\n    # SEC EDGAR's fair-access policy accepts any User-Agent that contains\n    # a reachable email - it is NOT an API key / authentication token. Fall\n    # back to the project default so scheduled SEC jobs run out of the box;\n    # users can override by setting SEC_EDGAR_CONTACT in Settings → Credentials.\n    contact = 'SpeakesQuery EDGAR (noreply@speakesquery.local)'\nHEADERS = {'User-Agent': contact}\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nresp = requests.get(\n    'https://www.sec.gov/files/company_tickers.json',\n    headers=HEADERS,\n    timeout=30,\n)\nresp.raise_for_status()\ndata = resp.json()\n\nrows = []\nkeys = list(data.keys())\nfor k in keys:\n    entry = data[k]\n    cik = int(entry.get('cik_str', 0))\n    rows.append({\n        'cik': cik,\n        'cik_padded': str(cik).zfill(10),\n        'ticker': str(entry.get('ticker', '')).upper(),\n        'company_name': entry.get('title', ''),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('cik').reset_index(drop=True)\nGENERATE_RESULTS(df)",
+  "credential_kinds": {
+    "SEC_EDGAR_CONTACT": "contact"
+  }
+}

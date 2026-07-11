@@ -1,0 +1,36 @@
+name: spbeb_sharps_divergence
+description: |
+  Alert-group feed: book disagreement detector. Same source parquet as
+  spbeb_odds_movements (indexes/sports/odds_movements) but filtered to
+  games where range_pct >= 5.0 - i.e., at least one book is materially
+  off-consensus. Sharp-money trail: when a single book's number drifts
+  vs the field, sharps have moved that book. Powers the Sports Betting
+  Edge Brief's sharp-money block - first-look candidates for follow-the-
+  smart-money plays.
+query: |-
+  index="indexes/sports/odds_movements/*.parquet"
+  | sort -_epoch
+  | dedup game_id, market_key, outcome_name
+  | eval ahead_3d = now() + 259200
+  | where commence_time_epoch >= now()
+  | where commence_time_epoch <= ahead_3d
+  | where range_pct >= 5.0
+  | where book_count >= 4
+  | sort -range_pct
+  | table game_id, sport_title, home_team, away_team, market_key, outcome_name, consensus_price, price_min, price_max, range_pct, best_book, worst_book, commence_time_epoch
+  | head 20
+cron_schedule: 0 13,15 * * *
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

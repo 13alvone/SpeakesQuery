@@ -1,0 +1,35 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  # Note: /api/docs/ returns a plain JSON array, not a {status, ...} envelope
+  - id: api_docs_001
+    title: "GET /api/docs/ - returns doc file list"
+    method: GET
+    path: /api/docs/
+    expect:
+      status_code: 200
+      body_contains: "filename"
+
+  # ── Get known doc ──────────────────────────────────────────
+  - id: api_docs_002
+    title: "GET /api/docs/01_fundamentals.md - returns doc content"
+    method: GET
+    path: /api/docs/01_fundamentals.md
+    expect:
+      status_code: 200
+      has_keys: [filename, content]
+
+  - id: api_docs_003
+    title: "GET /api/docs/10_api_reference.md - new API doc exists"
+    method: GET
+    path: /api/docs/10_api_reference.md
+    expect:
+      status_code: 200
+      has_keys: [filename, content]
+
+  # ── Not found ──────────────────────────────────────────────
+  - id: api_docs_004
+    title: "GET /api/docs/nonexistent.md - returns 404"
+    method: GET
+    path: /api/docs/nonexistent.md
+    expect:
+      status_code: 404

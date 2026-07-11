@@ -1,0 +1,17 @@
+id: ollama-llama3-1-8b
+provider: ollama
+model_name: llama3.1:8b
+description: |
+  Llama 3.1 8B running on a local Ollama daemon. The reference local
+  model for the cost-cascade pattern (see ROADMAP Bet 3): use this for
+  cheap per-row filtering, then escalate survivors to Claude Haiku /
+  Sonnet. Free to run; ~30-50 tok/sec on M-series CPU; ~6-8 GB resident
+  with model loaded. Requires `ollama pull llama3.1:8b` and an Ollama
+  daemon listening at the endpoint URL.
+endpoint: http://localhost:11434
+cost_per_input_million_usd: 0.0
+cost_per_output_million_usd: 0.0
+max_output_tokens: 4096
+default_timeout_seconds: 120
+created_at: "2026-05-08T00:00:00"
+updated_at: "2026-05-08T00:00:00"

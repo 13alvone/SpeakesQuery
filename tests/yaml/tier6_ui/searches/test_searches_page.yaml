@@ -1,0 +1,37 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_searches_001
+    title: "Searches page - list container and refresh button visible"
+    steps:
+      - action: navigate
+        page: searches
+    expect:
+      active_page: page-searches
+      visible: ["#searches-list", "#refresh-searches-btn"]
+
+  - id: ui_searches_002
+    title: "Searches page - YAML viewer modal hidden initially"
+    steps:
+      - action: navigate
+        page: searches
+    expect:
+      hidden: ["#yaml-viewer-modal"]
+
+  # ── YAML Viewer Modal Structure ─────────────────────────────────
+
+  - id: ui_searches_010
+    title: "Searches page - YAML viewer modal elements exist in DOM"
+    steps:
+      - action: navigate
+        page: searches
+    expect:
+      count:
+        - selector: "#yaml-viewer-modal"
+          value: 1
+        - selector: "#yaml-modal-backdrop"
+          value: 1
+        - selector: "#yaml-viewer-title"
+          value: 1
+        - selector: "#yaml-viewer-content"
+          value: 1

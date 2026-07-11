@@ -1,0 +1,145 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SpeakesQuery - Docker Compose
+#
+# Usage (recommended):
+#   ./install.sh                          # handles everything automatically
+#
+# Manual usage:
+#   docker compose -f desktop_app/docker-compose.yml up --build -d
+#   open http://localhost:5111
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  speakesquery-desktop:
+    build:
+      context: ..
+      dockerfile: desktop_app/Dockerfile
+    container_name: speakesquery-desktop
+    # Run as the host user's UID/GID so volume-mounted files (indexes/,
+    # lookups/) are readable.  On Linux, Docker preserves host ownership;
+    # without this the container's built-in user may not match.
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    ports:
+      - "${PORT:-5111}:5111"
+    volumes:
+      # ── User-editable data + config (bind-mounted to project tree) ──
+      # All YAML config dirs and the indexes/lookups data dirs live in
+      # plain sight under the project root for easy backup and inspection.
+      - ../indexes:/app/indexes
+      - ../lookups:/app/lookups
+      - ../saved_searches:/app/saved_searches
+      - ../macros:/app/macros
+      - ../alert_groups:/app/alert_groups
+      # Default AG templates (shipped in git, tracked). The runtime store
+      # reads from /app/alert_groups (user data, gitignored as of 2026-04-30
+      # to stop git pulls from clobbering UI customisations); on first init
+      # the store seeds missing files from /app/default_alert_groups via
+      # AlertGroupStore._seed_defaults. Mounted read-only so a runtime bug
+      # can never mutate the templates and propagate corruption back to git.
+      - ../default_alert_groups:/app/default_alert_groups:ro
+      - ../boilerplate_prompts:/app/boilerplate_prompts
+      # Email groups (mailing-list YAMLs managed by email_group_store.py).
+      # Gitignored user data - without this bind-mount, every container
+      # rebuild wipes the user's configured groups (added 2026-04-25
+      # after the persistence audit).
+      - ../email_groups:/app/email_groups
+      # Per-search analyzer prompt overrides (analyzer_prompt_store.py).
+      # Same rationale as email_groups above.
+      - ../analyzer_prompts:/app/analyzer_prompts
+      # LLM model registry (Phase 2 / Bet 3 slice 1, 2026-05-08). User
+      # edits to pricing / endpoint URLs land here; gitignored so a
+      # `git pull` never clobbers them. Default templates seeded from
+      # /app/default_models via ModelStore._seed_defaults on first init.
+      - ../models:/app/models
+      - ../default_models:/app/default_models:ro
+      # Notebooks (Phase 3 / Bet 4 slice 1, 2026-05-08). User-authored
+      # .spqnb cell-stream files live in /app/notebooks (gitignored,
+      # RW); shipped templates ship under /app/default_notebooks
+      # (tracked in git, mounted RO) and are seeded missing-only by
+      # NotebookStore._seed_defaults on first init. Same pattern as
+      # alert_groups + models.
+      - ../notebooks:/app/notebooks
+      - ../default_notebooks:/app/default_notebooks:ro
+      # Notebook reactive cache (Phase 3 slice 3, 2026-05-09). Pickle
+      # payloads + SQLite index for cell-output content-hash caching.
+      # Regenerable but mounted so container rebuilds preserve the
+      # iteration savings. Not included in default backups (cache is
+      # not user data - re-running the notebook rebuilds it).
+      - ../notebook_cache:/app/notebook_cache
+      - ../notebook_cache.sqlite:/app/notebook_cache.sqlite
+      - ../jobs:/app/jobs
+      # Google Takeout (YouTube) export - read-only input for the curator
+      # Takeout bootstrap (Phase 6 / Bet 5 slice 1, 2026-05-16). Read once
+      # by `tools.curator_takeout_import` and emitted as structured parquets
+      # under indexes/IMMUTABLE/curator_takeout/ (which IS mounted). RW
+      # would be wrong: SpeakesQuery never modifies the user's Takeout
+      # export. Mounted from the project root so the import can run via
+      # `docker exec speakesquery-desktop python -m tools.curator_takeout_import`.
+      - ../youtube_profile:/app/youtube_profile:ro
+      # Operator CLI tools (tools/*.py). Mounted live so a `git pull` of
+      # a CLI fix doesn't require a Docker image rebuild - only a
+      # container restart (to clear the engine's cached `from tools.X
+      # import main` imports). Caught 2026-05-17 mid-slice-3a bootstrap:
+      # the snapshot-refresh CLI hotfix `8669421` updated tools/curator_topic_snapshot_refresh.py
+      # on the host but the running container kept the old code from
+      # `dae167f`. Bind-mount eliminates that class of bug for every
+      # future tools/* iteration. Read-write because some CLIs
+      # (persistence.py backup output, etc.) need to write inside
+      # the project tree.
+      - ../tools:/app/tools
+      # ── User settings file ──
+      - ../global_settings.yaml:/app/global_settings.yaml
+      # ── Runtime SQLite stores (each must exist on host before `up` -
+      #     install.sh touches them so Docker doesn't create directories) ──
+      - ../credentials.sqlite:/app/credentials.sqlite
+      - ../last_chance.sqlite:/app/last_chance.sqlite
+      - ../scheduled_inputs.db:/app/scheduled_inputs.db
+      - ../scheduled_inputs_history.db:/app/scheduled_inputs_history.db
+      - ../saved_searches.db:/app/saved_searches.db
+      - ../saved_search_history.db:/app/saved_search_history.db
+      - ../alert_group_runs.sqlite:/app/alert_group_runs.sqlite
+      # Full Claude API request+response audit (per billing-audit policy -
+      # this is the ONLY place full payloads land, Parquet logs carry only
+      # metadata). MUST persist across container restarts: rebuilding the
+      # image was wiping this file every `./update.sh` (fixed 2026-04-21).
+      - ../claude_api_history.sqlite:/app/claude_api_history.sqlite
+      # Analyzer storage - per-search Claude analysis results, daily budget
+      # accounting, AND pending Claude Batch API request state. Losing
+      # batch_requests across restart orphans in-flight batch submissions
+      # the poller can no longer match to (fixed 2026-04-21).
+      - ../analyzer_results.sqlite:/app/analyzer_results.sqlite
+      # Provider-agnostic LLM call history + cache (Phase 2 / Bet 3
+      # slice 3, 2026-05-08). Same persistence rationale as
+      # claude_api_history above - cache hits are paid-for content;
+      # losing this file across container restart wipes the cache and
+      # forces re-billing of every prompt.
+      - ../llm_call_history.sqlite:/app/llm_call_history.sqlite
+      # ── Credential vault - shared with bare-metal install via host
+      #     home dir, so the same Fernet master key works in both modes.
+      #     Dockerfile sets HOME=/app, so ~/.speakes-query inside the
+      #     container resolves to /app/.speakes-query.
+      - ${HOME}/.speakes-query:/app/.speakes-query
+    env_file:
+      - ../.env
+    environment:
+      PORT: "5111"
+      # Bind to all interfaces inside the container so Docker's port mapping
+      # can reach the Flask server.  The bare-metal default is 127.0.0.1
+      # (set in desktop_app/server.py) precisely so an ungated dev install
+      # never accidentally exposes the API on the LAN - Docker is the
+      # explicit opt-in for that.
+      HOST: "0.0.0.0"
+      # ── ML library / username resolution (2026-05-17 hotfix) ─────────
+      # USER + LOGNAME let `getpass.getuser()` resolve without touching
+      # /etc/passwd. Belt-and-suspenders companion to the passwd entry
+      # baked into the Dockerfile - covers operators who override
+      # DOCKER_UID/DOCKER_GID to a non-default value.
+      USER: speakesquery
+      LOGNAME: speakesquery
+      # Explicit cache dirs for huggingface_hub / sentence-transformers /
+      # transformers / pip. Pre-set so the libraries don't fall through
+      # to passwd-based home-dir resolution. The Dockerfile pre-creates
+      # /app/.cache/huggingface with `a+rwX` so first-use downloads work
+      # at any UID.
+      HF_HOME: /app/.cache/huggingface
+      XDG_CACHE_HOME: /app/.cache
+    restart: unless-stopped

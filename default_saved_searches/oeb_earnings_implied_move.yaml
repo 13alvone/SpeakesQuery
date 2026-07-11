@@ -1,0 +1,56 @@
+name: oeb_earnings_implied_move
+description: |
+  Options Edge Brief feeder: pre-earnings ATM straddle implied move on
+  the 40-ticker watchlist.  Surfaces the NEXT 8 upcoming earnings,
+  sorted by ascending days_to_earnings, regardless of distance.  The
+  brief de-prioritises 14+ day-out names at prompt-time using the
+  attached cohort tallies; SPQL just provides a chronological stack so
+  the operator never goes blind during sparse earnings windows
+  (end-of-Q1 had ~1 ticker/day reporting, and a 14-day upper bound knocked
+  all rows out).
+  Uses earliest="-7d" + dedup ticker so each name appears once at most-
+  recent snapshot.  Capped at 8 unique tickers.
+
+  Round 4 fix (2026-05-01): the script emits a single sentinel row
+  (`ticker='INFO', signal_class='NO_EARNINGS', days_to_earnings=NaN`)
+  when its earnings-calendar lookup returns no upcoming watchlist
+  tickers.  Round-4 attempted `ticker != "INFO" AND signal_class !=
+  "NO_EARNINGS"` to drop the sentinel - but that left the brief with 0
+  rows AND no cohort tally on sparse weeks (Claude can't tell
+  "feed broken" from "no earnings this week").
+
+  Round 6 fix (2026-05-01): days_to_earnings on the sentinel is NaN, not
+  literal 0 - JSON renders it as 0.0 but isnull() returns 1.  All
+  comparisons against NaN are False, so `where days_to_earnings >= 0`
+  was already silently dropping the sentinel.  Switched to
+  `where days_to_earnings >= 0 OR isnull(days_to_earnings)` -
+  admits the sentinel as a single row with signal_class=NO_EARNINGS
+  and watchlist_n=1, count_in_signal_class=1.  Brief reads it as "no
+  upcoming earnings on the watchlist this week" instead of getting
+  nothing.  Drop-already-reported semantics preserved (negative days
+  still fail both branches).
+query: |-
+  index="indexes/equities/options_earnings_implied_move_pro/*.parquet" earliest="-7d"
+  | sort -_epoch
+  | dedup ticker
+  | where days_to_earnings >= 0 OR isnull(days_to_earnings)
+  | eventstats count(_epoch) as watchlist_n
+  | eventstats count(_epoch) as count_in_signal_class by signal_class
+  | table ticker, earnings_date, days_to_earnings, underlying_price, atm_strike, call_mid, put_mid, straddle_price, implied_move_pct, implied_move_dollars, expiration_used, dte_at_expiration, signal_class, watchlist_n, count_in_signal_class
+  | sort +days_to_earnings
+  | head 8
+cron_schedule: 50 14 * * mon-fri
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-05-01T22:50:00"

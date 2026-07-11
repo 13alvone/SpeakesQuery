@@ -1,0 +1,84 @@
+tests:
+  # ── Error Notification ──────────────────────────────────────────
+
+  - id: ui_notif_001
+    title: "Error notification - appears on empty query submit"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: click
+        selector: "#run-query-btn"
+    expect:
+      visible: ["#notification-container .notification.is-danger"]
+      notification:
+        type: error
+        text: "Please enter a query"
+
+  - id: ui_notif_002
+    title: "Error notification - has a close button"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-danger"
+        timeout: 3000
+    expect:
+      visible: ["#notification-container .notification.is-danger .delete"]
+
+  - id: ui_notif_003
+    title: "Error notification - close button dismisses it"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-danger"
+        timeout: 3000
+      - action: click
+        selector: "#notification-container .notification.is-danger .delete"
+    expect:
+      hidden: ["#notification-container .notification.is-danger"]
+
+  # ── Success Notification ────────────────────────────────────────
+
+  - id: ui_notif_010
+    title: "Success notification - appears on settings save"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-indexes-root"
+        timeout: 5000
+      - action: click
+        selector: "#save-settings-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-success"
+        timeout: 10000
+    expect:
+      notification:
+        type: success
+
+  - id: ui_notif_011
+    title: "Success notification - has a close button"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-indexes-root"
+        timeout: 5000
+      - action: click
+        selector: "#save-settings-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-success"
+        timeout: 10000
+    expect:
+      visible: ["#notification-container .notification.is-success .delete"]

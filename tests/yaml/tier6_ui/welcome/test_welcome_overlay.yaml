@@ -1,0 +1,72 @@
+tests:
+  # ── Welcome Overlay Structure ───────────────────────────────────
+
+  - id: ui_welcome_001
+    title: "Welcome overlay - backdrop and panel exist in DOM"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#welcome-backdrop"
+          value: 1
+        - selector: "#welcome-panel"
+          value: 1
+
+  - id: ui_welcome_002
+    title: "Welcome overlay - panel has correct heading"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      text_contains:
+        - selector: "#welcome-panel h2"
+          value: "Welcome to SpeakesQuery"
+
+  - id: ui_welcome_003
+    title: "Welcome overlay - dismiss checkbox and Go button exist"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#welcome-dismiss-check"
+          value: 1
+        - selector: "#welcome-go-btn"
+          value: 1
+
+  - id: ui_welcome_004
+    title: "Welcome overlay - contains guided tour cards"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count_gte:
+        - selector: "#welcome-tour-cards .tour-card"
+          value: 3
+
+  - id: ui_welcome_005
+    title: "Welcome overlay - each welcome tour card has Start button"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count_gte:
+        - selector: "#welcome-tour-cards .tc-start"
+          value: 3
+
+  # ── Welcome Overlay Dismiss ─────────────────────────────────────
+
+  - id: ui_welcome_010
+    title: "Welcome overlay - Go button dismisses the overlay"
+    steps:
+      - action: navigate
+        page: query
+      - action: js
+        code: |
+          document.getElementById('welcome-backdrop').style.display = 'block';
+          document.getElementById('welcome-panel').style.display = 'block';
+      - action: click
+        selector: "#welcome-go-btn"
+    expect:
+      hidden: ["#welcome-panel"]

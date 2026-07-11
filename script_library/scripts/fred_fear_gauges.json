@@ -1,0 +1,26 @@
+{
+  "title": "FRED Market Fear Gauges",
+  "description": "Tracks market stress and fear indicators: VIX (equity volatility), high-yield credit spreads (ICE BofA), investment-grade credit spreads, TED spread (interbank stress), and the St. Louis Fed Financial Stress Index. Credit spreads widening means institutional investors are pricing in default risk - historically the most reliable crisis signal. VIX spikes above 30 indicate panic selling; sustained spreads above 500bps preceded both 2008 and 2020 crashes.",
+  "category": "Macro Economics",
+  "api_url": "https://api.stlouisfed.org/fred/series/observations",
+  "requires_credentials": [
+    "FRED_API_KEY"
+  ],
+  "credential_kinds": {
+    "FRED_API_KEY": "api_key"
+  },
+  "suggested_cron": "0 */6 * * *",
+  "suggested_subdirectory": "macro/fred_fear_gauges",
+  "suggested_overwrite": false,
+  "tags": [
+    "fred",
+    "macro",
+    "vix",
+    "credit-spreads",
+    "fear",
+    "volatility",
+    "stress",
+    "risk"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.stlouisfed.org/fred/series/observations'\nAPI_KEY = CREDENTIALS.get('FRED_API_KEY', '')\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nSERIES = [\n    ('VIXCLS', 'vix', 'CBOE Volatility Index (VIX)'),\n    ('BAMLH0A0HYM2', 'hy_spread', 'ICE BofA US High Yield Option-Adjusted Spread'),\n    ('BAMLC0A0CM', 'ig_spread', 'ICE BofA US Corporate Index Option-Adjusted Spread'),\n    ('STLFSI2', 'stress_index', 'St. Louis Fed Financial Stress Index'),\n    ('DTWEXBGS', 'dollar_index', 'Trade Weighted U.S. Dollar Index (Broad Goods & Services)'),\n]\n\nrows = []\nfor i in range(len(SERIES)):\n    series_id = SERIES[i][0]\n    label = SERIES[i][1]\n    description = SERIES[i][2]\n\n    resp = requests.get(\n        BASE,\n        params={\n            'series_id': series_id,\n            'api_key': API_KEY,\n            'file_type': 'json',\n            'sort_order': 'desc',\n            'limit': 5,\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    obs = resp.json().get('observations', [])\n\n    valid = []\n    for o in obs:\n        if o.get('value', '.') != '.':\n            valid.append(o)\n\n    if not valid:\n        continue\n\n    latest = float(valid[0]['value'])\n    prev = float(valid[1]['value']) if len(valid) >= 2 else latest\n    change = round(latest - prev, 4)\n    change_pct = round(((latest - prev) / prev) * 100, 2) if prev != 0 else 0.0\n\n    # Fear level classification\n    if label == 'vix':\n        if latest > 35:\n            fear_level = 'EXTREME_FEAR'\n        elif latest > 25:\n            fear_level = 'HIGH_FEAR'\n        elif latest > 18:\n            fear_level = 'ELEVATED'\n        elif latest > 12:\n            fear_level = 'NORMAL'\n        else:\n            fear_level = 'COMPLACENCY'\n    elif label == 'hy_spread':\n        if latest > 600:\n            fear_level = 'CRISIS'\n        elif latest > 450:\n            fear_level = 'HIGH_STRESS'\n        elif latest > 350:\n            fear_level = 'ELEVATED'\n        else:\n            fear_level = 'NORMAL'\n    elif label == 'stress_index':\n        if latest > 1.5:\n            fear_level = 'HIGH_STRESS'\n        elif latest > 0.5:\n            fear_level = 'ELEVATED'\n        elif latest > -0.5:\n            fear_level = 'NORMAL'\n        else:\n            fear_level = 'CALM'\n    else:\n        fear_level = 'RISING' if change > 0 else 'FALLING'\n\n    rows.append({\n        'series_id': series_id,\n        'metric': label,\n        'description': description,\n        'latest_value': latest,\n        'latest_date': valid[0].get('date', ''),\n        'prior_value': prev,\n        'change': change,\n        'change_pct': change_pct,\n        'fear_level': fear_level,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

@@ -1,0 +1,69 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_lookups_001
+    title: "Lookups page - list view visible, preview view hidden"
+    steps:
+      - action: navigate
+        page: lookups
+    expect:
+      active_page: page-lookups
+      visible: ["#lookups-list-view", "#upload-lookup-btn", "#refresh-lookups-btn"]
+      hidden: ["#lookups-preview-view"]
+
+  - id: ui_lookups_002
+    title: "Lookups page - upload file input is hidden (triggered by button)"
+    steps:
+      - action: navigate
+        page: lookups
+    expect:
+      visible: ["#upload-lookup-btn"]
+
+  - id: ui_lookups_003
+    title: "Lookups page - file input accepts correct formats"
+    steps:
+      - action: navigate
+        page: lookups
+    expect:
+      attribute:
+        - selector: "#upload-lookup-input"
+          attr: "accept"
+          value: ".csv,.json,.tsv,.parquet"
+
+  # ── List Loads ──────────────────────────────────────────────────
+
+  - id: ui_lookups_010
+    title: "Lookups page - list container renders after load"
+    steps:
+      - action: navigate
+        page: lookups
+      - action: wait
+        selector: "#lookups-list"
+        timeout: 5000
+    expect:
+      visible: ["#lookups-list"]
+
+  # ── Preview View ────────────────────────────────────────────────
+
+  - id: ui_lookups_020
+    title: "Lookups page - preview view has back button"
+    steps:
+      - action: navigate
+        page: lookups
+    expect:
+      # Back button exists in DOM (hidden until preview mode)
+      count_gte:
+        - selector: "#lookup-back-btn"
+          value: 1
+
+  - id: ui_lookups_021
+    title: "Lookups page - preview title and meta elements exist"
+    steps:
+      - action: navigate
+        page: lookups
+    expect:
+      count_gte:
+        - selector: "#lookup-preview-title"
+          value: 1
+        - selector: "#lookup-preview-meta"
+          value: 1

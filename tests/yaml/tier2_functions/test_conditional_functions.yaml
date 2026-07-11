@@ -1,0 +1,60 @@
+tests:
+  # ── if_ ternary ──────────────────────────────────────────────
+  - id: func_cond_001
+    title: "if_() - ternary admin check"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval is_admin=if_(userRole=="admin", "yes", "no")
+    expect:
+      row_count: 5
+      column_values:
+        - column: is_admin
+          values: ["no", "yes", "no", "yes", "no"]
+
+  # ── if_ with numeric comparison ──────────────────────────────
+  - id: func_cond_002
+    title: "if_() - numeric threshold"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval big=if_(x > 4, "big", "small")
+    expect:
+      row_count: 5
+      column_values:
+        - column: big
+          values: ["small", "small", "big", "small", "big"]
+
+  # ── case multi-branch ────────────────────────────────────────
+  - id: func_cond_003
+    title: "case() - multi-branch severity mapping"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval sev=case(level=="ERROR", "high", level=="WARNING", "med", "low")
+    expect:
+      row_count: 5
+      column_values:
+        - column: sev
+          values: ["low", "low", "med", "high", "low"]
+
+  # ── isnull ───────────────────────────────────────────────────
+  - id: func_cond_004
+    title: "isnull() - detect null errorCode"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | eval is_null=isnull(errorCode)
+    expect:
+      row_count: 3
+      column_values:
+        - column: is_null
+          values: ["True", "False", "False"]
+
+  # ── coalesce via eval ────────────────────────────────────────
+  - id: func_cond_005
+    title: "coalesce() - first non-null value"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 5
+      | eval filled=coalesce(errorCode, 0)
+    expect:
+      row_count: 5
+      columns_include: ["filled"]

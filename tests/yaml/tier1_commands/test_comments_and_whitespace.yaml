@@ -1,0 +1,28 @@
+tests:
+  # ── # line comment fully stripped ────────────────────────────
+  - id: comment_001
+    title: "query with commented-out pipe still executes"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      # | where x > 100
+      | head 3
+    expect:
+      row_count: 3
+
+  # ── Whole-query leading/trailing whitespace ──────────────────
+  - id: whitespace_001
+    title: "query tolerates leading and trailing whitespace"
+    query: "\n\n  index=\"indexes/default_test/output_parquets/test0.parquet\"\n  | head 2\n\n   "
+    expect:
+      row_count: 2
+
+  # ── Mix: comment on its own line, blank line, then pipe ──────
+  - id: comment_002
+    title: "comment followed by blank line + pipe parses cleanly"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      # this segment is disabled for now
+
+      | head 4
+    expect:
+      row_count: 4

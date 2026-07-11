@@ -1,0 +1,85 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_import_001
+    title: "Import page - all form fields visible"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      active_page: page-import
+      visible:
+        - "#import-file-btn"
+        - "#import-file-label"
+        - "#import-index-name"
+        - "#import-date-field"
+        - "#import-submit-btn"
+
+  - id: ui_import_002
+    title: "Import page - submit button disabled initially"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      disabled: ["#import-submit-btn"]
+
+  - id: ui_import_003
+    title: "Import page - file label shows 'No file selected'"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      text_contains:
+        - selector: "#import-file-label"
+          value: "No file selected"
+
+  - id: ui_import_004
+    title: "Import page - SQLite section hidden by default"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      hidden: ["#import-sqlite-section"]
+
+  - id: ui_import_005
+    title: "Import page - file input hidden (triggered by button)"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      hidden: ["#import-file-input"]
+
+  - id: ui_import_006
+    title: "Import page - file input accepts correct formats"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      attribute:
+        - selector: "#import-file-input"
+          attr: "accept"
+          value: ".csv,.parquet,.sqlite,.sqlite3,.db"
+
+  # ── Index Name + Date Field ─────────────────────────────────────
+
+  - id: ui_import_010
+    title: "Import page - index name placeholder text"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      attribute:
+        - selector: "#import-index-name"
+          attr: "placeholder"
+          value: "e.g. firewall/2024 or sales_data"
+
+  - id: ui_import_011
+    title: "Import page - date field placeholder text"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      attribute:
+        - selector: "#import-date-field"
+          attr: "placeholder"
+          value: "e.g. timestamp, created_at, date"

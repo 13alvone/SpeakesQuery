@@ -1,0 +1,68 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  - id: api_lookups_001
+    title: "GET /api/lookups - returns file list"
+    method: GET
+    path: /api/lookups
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [files]
+
+  # ── Preview ────────────────────────────────────────────────
+  - id: api_lookups_002
+    title: "GET /api/lookups/preview - missing file param returns 400"
+    method: GET
+    path: /api/lookups/preview
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_lookups_003
+    title: "GET /api/lookups/preview - nonexistent file returns 404"
+    method: GET
+    path: /api/lookups/preview
+    query_params:
+      file: nonexistent_file_abc123.csv
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Download ───────────────────────────────────────────────
+  - id: api_lookups_004
+    title: "GET /api/lookups/download - missing file param returns 400"
+    method: GET
+    path: /api/lookups/download
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_lookups_005
+    title: "GET /api/lookups/download - nonexistent file returns 404"
+    method: GET
+    path: /api/lookups/download
+    query_params:
+      file: nonexistent_file_abc123.csv
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Delete validation ──────────────────────────────────────
+  - id: api_lookups_006
+    title: "POST /api/lookups/delete - missing file param returns 400"
+    method: POST
+    path: /api/lookups/delete
+    body: {}
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_lookups_007
+    title: "POST /api/lookups/delete - nonexistent file returns 404"
+    method: POST
+    path: /api/lookups/delete
+    body:
+      file: nonexistent_file_abc123.csv
+    expect:
+      status_code: 404
+      json_status: error

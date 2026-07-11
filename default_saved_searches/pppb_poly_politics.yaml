@@ -1,0 +1,37 @@
+name: pppb_poly_politics
+description: |
+  Alert-group feed: Polymarket politics / elections markets. Reuses the
+  existing indexes/polymarket/elections parquet emitted by
+  polymarket_election_politics. Tightened 2026-05-01: bumped volume
+  floor 25k → 100k, added liquidity >= 50k floor, requires yes_price in
+  [0.05, 0.95] (excludes 1%-probability vanity markets like "Will Oprah
+  win 2028"), and filters to markets closing within the next 365 days
+  (excludes 2028+ markets that were dominating the feed). Polymarket is
+  widely cited as a leading indicator for political outcomes;
+  cross-reference vs Kalshi politics for arbitrage.
+query: |-
+  index="indexes/polymarket/elections/*.parquet"
+  | sort -_epoch
+  | dedup market_id
+  | where volume >= 100000 AND liquidity >= 50000
+  | where yes_price >= 0.05 AND yes_price <= 0.95
+  | eval days_to_close = (strptime(end_date, "%Y-%m-%dT%H:%M:%SZ") - now()) / 86400
+  | where days_to_close >= 0 AND days_to_close <= 365
+  | sort -volume
+  | table question, slug, yes_price, no_price, volume, liquidity, category, days_to_close, end_date
+  | head 25
+cron_schedule: 0 20,21 * * *
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-05-01T22:30:00"

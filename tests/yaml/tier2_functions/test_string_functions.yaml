@@ -1,0 +1,109 @@
+tests:
+  # ── upper ────────────────────────────────────────────────────
+  - id: func_str_001
+    title: "upper() - uppercase level"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval upper_level=upper(level)
+    expect:
+      row_count: 5
+      column_values:
+        - column: upper_level
+          values: ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+  # ── lower ────────────────────────────────────────────────────
+  - id: func_str_002
+    title: "lower() - lowercase level"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval lower_level=lower(level)
+    expect:
+      row_count: 5
+      column_values:
+        - column: lower_level
+          values: ["debug", "info", "warning", "error", "critical"]
+
+  # ── len ──────────────────────────────────────────────────────
+  - id: func_str_003
+    title: "len() - string length"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval msg_len=len(message)
+    expect:
+      row_count: 5
+      column_values:
+        - column: msg_len
+          values: ["13", "12", "15", "13", "16"]
+
+  # ── concat ───────────────────────────────────────────────────
+  - id: func_str_004
+    title: "concat() - join two columns"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval combined=concat(level, "-", status)
+    expect:
+      row_count: 5
+      column_values:
+        - column: combined
+          values: ["DEBUG-debug", "INFO-info", "WARNING-warning", "ERROR-error", "CRITICAL-critical"]
+
+  # ── replace ──────────────────────────────────────────────────
+  - id: func_str_005
+    title: "replace() - string substitution"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval cleaned=replace(message, "message", "msg")
+    expect:
+      row_count: 5
+      column_values:
+        - column: cleaned
+          values: ["Debug msg", "Info msg", "Warning msg", "Error msg", "Critical msg"]
+
+  # ── substr ───────────────────────────────────────────────────
+  - id: func_str_006
+    title: "substr() - extract first 3 characters"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval first3=substr(level, 0, 3)
+    expect:
+      row_count: 5
+      column_values:
+        - column: first3
+          values: ["DEB", "INF", "WAR", "ERR", "CRI"]
+
+  # ── urlencode ────────────────────────────────────────────────
+  - id: func_str_007
+    title: "urlencode() - encode spaces"
+    query: |
+      | makeresults count=1
+      | eval text="hello world"
+      | eval encoded=urlencode(text)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: encoded
+          value: "hello%20world"
+
+  # ── match ────────────────────────────────────────────────────
+  - id: func_str_008
+    title: "match() - regex match returns boolean"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval is_err=match(level, "ERR")
+    expect:
+      row_count: 5
+      values:
+        - row: 3
+          column: is_err
+          value: true
+
+  # ── tostring ─────────────────────────────────────────────────
+  - id: func_str_009
+    title: "tostring() - convert int to string"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval xstr=tostring(x)
+    expect:
+      row_count: 5
+      columns_include: ["xstr"]

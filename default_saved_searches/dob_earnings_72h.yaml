@@ -1,0 +1,26 @@
+name: dob_earnings_72h
+description: |
+  Alert-group feed: upcoming earnings with report time between 8 and 72 hours
+  out.  Allows the analyst to position ahead of catalysts with at least the
+  required 8-hour decision runway.  Capped at 20.
+query: |-
+  index="indexes/equities/earnings_calendar/*.parquet"
+  | where hours_until_earnings > 8 AND hours_until_earnings <= 72
+  | sort +hours_until_earnings
+  | table ticker, company, earnings_date, report_time_code, eps_estimate, eps_prior_year, market_cap_tier, market_cap_usd, hours_until_earnings
+  | head 20
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

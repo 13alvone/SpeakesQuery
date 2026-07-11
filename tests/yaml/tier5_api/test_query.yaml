@@ -1,0 +1,56 @@
+tests:
+  # ── Happy path ─────────────────────────────────────────────
+  - id: api_query_001
+    title: "POST /api/query - basic query returns results"
+    method: POST
+    path: /api/query
+    body:
+      query: 'index="indexes/default_test/output_parquets/test0.parquet" | head 3'
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [results, column_names, job_id]
+      min_results: 1
+
+  - id: api_query_002
+    title: "POST /api/query - stats query returns aggregated results"
+    method: POST
+    path: /api/query
+    body:
+      query: 'index="indexes/default_test/output_parquets/test0.parquet" | stats count by level'
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [results, column_names, job_id]
+      min_results: 1
+
+  # ── Validation ─────────────────────────────────────────────
+  - id: api_query_003
+    title: "POST /api/query - empty query returns 400"
+    method: POST
+    path: /api/query
+    body:
+      query: ""
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_query_004
+    title: "POST /api/query - missing body returns 400"
+    method: POST
+    path: /api/query
+    body: {}
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_query_005
+    title: "POST /api/query - invalid query returns error status"
+    method: POST
+    path: /api/query
+    body:
+      query: '| invalid_command_that_does_not_exist'
+    expect:
+      status_code: 200
+      json_status: error
+      has_keys: [message]

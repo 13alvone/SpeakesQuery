@@ -1,0 +1,33 @@
+name: cpb_reserved_picks
+description: |
+  Feeder for the Civilization Pulse Brief dedup / throttle loop. Returns
+  every pick written to indexes/IMMUTABLE/ag_picks/ in the last 7 days for
+  the civilization_pulse_brief alert group. The dispatcher injects these
+  as a RESERVED IDEAS block so Claude doesn't re-suggest the same
+  civilization-scale theme two weeks in a row unless a material new
+  catalyst (regime shift in attention, sustained news-cycle breakout,
+  step-change in cross-language Wikipedia top articles) has emerged.
+  Capped at 25.
+query: |-
+  index="indexes/IMMUTABLE/ag_picks/*.parquet"
+  | where alert_group="civilization_pulse_brief"
+  | eval ago_7d = now() - 604800
+  | where _epoch >= ago_7d
+  | sort -_epoch, rank_in_brief
+  | table idea_id, rank_in_brief, pick_tier, direction, conviction_pct, correlation_cluster, thesis, event_timestamp
+  | head 25
+cron_schedule: ""
+lookback: -7d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

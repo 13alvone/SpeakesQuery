@@ -1,0 +1,27 @@
+name: dob_sec_catalysts
+description: |
+  Alert-group feed: Recent SEC filings of HIGH importance - Form 4 insider
+  trades and 8-K material events from the top-15 followed companies.  Insider
+  buy clusters and 8-K catalysts drive equity re-pricings within days.  Capped
+  at 20.
+query: |-
+  index="indexes/sec/major_filings/*.parquet"
+  | where filing_type IN ("INSIDER_TRADE","MATERIAL_EVENT") AND importance="HIGH"
+  | table ticker, company_name, form_type, filing_type, filing_date, description, items, importance
+  | sort -filing_date
+  | head 20
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

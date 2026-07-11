@@ -1,0 +1,435 @@
+tests:
+  # ═══════════════════════════════════════════════════════════════
+  # split / mvsort / mvjoin / base64_encode / base64_decode /
+  # type / randomize - PRECISION + NULL SAFETY stress tests
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── split() - delimiter precision ────────────────────────────
+  - id: stress_split_comma_delimiter
+    title: "split - 3 comma-separated tokens"
+    query: |
+      | makeresults count=1
+      | eval s="alpha,beta,gamma"
+      | eval parts=split(s, ",")
+      | eval cnt=mvcount(parts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 3
+
+  - id: stress_split_single_char_delimiter
+    title: "split - single-character delimiter produces expected tokens"
+    query: |
+      | makeresults count=1
+      | eval s="a;b;c;d"
+      | eval parts=split(s, ";")
+      | eval cnt=mvcount(parts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 4
+
+  - id: stress_split_multi_char_delimiter
+    title: "split - multi-character delimiter separates correctly"
+    query: |
+      | makeresults count=1
+      | eval s="foo::bar::baz"
+      | eval parts=split(s, "::")
+      | eval cnt=mvcount(parts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 3
+
+  - id: stress_split_empty_delimiter_in_string
+    title: "split - no delimiter match returns the whole string as one token"
+    query: |
+      | makeresults count=1
+      | eval s="no_delimiter_here"
+      | eval parts=split(s, ",")
+      | eval cnt=mvcount(parts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 1
+
+  - id: stress_split_leading_and_trailing_delim
+    title: "split - leading/trailing delimiters yield empty-string tokens (precision)"
+    query: |
+      | makeresults count=1
+      | eval s=",alpha,beta,"
+      | eval parts=split(s, ",")
+      | eval cnt=mvcount(parts)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 4
+
+  # ── split → mvsort → mvjoin round-trip ───────────────────────
+  - id: stress_split_mvsort_mvjoin_roundtrip
+    title: "split → mvsort → mvjoin - reorders tokens alphabetically"
+    query: |
+      | makeresults count=1
+      | eval s="charlie,alpha,bravo"
+      | eval parts=split(s, ",")
+      | eval sorted=mvsort(parts)
+      | eval rejoined=mvjoin(sorted, ",")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: rejoined
+          value: "alpha,bravo,charlie"
+
+  - id: stress_mvsort_stable_on_duplicates
+    title: "mvsort - preserves duplicates (stable)"
+    query: |
+      | makeresults count=1
+      | eval s="b,a,b,a,c"
+      | eval parts=split(s, ",")
+      | eval sorted=mvsort(parts)
+      | eval joined=mvjoin(sorted, ",")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: joined
+          value: "a,a,b,b,c"
+
+  - id: stress_mvsort_case_sensitive_ascii
+    title: "mvsort - ASCII-sort treats upper < lower (case-sensitive)"
+    query: |
+      | makeresults count=1
+      | eval s="banana,Apple,cherry,Banana"
+      | eval parts=split(s, ",")
+      | eval sorted=mvsort(parts)
+      | eval joined=mvjoin(sorted, ";")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: joined
+          value: "Apple;Banana;banana;cherry"
+
+  # ── base64 encode / decode round-trip ────────────────────────
+  - id: stress_base64_encode_hello_world
+    title: "base64_encode - known-good ASCII encoding"
+    query: |
+      | makeresults count=1
+      | eval src="hello world"
+      | eval encoded=base64_encode(src)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: encoded
+          value: "aGVsbG8gd29ybGQ="
+
+  - id: stress_base64_decode_hello_world
+    title: "base64_decode - reverses known-good encoding"
+    query: |
+      | makeresults count=1
+      | eval b="aGVsbG8gd29ybGQ="
+      | eval decoded=base64_decode(b)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: decoded
+          value: "hello world"
+
+  - id: stress_base64_roundtrip_identity
+    title: "base64_decode(base64_encode(x)) == x (identity round-trip)"
+    query: |
+      | makeresults count=1
+      | eval src="The quick brown fox jumps over the lazy dog"
+      | eval back=base64_decode(base64_encode(src))
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: back
+          value: "The quick brown fox jumps over the lazy dog"
+
+  - id: stress_base64_encode_empty_string
+    title: "base64_encode('') - empty string encodes to empty string"
+    query: |
+      | makeresults count=1
+      | eval src=""
+      | eval encoded=base64_encode(src)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: encoded
+          value: ""
+
+  - id: stress_base64_decode_single_equals_padding
+    title: "base64_decode - handles single = padding"
+    query: |
+      | makeresults count=1
+      | eval b="Zm9vYmFy"
+      | eval decoded=base64_decode(b)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: decoded
+          value: "foobar"
+
+  - id: stress_base64_encode_column_broadcast
+    title: "base64_encode - broadcasts MV-aware over a Series"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval enc=base64_encode(level)
+      | eval dec=base64_decode(enc)
+      | stats dc(level) as distinct_levels, count by dec
+      | sort +dec
+    expect:
+      min_rows: 5
+
+  # ── type() - scalar type introspection ───────────────────────
+  - id: stress_type_int
+    title: "type - int scalar renders as 'int'"
+    query: |
+      | makeresults count=1
+      | eval v=42
+      | eval t=type(v)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: t
+          value: "int"
+
+  - id: stress_type_float
+    title: "type - float scalar renders as 'float'"
+    query: |
+      | makeresults count=1
+      | eval v=3.14
+      | eval t=type(v)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: t
+          value: "float"
+
+  - id: stress_type_str
+    title: "type - string scalar renders as 'str'"
+    query: |
+      | makeresults count=1
+      | eval v="hello"
+      | eval t=type(v)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: t
+          value: "str"
+
+  # ── randomize() - invariants (non-deterministic output) ──────
+  - id: stress_randomize_produces_output
+    title: "randomize - produces a non-empty result for a numeric input"
+    query: |
+      | makeresults count=1
+      | eval v=100
+      | eval r=randomize(v)
+      | eval has_value=if_(isnotnull(r), 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: has_value
+          value: 1
+
+  - id: stress_randomize_series_shape_preserved
+    title: "randomize - output length matches input length (row-count invariant)"
+    query: |
+      | makeresults count=5
+      | eval v=100
+      | eval r=randomize(v)
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 5
+
+  # ── Chained pipelines across multiple new functions ──────────
+  - id: stress_type_base64_split_composition
+    title: "split → base64_encode → mvcount (chained MV-aware)"
+    query: |
+      | makeresults count=1
+      | eval s="a;b;c"
+      | eval parts=split(s, ";")
+      | eval enc=base64_encode(parts)
+      | eval cnt=mvcount(enc)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 3
+
+  - id: stress_split_mvdedup_mvsort_mvjoin
+    title: "split → mvdedup → mvsort → mvjoin - canonicalise delimited tags"
+    query: |
+      | makeresults count=1
+      | eval raw="zeta,alpha,beta,alpha,gamma,beta"
+      | eval parts=split(raw, ",")
+      | eval unique=mvdedup(parts)
+      | eval canonical=mvjoin(mvsort(unique), ",")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: canonical
+          value: "alpha,beta,gamma,zeta"
+
+  - id: stress_null_safety_type_on_isnull
+    title: "type - safely reports type of a boolean from isnull()"
+    query: |
+      | makeresults count=1
+      | eval v=""
+      | eval is_blank=if_(v == "", 1, 0)
+      | eval t=type(is_blank)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_blank
+          value: 1
+
+  # ── MV functions tier-2 coverage (2026-05-16) ────────────────
+  # Added as part of the SPQL function-drift-guard slice. The drift
+  # guard `test_every_claude_md_function_has_tier2_yaml_coverage`
+  # surfaced that mvappend, mvdc, mvfind, mvindex, mvreverse, mvzip
+  # were documented as built-in functions but had ZERO tier-2 YAML
+  # rows exercising them - a class-of-bug exactly like the floor
+  # gap. These tests pin their behaviour against operator-pasteable
+  # inputs so the next regression is caught before reaching live ops.
+
+  - id: func_mv_append_001
+    title: "mvappend() - concatenate scalar values into an MV cell"
+    query: |
+      | makeresults count=1
+      | eval combined=mvappend("a", "b", "c")
+      | eval n=mvcount(combined)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: n
+          value: 3
+
+  - id: func_mv_dc_001
+    title: "mvdc() - distinct count on an MV cell"
+    query: |
+      | makeresults count=1
+      | eval list=mvappend("a", "b", "a", "c", "b")
+      | eval distinct=mvdc(list)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: distinct
+          value: 3
+
+  - id: func_mv_find_001
+    title: "mvfind() - first index matching pattern (zero-based)"
+    query: |
+      | makeresults count=1
+      | eval list=mvappend("apple", "banana", "cherry")
+      | eval idx=mvfind(list, "ban")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: idx
+          value: 1
+
+  - id: func_mv_find_002
+    title: "mvfind() - pattern not found returns -1"
+    query: |
+      | makeresults count=1
+      | eval list=mvappend("apple", "banana", "cherry")
+      | eval idx=mvfind(list, "zzz")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: idx
+          value: -1
+
+  - id: func_mv_index_001
+    title: "mvindex() - element at index (0-based)"
+    query: |
+      | makeresults count=1
+      | eval list=mvappend("alpha", "beta", "gamma")
+      | eval second=mvindex(list, 1)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: second
+          value: beta
+
+  - id: func_mv_index_002
+    title: "mvindex() - negative index (from end)"
+    query: |
+      | makeresults count=1
+      | eval list=mvappend("alpha", "beta", "gamma")
+      | eval last=mvindex(list, -1)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: last
+          value: gamma
+
+  - id: func_mv_reverse_001
+    title: "mvreverse() - reverse an MV cell"
+    query: |
+      | makeresults count=1
+      | eval list=mvappend("first", "second", "third")
+      | eval rev=mvreverse(list)
+      | eval first_now=mvindex(rev, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: first_now
+          value: third
+
+  - id: func_mv_zip_001
+    title: "mvzip() - interleave two scalar args with delimiter"
+    # NB: deliberately uses scalar string args (not two Series-of-lists)
+    # because ``_mv_eval_ternary`` / ``_mv_eval_binary`` don't yet handle
+    # the case where BOTH non-first args are Series - the second arg is
+    # broadcast as-is to every row rather than zipped. Caught 2026-05-16
+    # while writing this test; filed as a follow-up reference memory
+    # (``reference_spql_mv_eval_multi_series_args_2026_05_16.md``) for a
+    # future slice. The scalar-args form is the canonical shape exercised
+    # by every existing operator query in the wild + the live-API audit.
+    query: |
+      | makeresults count=1
+      | eval z=mvzip("x", "1", "=")
+      | eval first_pair=mvindex(z, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: first_pair
+          value: x=1

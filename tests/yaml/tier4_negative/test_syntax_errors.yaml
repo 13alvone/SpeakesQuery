@@ -1,0 +1,74 @@
+tests:
+  # ── No valid index or data source ────────────────────────────
+  - id: neg_001
+    title: "negative - bare text with no index"
+    query: "foobar"
+    expect_error: true
+
+  # ── Non-existent index path ──────────────────────────────────
+  - id: neg_002
+    title: "negative - non-existent parquet file"
+    query: |
+      index="nonexistent/fake.parquet"
+    expect_error: true
+
+  # ── Unclosed double quote ────────────────────────────────────
+  - id: neg_003
+    title: "negative - unclosed string literal"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search level="INFO
+    expect_error: true
+
+  # ── Stats with no aggregation function ───────────────────────
+  - id: neg_004
+    title: "negative - stats without function"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | stats
+    expect_error: true
+
+  # ── Just a pipe character ────────────────────────────────────
+  - id: neg_005
+    title: "negative - bare pipe"
+    query: "|"
+    expect_error: true
+
+  # ── Stats referencing non-existent field ─────────────────────
+  - id: neg_006
+    title: "negative - stats by non-existent column"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | stats count by nonexistent_field
+    expect_error: true
+
+  # ── Missing pipe before search ───────────────────────────────
+  - id: neg_007
+    title: "negative - missing pipe before command"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet" search level="INFO"
+    expect_error: true
+
+  # ── Unbalanced parentheses ───────────────────────────────────
+  - id: neg_008
+    title: "negative - unbalanced parentheses"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search ((level="INFO")
+    expect_error: true
+
+  # ── Empty pipe segment ───────────────────────────────────────
+  - id: neg_009
+    title: "negative - empty pipe segment"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      |
+    expect_error: true
+
+  # ── if() without underscore ──────────────────────────────────
+  - id: neg_010
+    title: "negative - if() instead of if_() is not recognized"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval x=if(level=="INFO", 1, 0)
+    expect_error: true

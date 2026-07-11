@@ -1,0 +1,23 @@
+tests:
+  # ── Single rename ────────────────────────────────────────────
+  - id: rename_001
+    title: "rename - single column"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | rename level as severity
+    expect:
+      row_count: 5
+      columns_include: ["severity"]
+      columns_exclude: ["level"]
+
+  # ── Rename on system_alerts ──────────────────────────────────
+  - id: rename_002
+    title: "rename - rename in system_alerts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | rename userRole as role
+    expect:
+      row_count: 3
+      columns_include: ["role"]
+      columns_exclude: ["userRole"]

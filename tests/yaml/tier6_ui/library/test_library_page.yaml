@@ -1,0 +1,93 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_library_001
+    title: "Script Library page - grid and refresh button visible"
+    steps:
+      - action: navigate
+        page: library
+    expect:
+      active_page: page-library
+      visible: ["#lib-grid", "#refresh-lib-btn"]
+
+  - id: ui_library_002
+    title: "Script Library page - library detail modal hidden initially"
+    steps:
+      - action: navigate
+        page: library
+    expect:
+      hidden: ["#lib-modal"]
+
+  - id: ui_library_003
+    title: "Script Library page - library modal elements exist in DOM"
+    steps:
+      - action: navigate
+        page: library
+    expect:
+      count:
+        - selector: "#lib-modal"
+          value: 1
+        - selector: "#lib-modal-backdrop"
+          value: 1
+        - selector: "#lib-modal-title"
+          value: 1
+        - selector: "#lib-modal-body"
+          value: 1
+        - selector: "#lib-modal-close"
+          value: 1
+
+  # ── Library Grid Loads ──────────────────────────────────────────
+
+  - id: ui_library_010
+    title: "Script Library page - grid populates with library cards"
+    steps:
+      - action: navigate
+        page: library
+      - action: wait
+        selector: "#lib-grid .lib-card"
+        timeout: 8000
+    expect:
+      count_gte:
+        - selector: "#lib-grid .lib-card"
+          value: 1
+
+  - id: ui_library_011
+    title: "Script Library page - each card has a title"
+    steps:
+      - action: navigate
+        page: library
+      - action: wait
+        selector: "#lib-grid .lib-card"
+        timeout: 8000
+    expect:
+      count_gte:
+        - selector: "#lib-grid .lib-card .lib-card-title"
+          value: 1
+
+  - id: ui_library_012
+    title: "Script Library page - each card has a description"
+    steps:
+      - action: navigate
+        page: library
+      - action: wait
+        selector: "#lib-grid .lib-card"
+        timeout: 8000
+    expect:
+      count_gte:
+        - selector: "#lib-grid .lib-card .lib-card-desc"
+          value: 1
+
+  # ── Library Card Actions ────────────────────────────────────────
+
+  - id: ui_library_020
+    title: "Script Library page - cards have Preview and Deploy buttons"
+    steps:
+      - action: navigate
+        page: library
+      - action: wait
+        selector: "#lib-grid .lib-card"
+        timeout: 8000
+    expect:
+      count_gte:
+        - selector: "#lib-grid .lib-card button"
+          value: 2

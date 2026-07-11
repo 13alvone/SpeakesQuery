@@ -1,0 +1,31 @@
+name: egib_renewable_share
+description: |
+  Alert-group feed: daily US grid generation mix by fuel (coal, NG,
+  nuclear, oil, solar, hydro, wind, other). Reuses indexes/energy/
+  eia_generation_mix parquet emitted by eia_renewable_share. Each row
+  shows latest MWh, share of total %, WoW + YoY change, percentile vs
+  trailing 1-year, and a regime flag. Powers the Energy & Grid
+  Intelligence Brief's fuel-mix block - solar / wind / coal share
+  shifts drive ICLN, TAN, FAN, KOL theses.
+query: |-
+  index="indexes/energy/eia_generation_mix/*.parquet"
+  | sort -_epoch
+  | dedup fuel_code
+  | sort -share_of_total_pct
+  | table fuel_code, fuel_name, latest_value_mwh, share_of_total_pct, change_wow_pct, change_yoy_pct, percentile_1y, regime_flag, investment_thesis, etf_ticker, period
+  | head 8
+cron_schedule: 0 14 * * mon-fri
+lookback: -2d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

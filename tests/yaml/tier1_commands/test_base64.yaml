@@ -1,0 +1,28 @@
+tests:
+  # ── base64 encode ────────────────────────────────────────────
+  - id: base64_001
+    title: "base64 - encode message field"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 1
+      | base64 encode message
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: message
+          value: "RGVidWcgbWVzc2FnZQ=="
+
+  # ── base64 encode on second row ──────────────────────────────
+  - id: base64_002
+    title: "base64 - encode Info message"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 2
+      | base64 encode message
+    expect:
+      row_count: 2
+      values:
+        - row: 1
+          column: message
+          value: "SW5mbyBtZXNzYWdl"

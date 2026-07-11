@@ -1,0 +1,39 @@
+name: pppb_federal_register
+description: |
+  Alert-group feed: Federal Register rules, proposed rules, and
+  presidential documents from the past 14 days. Reuses
+  indexes/politics/federal_register parquet emitted by
+  federal_register_actions. Filters by doc_type (Rule / Proposed Rule /
+  Presidential Document) - drops "Notice" boilerplate that flooded the
+  brief. Includes the significant_action flag in the table + cohort
+  tally (n_significant) so Claude sees both substantive rulemaking AND
+  what fraction triggered the upstream "significant" flag, even if the
+  flag is brittle. Powers the Politics & Policy Prediction Brief's
+  regulatory block - agency rulemaking moves sector ETFs days before
+  the rule takes effect (FDA approvals → drugs; FCC spectrum → telecom;
+  EPA emissions → utilities + autos).
+query: |-
+  index="indexes/politics/federal_register/*.parquet"
+  | sort -_epoch
+  | dedup document_number
+  | eval sig_indicator=if_(significant_action==True, 1, 0)
+  | eventstats count(_epoch) as total_docs, sum(sig_indicator) as n_significant
+  | where doc_type IN ("Rule","Proposed Rule","Presidential Document")
+  | sort -_epoch
+  | table document_number, doc_type, agency_names, title, action, publication_date, effective_on, sector_tag, significant_action, total_docs, n_significant, html_url
+  | head 25
+cron_schedule: 0 20,21 * * *
+lookback: -14d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-05-01T22:30:00"

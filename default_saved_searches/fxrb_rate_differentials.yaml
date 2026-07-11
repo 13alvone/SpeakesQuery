@@ -1,0 +1,30 @@
+name: fxrb_rate_differentials
+description: |
+  Alert-group feed: G4 central bank policy rates and 10Y sovereign yields
+  with regime flags. Reuses the indexes/macro/central_bank_rates parquet
+  emitted by fred_global_central_banks. Powers the FX & Rate-Differential
+  Brief's policy-rate context - paired with carry-trade signal so Claude
+  can spot rate divergence trades (e.g., BOJ holding while Fed cuts =
+  USDJPY downward pressure).
+query: |-
+  index="indexes/macro/central_bank_rates/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | sort +country, +series_type
+  | table series_id, description, country, series_type, latest_value, change_bps, regime_flag, investment_thesis
+  | head 12
+cron_schedule: 0 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

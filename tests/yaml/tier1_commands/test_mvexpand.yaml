@@ -1,0 +1,40 @@
+tests:
+  # ── mvexpand on comma-delimited string ───────────────────────
+  # Note: a plain "a,b,c" string is a single value; mvexpand only
+  # splits actual multi-value (list) fields. A comma string stays
+  # as one row.
+  - id: mvexpand_001
+    title: "mvexpand - comma string stays single row"
+    query: |
+      | makeresults count=1
+      | eval items="a,b,c"
+      | mvexpand items
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: items
+          value: "a,b,c"
+
+  # ── mvexpand on a single-value field ─────────────────────────
+  - id: mvexpand_002
+    title: "mvexpand - single value stays single row"
+    query: |
+      | makeresults count=1
+      | eval single="hello"
+      | mvexpand single
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: single
+          value: "hello"
+
+  # ── mvexpand on column with real data ────────────────────────
+  - id: mvexpand_003
+    title: "mvexpand - noop on scalar column"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | mvexpand level
+    expect:
+      row_count: 5

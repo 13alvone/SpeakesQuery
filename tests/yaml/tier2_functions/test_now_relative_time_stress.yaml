@@ -1,0 +1,295 @@
+tests:
+  # ═══════════════════════════════════════════════════════════════
+  # now() / relative_time() - INVARIANT + ACCURACY stress tests
+  # now() returns a float epoch; relative_time() snaps to unit
+  # boundaries and handles sign / numeric / unit combinations.
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── now() invariants ─────────────────────────────────────────
+  - id: stress_now_is_recent_epoch
+    title: "now() - returns an epoch after 2024-01-01 (sanity floor)"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval is_after_2024=if_(t > 1704067200, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_after_2024
+          value: 1
+
+  - id: stress_now_is_not_in_future
+    title: "now() - epoch is before year 2100 (ceiling)"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval is_before_2100=if_(t < 4102444800, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_before_2100
+          value: 1
+
+  - id: stress_now_broadcasts_identically_across_rows
+    title: "now() - same eval call produces same value across all rows in a pipe"
+    query: |
+      | makeresults count=5
+      | eval t=now()
+      | stats dc(t) as distinct_times
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: distinct_times
+          value: 1
+
+  - id: stress_now_consecutive_calls_close
+    title: "two consecutive now() calls in separate eval pipes stay within 1 second"
+    query: |
+      | makeresults count=1
+      | eval a=now()
+      | eval b=now()
+      | eval delta=b - a
+      | eval within_one_second=if_(delta < 1, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: within_one_second
+          value: 1
+
+  # ── relative_time() magnitude check (seconds → unit) ─────────
+  - id: stress_relative_time_one_minute_ago
+    title: "relative_time('-1m') - approx 60 seconds before now()"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval ago=relative_time("-1m")
+      | eval delta=t - ago
+      | eval is_about_a_minute=if_(delta > 55 and delta < 65, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_about_a_minute
+          value: 1
+
+  - id: stress_relative_time_one_hour_ago
+    title: "relative_time('-1h') - approx 3600 seconds before now()"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval ago=relative_time("-1h")
+      | eval delta=t - ago
+      | eval is_about_an_hour=if_(delta > 3500 and delta < 3700, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_about_an_hour
+          value: 1
+
+  - id: stress_relative_time_one_day_ago
+    title: "relative_time('-1d') - approx 86400 seconds before now()"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval ago=relative_time("-1d")
+      | eval delta=t - ago
+      | eval is_about_a_day=if_(delta > 86000 and delta < 87000, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_about_a_day
+          value: 1
+
+  - id: stress_relative_time_seven_days_ago
+    title: "relative_time('-7d') - approx 604800 seconds before now()"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval ago=relative_time("-7d")
+      | eval delta=t - ago
+      | eval is_about_a_week=if_(delta > 604000 and delta < 605600, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_about_a_week
+          value: 1
+
+  - id: stress_relative_time_future_positive_sign
+    title: "relative_time('+1h') - approx 3600 seconds after now()"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval ahead=relative_time("+1h")
+      | eval delta=ahead - t
+      | eval is_about_an_hour_ahead=if_(delta > 3500 and delta < 3700, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_about_an_hour_ahead
+          value: 1
+
+  # ── @-snap unit boundary checks ──────────────────────────────
+  - id: stress_relative_time_snap_to_day
+    title: "relative_time('-1d@d') - snapped to midnight UTC (divisible by 86400)"
+    query: |
+      | makeresults count=1
+      | eval snapped=relative_time("-1d@d")
+      | eval rem=snapped - (snapped / 86400 * 86400)
+      | eval is_aligned=if_(snapped % 86400 == 0, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_aligned
+          value: 1
+
+  - id: stress_relative_time_snap_to_hour
+    title: "relative_time('-1h@h') - snapped to top of hour (divisible by 3600)"
+    query: |
+      | makeresults count=1
+      | eval snapped=relative_time("-1h@h")
+      | eval is_aligned=if_(snapped % 3600 == 0, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_aligned
+          value: 1
+
+  - id: stress_relative_time_snap_to_minute
+    title: "relative_time('-1m@m') - snapped to top of minute (divisible by 60)"
+    query: |
+      | makeresults count=1
+      | eval snapped=relative_time("-1m@m")
+      | eval is_aligned=if_(snapped % 60 == 0, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_aligned
+          value: 1
+
+  - id: stress_relative_time_snap_to_week
+    title: "relative_time('-1w@w') - snapped to Monday 00:00 UTC"
+    query: |
+      | makeresults count=1
+      | eval snapped=relative_time("-1w@w")
+      | eval day_of_week=strftime(snapped, "%A")
+      | eval time_of_day=strftime(snapped, "%H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: day_of_week
+          value: "Monday"
+        - row: 0
+          column: time_of_day
+          value: "00:00:00"
+
+  - id: stress_relative_time_snap_to_year
+    title: "relative_time('-1y@y') - snapped to Jan 1 00:00 UTC"
+    query: |
+      | makeresults count=1
+      | eval snapped=relative_time("-1y@y")
+      | eval month_day_time=strftime(snapped, "%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: month_day_time
+          value: "01-01 00:00:00"
+
+  # ── 'now' literal equals now() ───────────────────────────────
+  - id: stress_relative_time_now_literal
+    title: "relative_time('now') - equals int(now()) within a second"
+    query: |
+      | makeresults count=1
+      | eval a=relative_time("now")
+      | eval b=now()
+      | eval delta=b - a
+      | eval is_close=if_(delta < 2, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_close
+          value: 1
+
+  # ── Ordering invariants ──────────────────────────────────────
+  - id: stress_relative_time_ordering_past_to_future
+    title: "relative_time - past timestamps < now() < future timestamps"
+    query: |
+      | makeresults count=1
+      | eval past=relative_time("-1d")
+      | eval t=now()
+      | eval future=relative_time("+1d")
+      | eval order_ok=if_(past < t and t < future, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: order_ok
+          value: 1
+
+  - id: stress_relative_time_larger_offset_further_back
+    title: "relative_time - -30d < -7d < -1d < now"
+    query: |
+      | makeresults count=1
+      | eval thirty_days=relative_time("-30d")
+      | eval seven_days=relative_time("-7d")
+      | eval one_day=relative_time("-1d")
+      | eval t=now()
+      | eval order_ok=if_(thirty_days < seven_days and seven_days < one_day and one_day < t, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: order_ok
+          value: 1
+
+  # ── Combined with strftime round-trip ────────────────────────
+  - id: stress_relative_time_roundtrip_through_strftime
+    title: "relative_time -> strftime -> strptime preserves the epoch"
+    query: |
+      | makeresults count=1
+      | eval e1=relative_time("-1d@d")
+      | eval iso=strftime(e1, "%Y-%m-%d %H:%M:%S")
+      | eval e2=strptime(iso)
+      | eval delta=e2 - e1
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: delta
+          value: 0
+
+  # ── Broadcasted relative_time (Series of strings) ────────────
+  - id: stress_relative_time_mv_series_broadcast
+    title: "relative_time - supports a column of rel-time strings (MV-aware)"
+    query: |
+      | makeresults count=3
+      | eval rel=case(1==1, "-1h", 1==1, "-1d", "-1w")
+      | eval e=relative_time(rel)
+      | eval t=now()
+      | eval delta=t - e
+      | eval all_positive=if_(delta > 0, 1, 0)
+    expect:
+      row_count: 3
+      values:
+        - row: 0
+          column: all_positive
+          value: 1
+        - row: 1
+          column: all_positive
+          value: 1
+        - row: 2
+          column: all_positive
+          value: 1

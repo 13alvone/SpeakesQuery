@@ -1,0 +1,33 @@
+name: phpb_drug_shortages
+description: |
+  Alert-group feed: active FDA drug shortages, filtered to HIGH or MEDIUM
+  market impact tier (high-volume generics + therapeutic-class shortages
+  with limited substitutes). Reuses indexes/fda/drug_shortages parquet
+  emitted by fda_drug_shortages. Powers the Public Health & Pharma
+  Catalyst Brief's supply-disruption block - chronic generic shortages
+  move TEVA, MYL, AMRX, ENDP and create acquisition opportunities for
+  specialty pharma.
+query: |-
+  index="indexes/fda/drug_shortages/*.parquet"
+  | sort -_epoch
+  | dedup generic_name, dosage_form
+  | where status="Currently in Shortage"
+  | where impact_tier IN ("HIGH","MEDIUM")
+  | sort -impact_tier, -days_in_shortage_estimated
+  | table generic_name, proprietary_name, dosage_form, strength, status, shortage_reason, company_name, therapeutic_category, days_in_shortage_estimated, change_date, impact_tier
+  | head 25
+cron_schedule: 0 3 * * mon-fri
+lookback: -7d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

@@ -1,0 +1,23 @@
+{
+  "title": "Polymarket Search Monitor",
+  "description": "Searches Polymarket for markets matching a custom keyword. Set the POLYMARKET_SEARCH_TERM credential to your topic of interest (e.g., 'Trump', 'Bitcoin', 'Fed rate', 'AI'). Monitors prices and volume over time for your specific area of interest.",
+  "category": "Prediction Markets",
+  "api_url": "https://gamma-api.polymarket.com/public-search",
+  "requires_credentials": [
+    "POLYMARKET_SEARCH_TERM"
+  ],
+  "suggested_cron": "0 */4 * * *",
+  "suggested_subdirectory": "polymarket/search_monitor",
+  "suggested_overwrite": false,
+  "tags": [
+    "polymarket",
+    "prediction-markets",
+    "search",
+    "custom",
+    "monitoring"
+  ],
+  "code": "import pandas as pd\nimport requests\nimport json\nfrom datetime import datetime, timezone\n\nBASE = 'https://gamma-api.polymarket.com'\nsearch_term = CREDENTIALS['POLYMARKET_SEARCH_TERM']\n\nresp = requests.get(\n    f'{BASE}/public-search',\n    params={'query': search_term, 'limit': 100},\n    timeout=30,\n)\nresp.raise_for_status()\ndata = resp.json()\n\n# The search response may return events, markets, or both\nmarkets = []\nif isinstance(data, list):\n    markets = data\nelif isinstance(data, dict):\n    markets = data.get('markets', data.get('data', data.get('results', [])))\n    # Also check for events containing markets\n    for ev in data.get('events', []):\n        for mk in ev.get('markets', []):\n            mk['_event_title'] = ev.get('title', '')\n            markets.append(mk)\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\nrows = []\n\nfor m in markets:\n    prices = m.get('outcomePrices', '[]')\n    if isinstance(prices, str):\n        prices = json.loads(prices)\n    yes_price = float(prices[0]) if prices else None\n    no_price = float(prices[1]) if len(prices) > 1 else None\n    tags_raw = m.get('tags', [])\n    if isinstance(tags_raw, str):\n        tags_raw = json.loads(tags_raw)\n    tag_labels = []\n    for t in (tags_raw or []):\n        if isinstance(t, dict):\n            tag_labels.append(t.get('label', t.get('slug', '')))\n        else:\n            tag_labels.append(str(t))\n    rows.append({\n        'search_term': search_term,\n        'market_id': m.get('id', ''),\n        'question': m.get('question', ''),\n        'slug': m.get('slug', ''),\n        'event_title': m.get('_event_title', ''),\n        'yes_price': yes_price,\n        'no_price': no_price,\n        'volume': float(m.get('volume', 0) or 0),\n        'liquidity': float(m.get('liquidity', 0) or 0),\n        'active': m.get('active', False),\n        'closed': m.get('closed', False),\n        'category': m.get('category', ''),\n        'tags': ','.join(tag_labels),\n        'condition_id': m.get('conditionId', ''),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\ndf = df.sort_values('volume', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)",
+  "credential_kinds": {
+    "POLYMARKET_SEARCH_TERM": "identifier"
+  }
+}

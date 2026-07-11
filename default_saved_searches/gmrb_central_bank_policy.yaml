@@ -1,0 +1,31 @@
+name: gmrb_central_bank_policy
+description: |
+  Alert-group feed: latest G4 central bank policy rates (Fed Funds, ECB
+  Deposit Facility), US 2Y/10Y Treasuries, 10Y-2Y / 10Y-3M spreads
+  (recession signals), and 10Y sovereigns for Germany / Japan / UK. Each
+  row carries a regime flag (TIGHTENING / EASING / INVERTED / RISING /
+  FALLING) and an investment thesis (yield-curve inversion → defensive
+  rotation + TLT; tightening → short bonds + long USD; easing → long
+  duration + risk-on). Powers the Global Macro Risk Brief's policy block.
+query: |-
+  index="indexes/macro/central_bank_rates/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | sort +country, +series_type
+  | table series_id, description, country, series_type, latest_value, latest_date, change_bps, regime_flag, investment_thesis
+  | head 15
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

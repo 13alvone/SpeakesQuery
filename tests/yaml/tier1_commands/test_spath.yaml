@@ -1,0 +1,29 @@
+tests:
+  # ── spath with all required params ───────────────────────────
+  - id: spath_001
+    title: "spath - extract JSON field with path"
+    query: |
+      | makeresults count=1
+      | eval data="{\"name\": \"alice\", \"age\": 30}"
+      | spath input=data path=name output=username
+    expect:
+      row_count: 1
+      columns_include: ["username"]
+      values:
+        - row: 0
+          column: username
+          value: "alice"
+
+  # ── spath nested path ────────────────────────────────────────
+  - id: spath_002
+    title: "spath - extract nested JSON path"
+    query: |
+      | makeresults count=1
+      | eval data="{\"user\": {\"name\": \"bob\"}}"
+      | spath input=data path=user.name output=username
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: username
+          value: "bob"

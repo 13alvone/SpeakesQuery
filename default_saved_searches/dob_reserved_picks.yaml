@@ -1,0 +1,33 @@
+name: dob_reserved_picks
+description: |
+  Feeder for the Daily Opportunity Brief dedup / throttle loop. Returns
+  every pick written to indexes/IMMUTABLE/ag_picks/ in the last 24 hours for
+  the daily_opportunity_brief alert group. The dispatcher injects these
+  as a "RESERVED IDEAS" block so Claude doesn't re-suggest the same
+  opportunity two days in a row unless a material new catalyst has
+  emerged. Capped at 25 (well above the typical 5 picks per day × 1-2
+  dispatches = 5-10 rows). Columns are trimmed so the context stays
+  small - downstream analyst only needs the identity + rank + thesis.
+query: |-
+  index="indexes/IMMUTABLE/ag_picks/*.parquet"
+  | where alert_group="daily_opportunity_brief"
+  | eval ago_24h = now() - 86400
+  | where _epoch >= ago_24h
+  | sort -_epoch, rank_in_brief
+  | table idea_id, rank_in_brief, pick_tier, direction, conviction_pct, correlation_cluster, thesis, event_timestamp
+  | head 25
+cron_schedule: ""
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-21T00:00:00"
+updated_at: "2026-04-21T00:00:00"

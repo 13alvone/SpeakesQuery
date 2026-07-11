@@ -1,0 +1,30 @@
+name: fxrb_dxy_regime
+description: |
+  Alert-group feed: US Dollar trade-weighted index regime tracker (Broad,
+  Advanced Foreign Economies / DXY-equivalent, and Emerging Market
+  Economies). Each row reports latest value, 30/90/365-day change %,
+  percentile rank vs trailing 1-year, and a regime flag (BREAKING_OUT /
+  STRONG / NEUTRAL / SOFT / BREAKING_DOWN). Powers the FX & Rate-
+  Differential Brief's overall dollar-direction context block.
+query: |-
+  index="indexes/fx/dxy_regime/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | sort +index_scope
+  | table series_id, description, index_scope, latest_value, change_30d_pct, change_90d_pct, percentile_1y, regime_flag, investment_thesis, etf_long, etf_short
+  | head 5
+cron_schedule: 0 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

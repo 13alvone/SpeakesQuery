@@ -1,0 +1,53 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="HtmlUnknownAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="6">
+            <item index="0" class="java.lang.String" itemvalue="send_email_options.yes_selected" />
+            <item index="1" class="java.lang.String" itemvalue="send_email_options.no_selected" />
+            <item index="2" class="java.lang.String" itemvalue="throttle_options.yes_selected" />
+            <item index="3" class="java.lang.String" itemvalue="throttle_options.no_selected" />
+            <item index="4" class="java.lang.String" itemvalue="trigger_options.once_selected" />
+            <item index="5" class="java.lang.String" itemvalue="trigger_options.per_result_selected" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="PyInterpreterInspection" enabled="true" level="INFORMATION" enabled_by_default="true" />
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E122" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N802" />
+          <option value="N801" />
+          <option value="N814" />
+          <option value="N806" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="antlr4.tree.Tree" />
+          <option value="lexers.antlr4_generated.speakesQueryLexer" />
+          <option value="lexers.antlr4_generated.speakesQueryParser" />
+          <option value="lexers.archive.speakesQueryParser.speakesQueryParser.*" />
+          <option value="functionality.r_datetime_parser.*" />
+          <option value="unit_tests_grun.speakesQueryLexer" />
+          <option value="unit_tests_grun.speakesQueryParser" />
+          <option value="syntax_unit_tests_grun.speakesQueryLexer" />
+          <option value="syntax_unit_tests_grun.speakesQueryParser" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

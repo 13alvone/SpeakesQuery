@@ -1,0 +1,201 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_create_search_001
+    title: "Create Search page - all form fields visible"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      active_page: page-create-search
+      visible:
+        - "#ss-name"
+        - "#ss-query"
+        - "#ss-cron"
+        - "#ss-lookback"
+        - "#ss-trigger"
+        - "#ss-email"
+        - "#ss-body"
+        - "#ss-description"
+        - "#ss-save-btn"
+        - "#ss-clear-btn"
+
+  - id: ui_create_search_002
+    title: "Create Search page - from-email field is disabled"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      disabled: ["#ss-from-email"]
+
+  - id: ui_create_search_003
+    title: "Create Search page - trigger dropdown has correct options"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      count:
+        - selector: "#ss-trigger option"
+          value: 2
+
+  - id: ui_create_search_004
+    title: "Create Search page - multivalue limit defaults to 3"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      input_value:
+        - selector: "#ss-mv-limit"
+          value: "3"
+
+  - id: ui_create_search_005
+    title: "Create Search page - token lookback defaults to 30"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      input_value:
+        - selector: "#ss-token-lookback"
+          value: "30"
+
+  # ── Validation ──────────────────────────────────────────────────
+
+  - id: ui_create_search_010
+    title: "Create Search - empty name shows error"
+    steps:
+      - action: navigate
+        page: create_search
+      - action: fill
+        selector: "#ss-name"
+        value: ""
+      - action: fill
+        selector: "#ss-query"
+        value: "test query"
+      - action: fill
+        selector: "#ss-cron"
+        value: "30 * * * *"
+      - action: fill
+        selector: "#ss-lookback"
+        value: "-4h"
+      - action: fill
+        selector: "#ss-email"
+        value: "test@example.com"
+      - action: click
+        selector: "#ss-save-btn"
+    expect:
+      notification:
+        type: error
+        text: "Name is required"
+
+  - id: ui_create_search_011
+    title: "Create Search - empty query shows error"
+    steps:
+      - action: navigate
+        page: create_search
+      - action: fill
+        selector: "#ss-name"
+        value: "test_search"
+      - action: fill
+        selector: "#ss-query"
+        value: ""
+      - action: fill
+        selector: "#ss-cron"
+        value: "30 * * * *"
+      - action: fill
+        selector: "#ss-lookback"
+        value: "-4h"
+      - action: fill
+        selector: "#ss-email"
+        value: "test@example.com"
+      - action: click
+        selector: "#ss-save-btn"
+    expect:
+      notification:
+        type: error
+        text: "Query is required"
+
+  - id: ui_create_search_012
+    title: "Create Search - empty cron shows error"
+    steps:
+      - action: navigate
+        page: create_search
+      - action: fill
+        selector: "#ss-name"
+        value: "test_search"
+      - action: fill
+        selector: "#ss-query"
+        value: 'index="indexes/test" | head 5'
+      - action: fill
+        selector: "#ss-cron"
+        value: ""
+      - action: fill
+        selector: "#ss-lookback"
+        value: "-4h"
+      - action: fill
+        selector: "#ss-email"
+        value: "test@example.com"
+      - action: click
+        selector: "#ss-save-btn"
+    expect:
+      notification:
+        type: error
+        text: "Cron schedule is required"
+
+  - id: ui_create_search_013
+    title: "Create Search - empty email shows error"
+    steps:
+      - action: navigate
+        page: create_search
+      - action: fill
+        selector: "#ss-name"
+        value: "test_search"
+      - action: fill
+        selector: "#ss-query"
+        value: 'index="indexes/test" | head 5'
+      - action: fill
+        selector: "#ss-cron"
+        value: "30 * * * *"
+      - action: fill
+        selector: "#ss-lookback"
+        value: "-4h"
+      - action: fill
+        selector: "#ss-email"
+        value: ""
+      - action: click
+        selector: "#ss-save-btn"
+    expect:
+      notification:
+        type: error
+        text: "Email address is required"
+
+  # ── Clear Form ──────────────────────────────────────────────────
+
+  - id: ui_create_search_020
+    title: "Create Search - clear button resets form fields"
+    steps:
+      - action: navigate
+        page: create_search
+      - action: fill
+        selector: "#ss-name"
+        value: "something_here"
+      - action: fill
+        selector: "#ss-query"
+        value: "index=test"
+      - action: click
+        selector: "#ss-clear-btn"
+    expect:
+      input_value:
+        - selector: "#ss-name"
+          value: ""
+        - selector: "#ss-query"
+          value: ""
+
+  # ── Import from Query ──────────────────────────────────────────
+
+  - id: ui_create_search_030
+    title: "Create Search - Import from Query button is visible"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      visible: ["#ss-import-query-btn"]

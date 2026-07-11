@@ -1,0 +1,34 @@
+name: fxrb_carry_trade_signal
+description: |
+  Alert-group feed: G10 carry-trade pair scanner. Returns the strongest
+  candidates (top 5 by short-rate spread) from indexes/fx/g10_carry,
+  WITH cohort tallies - total_pairs scanned and n_attractive (count
+  passing the >=1.5% spread + supportive curve threshold) - so Claude
+  reads "0 of 8 pairs attractive - best candidate is X" instead of an
+  empty block. Each row identifies funder/target currency, rate spread,
+  ETF expression, and thesis. Powers the FX & Rate-Differential Brief's
+  carry-trade block.
+query: |-
+  index="indexes/fx/g10_carry/*.parquet"
+  | sort -_epoch
+  | dedup pair_code
+  | eval attractive_indicator=if_(carry_attractive==True, 1, 0)
+  | eventstats count(_epoch) as total_pairs, sum(attractive_indicator) as n_attractive
+  | sort -short_rate_spread
+  | table pair_code, funder_currency, target_currency, short_rate_spread, long_yield_spread, curve_supports_carry, carry_attractive, investment_thesis, etf_expression, total_pairs, n_attractive
+  | head 5
+cron_schedule: 0 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-05-01T22:30:00"

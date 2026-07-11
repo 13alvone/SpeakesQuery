@@ -1,0 +1,16 @@
+tests:
+  - id: api_version_001
+    title: "GET /api/version - returns version string"
+    method: GET
+    path: /api/version
+    expect:
+      status_code: 200
+      has_keys: [version]
+
+  - id: api_version_002
+    title: "GET /api/version - version is non-empty"
+    method: GET
+    path: /api/version
+    expect:
+      status_code: 200
+      body_contains: "version"

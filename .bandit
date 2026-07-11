@@ -1,0 +1,16 @@
+[bandit]
+# Exclude only build/test/data/generated trees.  All production source
+# (handlers/, scheduled_input_engine/, query_engine/, desktop_app/, *_store.py,
+# functionality/, validation/) is in scope.
+exclude = .speakesQueryDevEnv,env,.venv,build,*/build,dist,indexes,jobs,lookups,macros,saved_searches,alert_groups,boilerplate_prompts,executed_scheduled_searches,changelog_archive,scheduled_input_scripts,lexers/antlr4_active,tests,.claude
+# Skipped checks:
+#   B101 - assert (used in tests; production asserts are intentional)
+#   B110 - try/except/pass (used intentionally for best-effort cleanup
+#          throughout the engine and store layers)
+#   B113 - request without timeout (we set timeouts at the wrapper layer
+#          via BudgetAwareRequests)
+#   B301/B311 - pickle/random for non-crypto purposes
+#   B404/B603 - subprocess module (vetted in subprocess_runner.py)
+#   B608 - string-based SQL (call sites use column allowlists or
+#          sqlite_master-trusted table names; user input always parameterised)
+skips = B101,B110,B113,B301,B311,B404,B603,B608

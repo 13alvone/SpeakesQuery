@@ -1,0 +1,232 @@
+tests:
+  # ── now() ────────────────────────────────────────────────────
+  - id: func_time_001
+    title: "now() - returns a numeric epoch greater than 1 billion"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval is_recent=if_(t > 1_700_000_000, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_recent
+          value: 1
+
+  - id: func_time_002
+    title: "now() - broadcasts in arithmetic with column values"
+    query: |
+      | makeresults count=3
+      | eval start=1_700_000_000
+      | eval delta=now() - start
+      | eval is_positive=if_(delta > 0, 1, 0)
+    expect:
+      row_count: 3
+      values:
+        - row: 0
+          column: is_positive
+          value: 1
+        - row: 1
+          column: is_positive
+          value: 1
+
+  # ── min() / max() in eval ────────────────────────────────────
+  - id: func_time_010
+    title: "min() - element-wise minimum across two columns"
+    query: |
+      | makeresults count=3
+      | eval a=10, b=5
+      | eval cheaper=min(a, b)
+    expect:
+      row_count: 3
+      values:
+        - row: 0
+          column: cheaper
+          value: 5
+
+  - id: func_time_011
+    title: "max() - element-wise maximum across three columns"
+    query: |
+      | makeresults count=2
+      | eval a=10, b=20, c=15
+      | eval winner=max(a, b, c)
+    expect:
+      row_count: 2
+      values:
+        - row: 0
+          column: winner
+          value: 20
+
+  - id: func_time_012
+    title: "min() - accepts a literal scalar alongside a column"
+    query: |
+      | makeresults count=2
+      | eval price=42
+      | eval capped=min(price, 50)
+    expect:
+      row_count: 2
+      values:
+        - row: 0
+          column: capped
+          value: 42
+
+  - id: func_time_013
+    title: "max() - clamps a column to a literal floor"
+    query: |
+      | makeresults count=2
+      | eval x=3
+      | eval floored=max(x, 10)
+    expect:
+      row_count: 2
+      values:
+        - row: 0
+          column: floored
+          value: 10
+
+  # ── relative_time() ─────────────────────────────────────────
+  - id: func_time_020
+    title: "relative_time('now') - returns current epoch"
+    query: |
+      | makeresults count=1
+      | eval epoch=relative_time("now")
+      | eval is_recent=if_(epoch > 1_700_000_000, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_recent
+          value: 1
+
+  - id: func_time_021
+    title: "relative_time('-1h') - returns epoch one hour ago"
+    query: |
+      | makeresults count=1
+      | eval one_hour_ago=relative_time("-1h")
+      | eval current=now()
+      | eval delta=current - one_hour_ago
+      | eval is_about_an_hour=if_(delta > 3500 and delta < 3700, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_about_an_hour
+          value: 1
+
+  - id: func_time_022
+    title: "relative_time('-1d@d') - snapped to start of day"
+    query: |
+      | makeresults count=1
+      | eval start_of_yesterday=relative_time("-1d@d")
+      | eval is_aligned=if_(start_of_yesterday % 86400 == 0, 1, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: is_aligned
+          value: 1
+
+  # ── strptime() ───────────────────────────────────────────────
+  - id: func_time_030
+    title: "strptime() - auto-detects ISO-like format"
+    query: |
+      | makeresults count=1
+      | eval d="2024-01-15 14:30:00"
+      | eval epoch=strptime(d)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: epoch
+          value: 1705329000
+
+  - id: func_time_031
+    title: "strptime() - explicit format overrides detection"
+    query: |
+      | makeresults count=1
+      | eval d="01/15/2024 14:30:00"
+      | eval epoch=strptime(d, "%m/%d/%Y %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: epoch
+          value: 1705329000
+
+  - id: func_time_032
+    title: "strptime() - handles ISO-T format with no explicit format arg"
+    query: |
+      | makeresults count=1
+      | eval d="2024-01-15T14:30:00"
+      | eval epoch=strptime(d)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: epoch
+          value: 1705329000
+
+  - id: func_time_033
+    title: "strptime() - handles month-name format"
+    query: |
+      | makeresults count=1
+      | eval d="January 15, 2024 14:30:00"
+      | eval epoch=strptime(d)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: epoch
+          value: 1705329000
+
+  - id: func_time_034
+    title: "strptime() - passes through numeric epoch values"
+    query: |
+      | makeresults count=1
+      | eval d="1705329000"
+      | eval epoch=strptime(d)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: epoch
+          value: 1705329000
+
+  # ── strftime() ───────────────────────────────────────────────
+  - id: func_time_040
+    title: "strftime() - formats epoch as ISO date"
+    query: |
+      | makeresults count=1
+      | eval epoch=1705329000
+      | eval s=strftime(epoch, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024-01-15 14:30:00"
+
+  - id: func_time_041
+    title: "strftime() - formats epoch with custom layout"
+    query: |
+      | makeresults count=1
+      | eval epoch=1705329000
+      | eval s=strftime(epoch, "%Y/%m/%d")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024/01/15"
+
+  - id: func_time_042
+    title: "strftime(strptime(d), fmt) - round-trips via different separator"
+    query: |
+      | makeresults count=1
+      | eval d="2024-01-15 14:30:00"
+      | eval normalised=strftime(strptime(d), "%Y%m%d%H%M%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: normalised
+          value: "20240115143000"

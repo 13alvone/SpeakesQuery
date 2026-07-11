@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SpeakesQuery - Docker build-context exclusions
+#
+# Used by desktop_app/docker-compose.yml (context: ..)
+# Keep in sync with .gitignore for consistency.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Virtual environments
+env/
+.venv/
+.speakesQueryDevEnv/
+
+# Python cache / bytecode
+__pycache__/
+*.py[cod]
+*.so
+
+# Databases (user data - never bake into images)
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime data directories
+logs/
+executed_scheduled_searches/
+scheduled_input_scripts/
+
+# Test artifacts
+tests/
+
+# VCS / IDE worktrees
+.git
+.gitignore
+.claude/
+
+# Historical docs (not needed at runtime)
+changelog_archive/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS junk
+.DS_Store
+Thumbs.db

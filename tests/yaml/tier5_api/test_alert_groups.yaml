@@ -1,0 +1,199 @@
+tests:
+  # ── List & runs ────────────────────────────────────────────
+  - id: api_ag_001
+    title: "GET /api/alert-groups/list - returns groups list"
+    method: GET
+    path: /api/alert-groups/list
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [groups]
+
+  - id: api_ag_002
+    title: "GET /api/alert-groups/runs - returns runs history"
+    method: GET
+    path: /api/alert-groups/runs
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [runs]
+
+  - id: api_ag_003
+    title: "GET /api/alert-groups/runs?limit=5 - accepts limit param"
+    method: GET
+    path: /api/alert-groups/runs
+    query_params: { limit: 5 }
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [runs]
+
+  - id: api_ag_004
+    title: "GET /api/alert-groups/runs?group_name=missing - returns empty runs ok"
+    method: GET
+    path: /api/alert-groups/runs
+    query_params: { group_name: "nonexistent_group_abc123" }
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [runs]
+
+  # ── Create validation ──────────────────────────────────────
+  - id: api_ag_010
+    title: "POST /api/alert-groups/create - missing name returns 400"
+    method: POST
+    path: /api/alert-groups/create
+    body:
+      search_names: ["search_a"]
+      prompt_text: "Summarize the alerts."
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ag_011
+    title: "POST /api/alert-groups/create - missing search_names returns 400"
+    method: POST
+    path: /api/alert-groups/create
+    body:
+      name: "test_ag_missing_searches"
+      prompt_text: "Summarize the alerts."
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ag_012
+    title: "POST /api/alert-groups/create - missing prompt_text returns 400"
+    method: POST
+    path: /api/alert-groups/create
+    body:
+      name: "test_ag_missing_prompt"
+      search_names: ["search_a"]
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ag_013
+    title: "POST /api/alert-groups/create - empty search_names list returns 400"
+    method: POST
+    path: /api/alert-groups/create
+    body:
+      name: "test_ag_empty_searches"
+      search_names: []
+      prompt_text: "Summarize the alerts."
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ag_014
+    title: "POST /api/alert-groups/create - whitespace-only prompt returns 400"
+    method: POST
+    path: /api/alert-groups/create
+    body:
+      name: "test_ag_blank_prompt"
+      search_names: ["search_a"]
+      prompt_text: "   "
+    expect:
+      status_code: 400
+      json_status: error
+
+  - id: api_ag_015
+    title: "POST /api/alert-groups/create - empty body returns 400"
+    method: POST
+    path: /api/alert-groups/create
+    body: {}
+    expect:
+      status_code: 400
+      json_status: error
+
+  # ── Not found (read paths) ─────────────────────────────────
+  - id: api_ag_020
+    title: "GET /api/alert-groups/nonexistent_xyz123 - returns 404"
+    method: GET
+    path: /api/alert-groups/nonexistent_alert_group_xyz123
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_021
+    title: "GET /api/alert-groups/nonexistent_xyz123/yaml - returns 404"
+    method: GET
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/yaml
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Not found (write paths) ────────────────────────────────
+  - id: api_ag_030
+    title: "PUT /api/alert-groups/nonexistent_xyz123 - returns 404"
+    method: PUT
+    path: /api/alert-groups/nonexistent_alert_group_xyz123
+    body:
+      prompt_text: "ignored"
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_031
+    title: "DELETE /api/alert-groups/nonexistent_xyz123 - returns 404"
+    method: DELETE
+    path: /api/alert-groups/nonexistent_alert_group_xyz123
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_032
+    title: "POST /api/alert-groups/nonexistent_xyz123/run - returns 404"
+    method: POST
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/run
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_033
+    title: "POST /api/alert-groups/nonexistent_xyz123/enable - returns 404"
+    method: POST
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/enable
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_034
+    title: "POST /api/alert-groups/nonexistent_xyz123/disable - returns 404"
+    method: POST
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/disable
+    expect:
+      status_code: 404
+      json_status: error
+
+  # ── Feeder status / deploy-feeders ─────────────────────────
+  - id: api_ag_040
+    title: "GET /api/alert-groups/nonexistent/feeder-status - returns 404"
+    method: GET
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/feeder-status
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_041
+    title: "POST /api/alert-groups/nonexistent/deploy-feeders - returns 404"
+    method: POST
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/deploy-feeders
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_042
+    title: "POST /api/alert-groups/nonexistent/install-default-feeder/x - returns 404"
+    method: POST
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/install-default-feeder/dob_poly_high_prob
+    expect:
+      status_code: 404
+      json_status: error
+
+  - id: api_ag_043
+    title: "GET /api/alert-groups/nonexistent/pipeline-health - returns 404"
+    method: GET
+    path: /api/alert-groups/nonexistent_alert_group_xyz123/pipeline-health
+    expect:
+      status_code: 404
+      json_status: error

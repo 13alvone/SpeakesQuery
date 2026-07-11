@@ -1,0 +1,31 @@
+name: gmrb_emerging_markets_growth
+description: |
+  Alert-group feed: latest World Bank GDP growth, inflation, and exports
+  growth per country. Filtered to INVESTABLE_EM (Brazil, India, China,
+  Mexico, South Africa, Turkey, Indonesia, Philippines, Poland, Thailand,
+  Vietnam, Korea, etc.) and DEVELOPED markets, with ETF hint and
+  growth-tier classification (EXPLOSIVE / STRONG / STEADY / CONTRACTING).
+  Powers the Global Macro Risk Brief's fastest-growing-economies block.
+query: |-
+  index="indexes/macro/worldbank_growth/*.parquet"
+  | sort -_epoch
+  | dedup country_code indicator_id
+  | where investability_tag IN ("INVESTABLE_EM","DEVELOPED") AND growth_tier != "UNKNOWN"
+  | sort +indicator_id, -value
+  | table country_code, country_name, indicator_id, year, value, growth_tier, investability_tag, etf_hint, economic_thesis
+  | head 25
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -168h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

@@ -1,0 +1,31 @@
+name: gmrb_volcanic_activity
+description: |
+  Alert-group feed: volcanoes with elevated USGS alert status (ADVISORY,
+  WATCH, WARNING) or aviation color codes YELLOW/ORANGE/RED. Each row
+  includes the aviation-risk descriptor and a region-specific economic
+  thesis (Iceland → European airspace / airlines; Indonesia → palm oil
+  + nickel; Chile → copper; Hawaii → tourism REITs; etc.). Powers the
+  Global Macro Risk Brief's supply-chain / aviation-disruption signals.
+query: |-
+  index="indexes/geophysical/volcanic_alerts/*.parquet"
+  | sort -_epoch
+  | dedup volcano_number
+  | where severity_tier IN ("MODERATE","HIGH","CRITICAL")
+  | sort +severity_tier, +volcano_name
+  | table volcano_number, volcano_name, region, alert_level, color_code, severity_tier, aviation_risk, economic_thesis, updated_date
+  | head 10
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -72h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

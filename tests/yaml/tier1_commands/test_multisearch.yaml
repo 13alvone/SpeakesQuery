@@ -1,0 +1,10 @@
+tests:
+  # ── multisearch - combine two indexes ────────────────────────
+  # multisearch is a generating command that requires preceding data context
+  - id: multisearch_001
+    title: "multisearch - combine with main result"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | multisearch [index="indexes/default_test/output_parquets/test1.parquet"]
+    expect:
+      min_rows: 3

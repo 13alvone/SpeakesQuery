@@ -1,0 +1,125 @@
+tests:
+  # ── Eval order: arithmetic before string ─────────────────────
+  - id: order_001
+    title: "eval order - arithmetic then string conversion"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval doubled=x*2
+      | eval label=concat("x=", tostring(doubled))
+    expect:
+      row_count: 5
+      columns_include: ["doubled", "label"]
+      values:
+        - row: 0
+          column: label
+          value: "x=8"
+
+  # ── Pipe order: search before eval (search narrows data) ─────
+  - id: order_002
+    title: "pipe order - search narrows before eval"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search userRole="admin"
+      | eval tag="admin_event"
+    expect:
+      row_count: 2
+      values:
+        - row: 0
+          column: tag
+          value: "admin_event"
+
+  # ── Pipe order: eval before search (search uses computed) ────
+  - id: order_003
+    title: "pipe order - eval creates column then search uses it"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval is_error=if_(error_code > 0, "yes", "no")
+      | search is_error="yes"
+    expect:
+      row_count: 2
+
+  # ── Stats BY preserves grouping ──────────────────────────────
+  - id: order_004
+    title: "stats by - grouped aggregation integrity"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by region, customerType
+    expect:
+      min_rows: 9
+      columns: ["region", "customerType", "count"]
+
+  # ── Multiple stats aggregations compute independently ────────
+  - id: order_005
+    title: "stats - multiple aggregations are independent"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count, avg(attempts), sum(attempts), min(attempts), max(attempts)
+    expect:
+      row_count: 1
+      columns_include: ["count", "avg(attempts)", "sum(attempts)", "min(attempts)", "max(attempts)"]
+      values:
+        - row: 0
+          column: count
+          value: 100
+        - row: 0
+          column: "min(attempts)"
+          value: 1
+        - row: 0
+          column: "max(attempts)"
+          value: 9
+
+  # ── Rename does not break downstream stats ───────────────────
+  - id: order_006
+    title: "rename then stats - renamed column works in stats"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | rename userRole as role
+      | stats count by role
+    expect:
+      row_count: 3
+      columns: ["role", "count"]
+
+  # ── Head before rename (ensure column still exists) ──────────
+  - id: order_007
+    title: "head then rename - column survives head"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 3
+      | rename level as severity
+    expect:
+      row_count: 3
+      columns_include: ["severity"]
+      columns_exclude: ["level"]
+
+  # ── Eval with nested function calls ──────────────────────────
+  - id: order_008
+    title: "eval - nested function calls"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval result=upper(substr(level, 0, 3))
+    expect:
+      row_count: 5
+      column_values:
+        - column: result
+          values: ["DEB", "INF", "WAR", "ERR", "CRI"]
+
+  # ── Wildcard index + stats (multi-file aggregation) ──────────
+  - id: order_009
+    title: "wildcard index then stats - aggregate across files"
+    query: |
+      index="indexes/default_test/output_parquets/*"
+      | stats count by level
+    expect:
+      min_rows: 4
+      columns: ["level", "count"]
+
+  # ── Eval arithmetic on aggregated result ─────────────────────
+  - id: order_010
+    title: "stats then eval - compute on aggregated values"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by region
+      | eval pct=round(count/100*100, 1)
+    expect:
+      row_count: 3
+      columns_include: ["region", "count", "pct"]

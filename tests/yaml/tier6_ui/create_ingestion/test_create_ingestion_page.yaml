@@ -1,0 +1,131 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_create_ingestion_001
+    title: "Create Ingestion page - form fields visible"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      active_page: page-create-ingestion
+      visible:
+        - "#si-title"
+        - "#si-description"
+        - "#si-cron"
+        - "#si-subdirectory"
+        - "#si-overwrite"
+        - "#si-api-url"
+        - "#si-test-btn"
+        - "#si-save-btn"
+        - "#si-clear-btn"
+
+  - id: ui_create_ingestion_002
+    title: "Create Ingestion page - save button disabled initially (test gate)"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      disabled: ["#si-save-btn"]
+
+  - id: ui_create_ingestion_003
+    title: "Create Ingestion page - form title shows 'Create Ingestion Script'"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      text_contains:
+        - selector: "#si-form-title"
+          value: "Create Ingestion Script"
+
+  - id: ui_create_ingestion_004
+    title: "Create Ingestion page - test results hidden initially"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      hidden: ["#si-test-results"]
+
+  - id: ui_create_ingestion_005
+    title: "Create Ingestion page - overwrite dropdown has two options"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      count:
+        - selector: "#si-overwrite option"
+          value: 2
+
+  # ── Credentials Sidebar ─────────────────────────────────────────
+
+  - id: ui_create_ingestion_010
+    title: "Create Ingestion page - credentials sidebar visible"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      visible:
+        - "#si-cred-note"
+        - "#si-cred-key"
+        - "#si-cred-value"
+        - "#si-cred-add-btn"
+
+  # ── Helper Buttons ──────────────────────────────────────────────
+
+  - id: ui_create_ingestion_020
+    title: "Create Ingestion page - boilerplate and wizard buttons visible"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      visible: ["#si-boilerplate-btn", "#si-wizard-btn"]
+
+  # ── CodeMirror Editor ──────────────────────────────────────────
+
+  - id: ui_create_ingestion_030
+    title: "Create Ingestion page - CodeMirror editor initializes"
+    steps:
+      - action: navigate
+        page: create_ingestion
+      - action: wait
+        selector: ".CodeMirror"
+        timeout: 5000
+    expect:
+      visible: [".CodeMirror"]
+
+  # ── Validation ──────────────────────────────────────────────────
+
+  - id: ui_create_ingestion_040
+    title: "Create Ingestion - test without code shows error"
+    steps:
+      - action: navigate
+        page: create_ingestion
+      - action: fill
+        selector: "#si-title"
+        value: "test_script"
+      - action: click
+        selector: "#si-test-btn"
+    expect:
+      notification:
+        type: error
+
+  # ── Clear Form ──────────────────────────────────────────────────
+
+  - id: ui_create_ingestion_050
+    title: "Create Ingestion - clear button resets title and cron"
+    steps:
+      - action: navigate
+        page: create_ingestion
+      - action: fill
+        selector: "#si-title"
+        value: "test_script_name"
+      - action: fill
+        selector: "#si-cron"
+        value: "0 * * * *"
+      - action: click
+        selector: "#si-clear-btn"
+    expect:
+      input_value:
+        - selector: "#si-title"
+          value: ""
+        - selector: "#si-cron"
+          value: ""

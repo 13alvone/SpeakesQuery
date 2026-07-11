@@ -1,0 +1,24 @@
+tests:
+  # ── addinfo adds metadata columns ───────────────────────────
+  - id: addinfo_001
+    title: "addinfo - adds info columns"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | addinfo
+    expect:
+      row_count: 5
+      columns_include:
+        - "info_min_time"
+        - "info_max_time"
+        - "info_sid"
+        - "info_search_time"
+
+  # ── fieldsummary ─────────────────────────────────────────────
+  - id: fieldsummary_001
+    title: "fieldsummary - summarize test0 fields"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | fieldsummary
+    expect:
+      row_count: 11
+      columns_include: ["field", "count", "distinct_count", "is_exact", "max", "min", "mean", "stdev"]

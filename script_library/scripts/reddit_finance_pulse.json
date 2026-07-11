@@ -1,0 +1,12 @@
+{
+  "title": "Reddit Finance Subreddit Pulse",
+  "description": "Scans hot posts across five key finance subreddits: wallstreetbets (retail YOLO flow), stocks (mainstream retail), investing (conservative retail), cryptocurrency (crypto sentiment), and economics (macro narrative). Cross-sub comparison reveals where retail attention is concentrating. When the same topic trends across 3+ subs simultaneously, it typically drives measurable volume in related assets within 24-48 hours.",
+  "category": "Sentiment",
+  "api_url": "https://www.reddit.com/r/stocks/hot.json",
+  "requires_credentials": [],
+  "suggested_cron": "0 */6 * * *",
+  "suggested_subdirectory": "reddit/finance_pulse",
+  "suggested_overwrite": false,
+  "tags": ["free", "no-auth", "reddit", "sentiment", "cross-platform", "retail-flow"],
+  "code": "import pandas as pd\nimport requests\nimport time\nfrom datetime import datetime, timezone\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nheaders = {'User-Agent': 'speakesQuery/1.0 (financial data aggregator)'}\n\nsubreddits = ['wallstreetbets', 'stocks', 'investing', 'cryptocurrency', 'economics']\nrows = []\n\nfor idx in range(len(subreddits)):\n    sub = subreddits[idx]\n    resp = requests.get(\n        'https://www.reddit.com/r/' + sub + '/hot.json',\n        headers=headers,\n        params={'limit': 25, 'raw_json': 1},\n        timeout=30,\n    )\n    resp.raise_for_status()\n    data = resp.json()\n    posts = data.get('data', {}).get('children', [])\n    for i in range(len(posts)):\n        d = posts[i].get('data', {})\n        if d.get('stickied', False):\n            continue\n        score = int(d.get('score', 0))\n        comments = int(d.get('num_comments', 0))\n        engagement = score + comments * 2\n        rows.append({\n            'subreddit': sub,\n            'title': d.get('title', ''),\n            'score': score,\n            'num_comments': comments,\n            'engagement_score': engagement,\n            'upvote_ratio': float(d.get('upvote_ratio', 0)),\n            'author': d.get('author', ''),\n            'created_utc': int(d.get('created_utc', 0)),\n            'link_flair_text': d.get('link_flair_text', '') or '',\n            '_epoch': now_epoch,\n        })\n    time.sleep(1.0)\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('engagement_score', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)"
+}

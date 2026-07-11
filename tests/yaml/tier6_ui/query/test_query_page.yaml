@@ -1,0 +1,262 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_query_001
+    title: "Query page - initial state: editor visible, export buttons disabled"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      active_page: page-query
+      visible: ["#query", "#run-query-btn", "#directory-tree"]
+      disabled: ["#save-csv-btn", "#save-json-btn", "#save-job-btn"]
+
+  - id: ui_query_002
+    title: "Query page - spinner hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#spinner.active"]
+
+  - id: ui_query_003
+    title: "Query page - job-id-bar hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#job-id-bar"]
+
+  - id: ui_query_004
+    title: "Query page - save-job-panel hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#save-job-panel"]
+
+  - id: ui_query_005
+    title: "Query page - pagination hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#pagination-top", "#pagination-bottom"]
+
+  # ── Empty Query Validation ──────────────────────────────────────
+
+  - id: ui_query_010
+    title: "Run empty query - shows error notification"
+    steps:
+      - action: navigate
+        page: query
+      - action: clear
+        selector: "#query"
+      - action: click
+        selector: "#run-query-btn"
+    expect:
+      notification:
+        type: error
+        text: "Please enter a query"
+
+  # ── Successful Query ────────────────────────────────────────────
+
+  - id: ui_query_020
+    title: "Run valid query - results table appears"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/output_parquets/test0.parquet" | head 3'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 15000
+    expect:
+      visible: ["#results table", "#row-count"]
+
+  - id: ui_query_021
+    title: "Run valid query - row count shows correct total"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/output_parquets/test0.parquet" | head 5'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 15000
+    expect:
+      text_contains:
+        - selector: "#row-count"
+          value: "5"
+
+  - id: ui_query_022
+    title: "Run valid query - export buttons become enabled"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/output_parquets/test0.parquet" | head 3'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 15000
+    expect:
+      enabled: ["#save-csv-btn", "#save-json-btn", "#save-job-btn"]
+
+  - id: ui_query_023
+    title: "Run valid query - job-id-bar appears with a job ID"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/output_parquets/test0.parquet" | head 2'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#job-id-bar"
+        state: visible
+        timeout: 15000
+    expect:
+      visible: ["#job-id-bar", "#job-id-label"]
+
+  # ── Invalid Query ───────────────────────────────────────────────
+
+  - id: ui_query_030
+    title: "Run invalid query - error notification appears"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: "this is not a valid query at all !!!"
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-danger"
+        timeout: 15000
+    expect:
+      notification:
+        type: error
+
+  - id: ui_query_031
+    title: "Run invalid query - run button re-enabled after error"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: "this is not a valid query !!!"
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-danger"
+        timeout: 15000
+    expect:
+      enabled: ["#run-query-btn"]
+
+  # ── Save Job Panel ─────────────────────────────────────────────
+
+  - id: ui_query_040
+    title: "Click Save Job - inline panel appears"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/output_parquets/test0.parquet" | head 2'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 15000
+      - action: click
+        selector: "#save-job-btn"
+    expect:
+      visible: ["#save-job-panel", "#save-job-name", "#save-job-confirm-btn", "#save-job-cancel-btn"]
+
+  - id: ui_query_041
+    title: "Click Cancel on save-job panel - panel hides"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/output_parquets/test0.parquet" | head 2'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 30000
+      - action: click
+        selector: "#save-job-btn"
+      - action: wait
+        selector: "#save-job-panel"
+        state: visible
+      - action: click
+        selector: "#save-job-cancel-btn"
+    expect:
+      hidden: ["#save-job-panel"]
+
+  # ── Directory Tree ─────────────────────────────────────────────
+
+  - id: ui_query_050
+    title: "Directory tree - loads and displays files"
+    steps:
+      - action: navigate
+        page: query
+      - action: wait
+        selector: "#directory-tree"
+        timeout: 5000
+    expect:
+      visible: ["#directory-tree"]
+
+  - id: ui_query_051
+    title: "Directory tree - search input filters entries"
+    steps:
+      - action: navigate
+        page: query
+      - action: wait
+        selector: "#directory-tree"
+        timeout: 5000
+      - action: fill
+        selector: "#tree-search-input"
+        value: "zzz_nonexistent_file_name_zzz"
+    expect:
+      visible: ["#tree-search-input"]
+
+  # ── Expand Macros ──────────────────────────────────────────────
+
+  - id: ui_query_060
+    title: "Expand Macros button and depth input are visible"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      visible: ["#expand-macros-btn", "#expand-macros-depth"]
+
+  # ── Schedule Search Button ─────────────────────────────────────
+
+  - id: ui_query_070
+    title: "Schedule This Search button navigates to Create Search page"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/test.parquet" | head 5'
+      - action: click
+        selector: "#schedule-search-btn"
+      - action: wait
+        selector: "#page-create-search.active"
+        timeout: 5000
+    expect:
+      active_page: page-create-search

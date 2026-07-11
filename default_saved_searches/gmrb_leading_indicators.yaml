@@ -1,0 +1,33 @@
+name: gmrb_leading_indicators
+description: |
+  Alert-group feed: latest OECD Composite Leading Indicator (amplitude-
+  adjusted, normalized, trend-restored) for G7 + major EMs (USA, Japan,
+  Germany, UK, France, Italy, Canada, Brazil, China, India, Korea, Mexico)
+  and the OECD aggregate. Each row shows 3-month and 12-month momentum,
+  a regime flag (EXPANSION_ACCELERATING / EXPANSION_PEAKING /
+  CONTRACTION_DEEPENING / CONTRACTION_BOTTOMING / STEADY), and a rotation
+  thesis (cyclicals on accelerating expansion; defensives + long duration
+  on contraction; early-cyclicals on bottoming). Powers the Global Macro
+  Risk Brief's business-cycle rotation block.
+query: |-
+  index="indexes/macro/oecd_cli/*.parquet"
+  | sort -_epoch
+  | dedup country_code
+  | sort -cli_momentum_3m
+  | table country_code, country_name, latest_value, latest_date, cli_momentum_3m, cli_momentum_12m, regime_flag, business_cycle_phase, rotation_thesis
+  | head 13
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -168h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

@@ -1,0 +1,162 @@
+valid queries:
+  - description: "Query targeting two indexes with varied field filters and nested OR conditions."
+    query: |
+      (index="system_logs/error_tracking" earliest="2023-05-01" latest="2023-05-31"
+          ((status="error" OR status="critical") AND errorCode IN (403, 404)) OR 
+          (priority="high" AND action="update")) OR 
+      (earliest="2023-06-01" latest="2023-06-30" transactionStatus="pending" AND amount > 1000 AND customerType="VIP" index="finance_logs/transactions")
+      | eval note="Example complex query 11."
+
+  - description: "Index filter focusing on action and success conditions with mixed inline spacing for readability."
+    query: |
+      earliest="2023-12-01" latest="2023-12-31"
+      action="login" AND success=false AND retryCount >= 3
+      index="security/authentication"
+      | eval note = "Login failures tracked for December."
+
+  - description: "Multi-field condition across two indexes with emphasis on formatting for readability."
+    query: |
+      (
+          earliest="2024-02-01" latest="2024-02-28" 
+          (
+              (status="completed" AND task="delete")
+              OR
+              (status="in_progress" AND priority="low")
+          ) AND team IN ("ops", "support")
+          index="operations/task_management"
+      ) AND 
+      (
+          earliest="2024-03-01" latest="2024-03-15" 
+          (
+              errorType="critical" OR errorCode IN (500, 502)
+          ) AND action="backup"
+          index="service_logs/backup_errors"
+      ) | eval note = "Example complex query 13."
+
+  - description: "Complex filter for system statuses with two levels of nested conditions in a single index."
+    query: |
+      earliest="2024-01-01" latest="2024-01-15" user="admin"
+      (status="failed" AND errorType="timeout")
+      OR
+      (priority="critical" AND retryCount > 5)
+      index="admin_logs/system_health"
+      | eval test="Monitor critical system health for early January."
+
+  - description: "Query incorporating OR conditions and multi-field filters with structured indentation."
+    query: |
+      (earliest="2024-04-01" latest="2024-04-30" 
+      ((action="login" AND outcome="failure") OR (accessLevel="guest" AND attempts>3)) AND deviceType="mobile"
+      index="access_logs/user_activity") 
+      OR
+      (earliest="2024-03-01" latest="2024-03-31" 
+      (region="US" OR region="EU") AND (purchaseStatus="complete" OR purchaseStatus="canceled")
+      index="sales_records/purchases") 
+      
+      | eval remark="Example complex query 15."
+
+  - description: "Structured multi-index query with custom comments in SPQL, focusing on user role filters."
+    query: |
+      (
+          # Monitor admin-level errors within February
+          earliest="2024-02-01" latest="2024-02-28"
+          (errorCode=403 OR errorCode=401) 
+          AND (role="admin" OR role="manager") 
+          index="security_logs/admin_activity"
+      )
+      OR
+      (
+          # Review failed attempts for customer transactions in January
+          earliest="2024-01-01" latest="2024-01-31"
+          transactionStatus="failed" 
+          AND (customerType="VIP" OR customerType="regular") 
+          index="finance_logs/customer_transactions"
+      ) 
+      | eval comment="Example complex query 16."
+
+  - description: "Using a combination of nested filters and index clauses to retrieve error and warning logs."
+    query: |
+      (
+          earliest="2023-09-01" latest="2023-09-15" 
+          (status="error" AND errorLevel="critical") 
+          OR 
+          (status="warning" AND user="superuser") 
+          index="error_logs/system_alerts"
+      ) 
+      | eval message="Critical errors and warnings for early September."
+
+  - description: "Query with focus on action, transaction status, and high-level field filters for specific indices."
+    query: |
+      (
+          earliest="2024-05-01" latest="2024-05-31"
+          action="transaction" 
+          AND (status="failed" OR status="pending") 
+          AND priority="high" 
+          index="finance_logs/transactions_pending"
+      ) OR 
+      (earliest="2024-06-01" latest="2024-06-15" (serviceStatus="down" AND errorCode=503) OR responseTime > 10 index="network_logs/service_downtime"
+      )
+      | eval note="Example complex query 18."
+
+  - description: "A complex filter for device and error types with unique formatting and spacing."
+    query: |
+      earliest="2024-07-01" latest="2024-07-31" (deviceType IN ("tablet", "desktop") AND errorType="fatal")
+          OR 
+      (priority="critical" AND user IN ("guest", "admin")) index="device_logs/critical_errors"
+      | eval annotation="Device-related errors for July."
+
+  - description: "Multi-condition query for monitoring multiple system statuses with comments and additional spacing."
+    query: |
+      (
+          # Track database issues within Q1
+          earliest="2024-01-01" latest="2024-03-31"
+          (systemStatus="degraded" AND serviceType="database")
+          OR (status="down" AND region="APAC") 
+          index="database_logs/operations"
+      ) AND 
+      (
+          # Look for server reboots in Q2
+          earliest="2024-04-01" latest="2024-06-30"
+          action="reboot" 
+          AND success=false
+          index="server_logs/maintenance"
+      ) 
+      | eval insight="Example complex query 20."
+
+  - description: "Bracket-based Filtering."
+    query: |
+      # Track database issues within Q1
+      earliest="2024-01-01" latest="2024-03-31"
+      (systemStatus="degraded" AND serviceType="database")
+      OR
+      (status="down" AND region="APAC") 
+      index="database_logs/operations"
+      
+      # Using a filter here to limit results to ONLY those entries where hostname=<hostname>
+      [ # Only include machines that had server reboots in Q2
+          earliest="2024-04-01" latest="2024-06-30"
+          action="reboot" 
+          success=false
+          index="server_logs/maintenance.parquet"
+          | stats count by hostname
+          | fields hostname
+      ]
+      | eval insight="Example complex query with bracket filtering."
+
+  - description: "Bracket-based Filtering 2."
+    query: |
+      # Track database issues within Q1
+      earliest="2024-01-01" latest="2024-03-31"
+      (systemStatus="degraded" AND serviceType="database")
+      OR
+      (status="down" AND region="APAC") 
+      index="database_logs/operations"
+      
+      # Using a filter here to limit results to ONLY those entries where username=<user_that_accessed> changed registry.
+      [ # Only include machines that had server reboots in Q2
+          earliest="2024-04-01" latest="2024-06-30"
+          action="modify_registry" 
+          index="server_logs/security_server_*.parquet"
+          | dedup username
+          | table hostname
+      ]
+      | eval insight="Example complex query with bracket filtering."

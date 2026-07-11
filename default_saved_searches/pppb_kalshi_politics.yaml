@@ -1,0 +1,40 @@
+name: pppb_kalshi_politics
+description: |
+  Alert-group feed: Kalshi politics-related contracts (election outcomes,
+  Congressional control, Supreme Court rulings, executive actions).
+  Reuses indexes/kalshi_contracts parquet emitted by
+  kalshi_contract_scanner. Defensive filters added 2026-05-01 to dodge
+  the empty-category data-quality issue (the prior version returned
+  baseball player-prop markets where "Brady House" matched the regex
+  "House"): volume>=1000 + yes_price>0 drops 0-volume noise,
+  word-boundary regex (\\b...\\b) prevents player-name false positives.
+  Capped to contracts closing within 60 days. Powers the Politics &
+  Policy Prediction Brief's prediction-market block - cross-reference
+  vs Polymarket for arbitrage.
+query: |-
+  index="indexes/kalshi_contracts/*.parquet"
+  | sort -_epoch
+  | dedup market_ticker
+  | where volume >= 1000 AND yes_price > 0
+  | eval is_politics = if_(match(market_title, "(?i)\\b(election|presidential|primary|senate|congressional|gubernatorial|impeach|nominee)\\b"), 1, if_(match(market_title, "(?i)\\b(Trump|Biden|Harris|DeSantis|Vance|Newsom|Whitmer|Walz)\\b"), 1, if_(match(market_title, "(?i)\\bSupreme Court\\b"), 1, 0)))
+  | where is_politics = 1
+  | where days_to_close > 0
+  | where days_to_close <= 60
+  | sort -volume
+  | table event_title, market_title, category, yes_price, implied_prob_yes, volume, open_interest, days_to_close
+  | head 25
+cron_schedule: 0 20,21 * * *
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-05-01T22:30:00"

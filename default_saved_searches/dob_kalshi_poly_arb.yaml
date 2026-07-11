@@ -1,0 +1,28 @@
+name: dob_kalshi_poly_arb
+description: |
+  Alert-group feed: Kalshi vs Polymarket cross-platform arbitrage candidates.
+  Thresholds relaxed 2026-04-21 (divergence >=3% was >=5%; dropped
+  opportunity_strength filter; match_confidence >=70% was >=75%) so the daily
+  brief typically sees rows to reason about; Claude filters further when
+  deciding which to surface. Near-riskless edge when both legs are tradable.
+query: |-
+  index="indexes/kalshi/cross_platform_arb_pro/*.parquet"
+  | where divergence_pct >= 3.0 AND match_confidence >= 70.0
+  | sort -match_confidence, -divergence_pct
+  | table kalshi_title, kalshi_ticker, kalshi_yes_price, polymarket_question, polymarket_slug, polymarket_yes_price, divergence_pct, suggested_action, opportunity_strength, match_confidence, match_tier
+  | head 10
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

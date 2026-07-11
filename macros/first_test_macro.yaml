@@ -1,0 +1,8 @@
+name: first_test_macro
+definition: 'index="indexes/default_test/error_tracking/*"
+
+  `second_level_macro_test`'
+parameters: []
+description: first_test_macro
+created_at: '2026-03-21T17:14:15.672936'
+updated_at: '2026-03-21T19:01:10.203281'

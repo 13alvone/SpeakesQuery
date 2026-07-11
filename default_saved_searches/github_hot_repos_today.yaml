@@ -1,0 +1,51 @@
+name: github_hot_repos_today
+description: |
+  Slice B (2026-06-23). Feeder for the "GitHub Hot Repos" daily alert
+  group. Reads the accumulating github/trending parquets written by the
+  github_trending_repos ingestion script (one parquet per daily run, all
+  rows sharing ONE _epoch) and surfaces the 10 repositories appearing for
+  the FIRST time in the last 30 days - genuinely new entrants to the
+  trending list, ranked by stars gained today.
+
+  HOW THE NO-REPEAT-FOR-30-DAYS DEDUP WORKS (no journal, pure query):
+  - `where _epoch >= relative_time("-30d")` bounds the memory window. This
+    IS the "no repeat for at least 30 days" throttle - widen/narrow it by
+    editing -30d. A repo that drops off trending for 30+ days may resurface.
+  - `sort +_epoch | dedup repo_full_name` collapses each repo to its
+    EARLIEST appearance inside the window.
+  - `where _epoch >= relative_time("-1d")` keeps only repos whose earliest
+    appearance is in the latest daily run. The AG runs right after the
+    08:00 ingestion, so "last 24h" == "first seen today". A repo that
+    trended five days ago has an earlier first-appearance and is excluded.
+  - `sort -stars_today | head 10` takes the 10 hottest new entrants.
+
+  Both filters compare the BASE _epoch column to relative_time() - never a
+  derived (eventstats/eval) column. A `where` on a derived column makes the
+  engine log a spurious "Error while applying Pandas query" on its first
+  pass (the result is still correct, but it pollutes the logs every run);
+  the curator feeders avoid it the same way. Keep it base-column-only.
+query: |-
+  index="indexes/github/trending/*.parquet"
+  | where _epoch >= relative_time("-30d")
+  | sort +_epoch
+  | dedup repo_full_name
+  | where _epoch >= relative_time("-1d")
+  | sort -stars_today
+  | head 10
+  | table repo_full_name, owner, name, html_url, description, language, stars_total, stars_today, source, snapshot_date, _epoch
+cron_schedule: ""
+lookback: ""
+trigger: once
+email_address: ""
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+purpose: alert_group_feeder
+created_at: "2026-06-23T00:00:00"
+updated_at: "2026-06-23T00:00:00"

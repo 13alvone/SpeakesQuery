@@ -1,0 +1,141 @@
+tests:
+  # ── mvcombine - combine rows into multi-value ────────────────
+  - id: mvcombine_001
+    title: "mvcombine - combine levels into list"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | mvcombine level
+    expect:
+      min_rows: 1
+
+  # ── mvappend - create multi-value field from eval ────────────
+  - id: mvappend_001
+    title: "mvappend - combine two fields"
+    query: |
+      | makeresults count=1
+      | eval a="hello"
+      | eval b="world"
+      | eval combined=mvappend(a, b)
+    expect:
+      row_count: 1
+      columns_include: ["combined"]
+
+  # ── mvcount - count elements in multi-value field ────────────
+  - id: mvcount_001
+    title: "mvcount - count list elements"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("a", "b", "c")
+      | eval cnt=mvcount(items)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 3
+
+  # ── mvdedup - deduplicate multi-value field ──────────────────
+  - id: mvdedup_001
+    title: "mvdedup - remove duplicate values"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("a", "b", "a", "c")
+      | eval unique=mvdedup(items)
+      | eval cnt=mvcount(unique)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: cnt
+          value: 3
+
+  # ── mvreverse - reverse multi-value field ────────────────────
+  - id: mvreverse_001
+    title: "mvreverse - reverse list elements"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("a", "b", "c")
+      | eval rev=mvreverse(items)
+      | eval first=mvindex(rev, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: first
+          value: "c"
+
+  # ── mvjoin - join multi-value into string ────────────────────
+  - id: mvjoin_001
+    title: "mvjoin - join list with delimiter"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("a", "b", "c")
+      | eval joined=mvjoin(items, "-")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: joined
+          value: "a-b-c"
+
+  # ── mvindex - extract element by index ───────────────────────
+  - id: mvindex_001
+    title: "mvindex - get first element"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("x", "y", "z")
+      | eval first=mvindex(items, 0)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: first
+          value: "x"
+
+  # ── mvfind - find pattern in multi-value ─────────────────────
+  - id: mvfind_001
+    title: "mvfind - find matching index"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("alpha", "beta", "gamma")
+      | eval idx=mvfind(items, "beta")
+    expect:
+      row_count: 1
+      columns_include: ["idx"]
+
+  # ── mvzip - combine two multi-value fields ───────────────────
+  - id: mvzip_001
+    title: "mvzip - zip two lists"
+    query: |
+      | makeresults count=1
+      | eval keys=mvappend("a", "b")
+      | eval vals=mvappend("1", "2")
+      | eval zipped=mvzip(keys, vals, "=")
+    expect:
+      row_count: 1
+      columns_include: ["zipped"]
+
+  # ── mvdc - distinct count in multi-value ─────────────────────
+  - id: mvdc_001
+    title: "mvdc - count distinct values"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("a", "b", "a", "c")
+      | eval dc=mvdc(items)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: dc
+          value: 3
+
+  # ── mvfilter - filter multi-value elements ───────────────────
+  - id: mvfilter_001
+    title: "mvfilter - filter elements matching condition"
+    query: |
+      | makeresults count=1
+      | eval items=mvappend("apple", "banana", "avocado")
+      | eval filtered=mvfilter(items, "a.*")
+    expect:
+      row_count: 1
+      columns_include: ["filtered"]

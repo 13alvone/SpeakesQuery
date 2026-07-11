@@ -1,0 +1,19 @@
+tests:
+  # ── lookup - non-existent lookup returns original data ───────
+  - id: lookup_001
+    title: "lookup - missing lookup table returns original data"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | lookup test_lookup userRole
+    expect:
+      row_count: 5
+
+  # ── outputlookup - write data to csv lookup ─────────────────
+  - id: outputlookup_001
+    title: "outputlookup - write test data to csv"
+    query: |
+      | makeresults count=3
+      | eval name="test"
+      | outputlookup _test_output_lookup.csv
+    expect:
+      row_count: 3

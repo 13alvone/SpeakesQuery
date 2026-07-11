@@ -1,0 +1,128 @@
+tests:
+  # ── Query Meta Bar - Initial State ─────────────────────────────
+
+  - id: ui_meta_001
+    title: "Query meta bar is hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#query-meta-bar.active"]
+
+  # ── Query Meta Bar - Appears After Query ───────────────────────
+
+  - id: ui_meta_010
+    title: "Query meta bar appears after successful query with _epoch data"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/error_tracking/system_alerts.parquet"'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 15000
+    expect:
+      visible: ["#query-meta-bar.active"]
+
+  - id: ui_meta_011
+    title: "Query meta bar shows earliest timestamp"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/error_tracking/system_alerts.parquet"'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#query-meta-bar.active"
+        timeout: 15000
+    expect:
+      text_contains:
+        - selector: "#meta-earliest"
+          value: "20"
+
+  - id: ui_meta_012
+    title: "Query meta bar shows span duration"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/error_tracking/system_alerts.parquet"'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#query-meta-bar.active"
+        timeout: 15000
+    expect:
+      text_contains:
+        - selector: "#meta-span"
+          value: "day"
+
+  # ── Fields Sidebar - Initial State ─────────────────────────────
+
+  - id: ui_fields_001
+    title: "Fields sidebar is hidden on load"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#fields-sidebar.active"]
+
+  # ── Fields Sidebar - Appears After Query ───────────────────────
+
+  - id: ui_fields_010
+    title: "Fields sidebar appears after successful query"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/error_tracking/system_alerts.parquet"'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#results table"
+        timeout: 15000
+    expect:
+      visible: ["#fields-sidebar.active"]
+
+  - id: ui_fields_011
+    title: "Fields sidebar lists fields from query results"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/error_tracking/system_alerts.parquet"'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#fields-sidebar.active"
+        timeout: 15000
+    expect:
+      count_gte:
+        - selector: "#fields-list li"
+          value: 3
+
+  - id: ui_fields_012
+    title: "Fields sidebar shows field count"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: 'index="indexes/default_test/error_tracking/system_alerts.parquet"'
+      - action: click
+        selector: "#run-query-btn"
+      - action: wait
+        selector: "#fields-sidebar.active"
+        timeout: 15000
+    expect:
+      text_contains:
+        - selector: "#fields-count"
+          value: "("

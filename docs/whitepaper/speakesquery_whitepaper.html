@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SpeakesQuery - Local-First Data Operations for Analysts and Data Scientists</title>
+<style>
+/* ────────────────────────────────────────────────────────────────
+   SpeakesQuery Whitepaper - WeasyPrint print stylesheet
+   Palette matches the SPA + Schedule Operations Report:
+   navy #0f1729 / #1A2B3C · blue #2272B8 / #4f9fde / #6AAEE0
+   ──────────────────────────────────────────────────────────────── */
+@page {
+    size: Letter;
+    margin: 18mm 16mm 20mm 16mm;
+    @top-center {
+        content: "SpeakesQuery · Technical Whitepaper · v1.0.0-rc1";
+        font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+        font-size: 7.5pt;
+        letter-spacing: 0.08em;
+        color: #8a94a6;
+    }
+    @bottom-center {
+        content: counter(page);
+        font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+        font-size: 8pt;
+        color: #8a94a6;
+    }
+}
+@page cover {
+    margin: 0;
+    background: #0f1729;
+    @top-center { content: none; }
+    @bottom-center { content: none; }
+}
+
+html, body {
+    font-family: 'Inter', 'Segoe UI', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    font-size: 10pt;
+    line-height: 1.55;
+    color: #1e2633;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── Cover ── */
+.cover {
+    page: cover;
+    /* Explicit Letter dimensions - WeasyPrint resolves percentage heights
+       against content, not the page box, which collapses the absolutely-
+       positioned footer up into the title block. */
+    width: 215.9mm;
+    height: 279.4mm;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+}
+.cover-inner { padding: 46mm 20mm 0 20mm; }
+.cover-logo { width: 150mm; margin-bottom: 26mm; }
+.cover-kicker {
+    color: #6AAEE0;
+    font-size: 10pt;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    margin-bottom: 7mm;
+}
+.cover-title {
+    color: #ffffff;
+    font-size: 27pt;
+    font-weight: 800;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+    margin: 0 0 9mm 0;
+    max-width: 165mm;
+}
+.cover-subtitle {
+    color: #aeb9cc;
+    font-size: 11.5pt;
+    line-height: 1.6;
+    max-width: 150mm;
+    margin-bottom: 20mm;
+}
+.cover-meta {
+    position: absolute;
+    bottom: 18mm;
+    left: 20mm;
+    right: 20mm;
+    border-top: 0.4pt solid #2c3a54;
+    padding-top: 6mm;
+    display: flex;
+}
+.cover-meta div { flex: 1; }
+.cover-meta .k {
+    color: #7c879c;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 1.5mm;
+}
+.cover-meta .v { color: #dde4ee; font-size: 9.5pt; }
+.cover-band {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 5mm;
+    background: linear-gradient(90deg, #2272B8 0%, #4f9fde 30%, #57c48f 60%, #e0a04a 85%, #dc6332 100%);
+}
+
+/* ── Typography ── */
+h1 {
+    font-size: 17pt;
+    font-weight: 800;
+    color: #0f1729;
+    letter-spacing: -0.01em;
+    border-bottom: 2pt solid #2272B8;
+    padding-bottom: 2.5mm;
+    margin: 0 0 5mm 0;
+    page-break-after: avoid;
+}
+section.chapter { page-break-before: always; }
+h2 {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: #16324e;
+    margin: 7mm 0 2.5mm 0;
+    page-break-after: avoid;
+}
+h3 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #1e2633;
+    margin: 5mm 0 1.5mm 0;
+    page-break-after: avoid;
+}
+p { margin: 0 0 3.2mm 0; }
+ul, ol { margin: 0 0 3.2mm 0; padding-left: 5.5mm; }
+li { margin-bottom: 1.4mm; }
+strong { color: #0f1729; }
+a { color: #2272B8; text-decoration: none; }
+
+.lead {
+    font-size: 11pt;
+    color: #33405a;
+    line-height: 1.62;
+}
+.muted { color: #5a6478; font-size: 9pt; }
+
+code, .mono {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Menlo', monospace;
+    font-size: 8.6pt;
+    background: #f0f4f8;
+    border-radius: 2pt;
+    padding: 0.4mm 1.1mm;
+    color: #16324e;
+}
+pre {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Menlo', monospace;
+    font-size: 8.4pt;
+    line-height: 1.5;
+    background: #0f1729;
+    color: #d7e3f4;
+    border-radius: 4pt;
+    padding: 3.5mm 4.5mm;
+    margin: 3mm 0 4mm 0;
+    white-space: pre-wrap;
+    page-break-inside: avoid;
+}
+pre .c { color: #7c879c; }      /* comment */
+pre .k { color: #6AAEE0; }      /* keyword/pipe */
+pre .s { color: #9ece8f; }      /* string */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 3mm 0 5mm 0;
+    font-size: 8.8pt;
+    page-break-inside: avoid;
+}
+th {
+    background: #16324e;
+    color: #ffffff;
+    text-align: left;
+    font-weight: 700;
+    padding: 2mm 2.5mm;
+    font-size: 8.2pt;
+    letter-spacing: 0.04em;
+}
+td {
+    padding: 1.8mm 2.5mm;
+    border-bottom: 0.4pt solid #dde4ee;
+    vertical-align: top;
+}
+tr:nth-child(even) td { background: #f7fafc; }
+
+.callout {
+    background: #eef5fb;
+    border-left: 3pt solid #2272B8;
+    border-radius: 0 3pt 3pt 0;
+    padding: 3mm 4.5mm;
+    margin: 4mm 0;
+    page-break-inside: avoid;
+}
+.callout p:last-child { margin-bottom: 0; }
+
+.principle {
+    page-break-inside: avoid;
+    margin-bottom: 4.5mm;
+}
+.principle h3 { margin-top: 0; }
+.principle .num {
+    display: inline-block;
+    background: #2272B8;
+    color: #fff;
+    font-weight: 800;
+    font-size: 9pt;
+    border-radius: 50%;
+    width: 5.5mm; height: 5.5mm;
+    line-height: 5.5mm;
+    text-align: center;
+    margin-right: 2mm;
+}
+
+.two-col { display: flex; gap: 6mm; }
+.two-col > div { flex: 1; }
+
+.stat-row { display: flex; gap: 4mm; margin: 4mm 0 5mm 0; }
+.stat {
+    flex: 1;
+    border: 0.5pt solid #dde4ee;
+    border-top: 2.5pt solid #2272B8;
+    border-radius: 2.5pt;
+    padding: 3mm 3.5mm;
+    page-break-inside: avoid;
+}
+.stat .n { font-size: 16pt; font-weight: 800; color: #0f1729; }
+.stat .l { font-size: 7.6pt; color: #5a6478; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.8mm; }
+
+.figure { margin: 4mm 0 5mm 0; page-break-inside: avoid; }
+.figure .cap {
+    font-size: 8pt;
+    color: #5a6478;
+    margin-top: 1.5mm;
+    text-align: center;
+}
+
+.toc-item { display: flex; margin-bottom: 2.2mm; font-size: 10pt; }
+.toc-item .t { }
+.toc-item .dots { flex: 1; border-bottom: 0.4pt dotted #b9c2d0; margin: 0 1.5mm 1mm 1.5mm; }
+.toc-item .pg::after { content: target-counter(attr(href), page); color: #5a6478; }
+.toc-h { font-weight: 700; color: #16324e; }
+
+.footer-note {
+    margin-top: 8mm;
+    padding-top: 3mm;
+    border-top: 0.4pt solid #dde4ee;
+    font-size: 8pt;
+    color: #8a94a6;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ COVER ═══════════════════════ -->
+<div class="cover">
+  <div class="cover-inner">
+    <svg class="cover-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 210">
+      <rect x="16" y="16" width="170" height="178" rx="22" fill="#E8ECF0"/>
+      <rect x="16" y="16" width="170" height="28" rx="22" fill="#D8DDE4"/>
+      <rect x="16" y="32" width="170" height="12" fill="#D8DDE4"/>
+      <circle cx="42" cy="30" r="3.5" fill="#FF5F57" opacity="0.85"/>
+      <circle cx="56" cy="30" r="3.5" fill="#FEBC2E" opacity="0.85"/>
+      <circle cx="70" cy="30" r="3.5" fill="#28C840" opacity="0.85"/>
+      <rect x="38" y="56" width="88" height="7" rx="3" fill="#1A2B3C" opacity="0.15"/>
+      <rect x="38" y="71" width="124" height="7" rx="3" fill="#2272B8" opacity="0.2"/>
+      <rect x="38" y="86" width="66" height="7" rx="3" fill="#1A2B3C" opacity="0.28"/>
+      <rect x="38" y="101" width="108" height="7" rx="3" fill="#2272B8" opacity="0.36"/>
+      <rect x="38" y="116" width="78" height="7" rx="3" fill="#1A2B3C" opacity="0.46"/>
+      <rect x="38" y="131" width="130" height="7" rx="3" fill="#2272B8" opacity="0.58"/>
+      <rect x="38" y="146" width="96" height="7" rx="3" fill="#1A2B3C" opacity="0.72"/>
+      <text x="38" y="174" font-family="'SF Mono','Cascadia Code','Fira Code',monospace" font-size="13" font-weight="600" fill="#2272B8" opacity="0.6">&gt;_</text>
+      <rect x="62" y="164" width="2.5" height="12" rx="1" fill="#1A2B3C" opacity="0.8"/>
+      <text x="216" y="124" font-family="'Segoe UI','SF Pro Display','Helvetica Neue',sans-serif" font-size="90" font-weight="700" letter-spacing="-2" fill="#E0E4E8">Speakes</text>
+      <text x="612" y="124" font-family="'Segoe UI','SF Pro Display','Helvetica Neue',sans-serif" font-size="90" font-weight="700" letter-spacing="1" fill="#6AAEE0">Query</text>
+    </svg>
+    <div class="cover-kicker">Technical Whitepaper</div>
+    <div class="cover-title">Local-First Data Operations for Analysts and Data&nbsp;Scientists</div>
+    <div class="cover-subtitle">
+      A single-operator intelligence platform: pipe-based search over columnar storage,
+      sandboxed data ingestion, scheduled analysis, and budget-gated AI - running entirely
+      on hardware you control, with no accounts, no telemetry, and no cloud dependency.
+    </div>
+  </div>
+  <div class="cover-meta">
+    <div><div class="k">Version</div><div class="v">1.0.0-rc1</div></div>
+    <div><div class="k">Date</div><div class="v">July 2026</div></div>
+    <div><div class="k">License</div><div class="v">Apache 2.0</div></div>
+    <div><div class="k">Audience</div><div class="v">Data scientists · Data analysts · Research engineers</div></div>
+  </div>
+  <div class="cover-band"></div>
+</div>
+
+<!-- ═══════════════════════ ABSTRACT + TOC ═══════════════════════ -->
+<section>
+  <h1>Abstract</h1>
+  <p class="lead">
+    SpeakesQuery is a local-first data operations platform that gives a single analyst the
+    working loop of a data team: continuous ingestion from public and authenticated APIs,
+    a pipe-based query language (SPQL) over compressed columnar storage, cron-scheduled
+    searches with e-mail alerting, and large-language-model analysis that is metered,
+    cached, and budget-gated at every call site. Everything - data, credentials, models,
+    logs, and audit history - lives on hardware the operator controls.
+  </p>
+  <p>
+    This paper describes the design principles behind the platform, its architecture, the
+    feature set as of v1.0.0-rc1, how the pieces compose into end-to-end analytical
+    pipelines, and the hardware required to run it - from a laptop to a LAN with a
+    dedicated GPU inference host.
+  </p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="n">56</div><div class="l">SPQL commands</div></div>
+    <div class="stat"><div class="n">52</div><div class="l">Built-in functions</div></div>
+    <div class="stat"><div class="n">135</div><div class="l">Ready-made connectors</div></div>
+    <div class="stat"><div class="n">5,700+</div><div class="l">Automated tests</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">Telemetry endpoints</div></div>
+  </div>
+
+  <h2>Contents</h2>
+  <div class="toc-item"><span class="t toc-h">1 &nbsp; The Problem</span><span class="dots"></span><a class="pg" href="#sec1"></a></div>
+  <div class="toc-item"><span class="t toc-h">2 &nbsp; Design Principles</span><span class="dots"></span><a class="pg" href="#sec2"></a></div>
+  <div class="toc-item"><span class="t toc-h">3 &nbsp; Architecture</span><span class="dots"></span><a class="pg" href="#sec3"></a></div>
+  <div class="toc-item"><span class="t toc-h">4 &nbsp; Platform Capabilities</span><span class="dots"></span><a class="pg" href="#sec4"></a></div>
+  <div class="toc-item"><span class="t toc-h">5 &nbsp; The Intelligence Layer: Metered AI</span><span class="dots"></span><a class="pg" href="#sec5"></a></div>
+  <div class="toc-item"><span class="t toc-h">6 &nbsp; How It Composes: A Working Day</span><span class="dots"></span><a class="pg" href="#sec6"></a></div>
+  <div class="toc-item"><span class="t toc-h">7 &nbsp; Security &amp; Privacy Posture</span><span class="dots"></span><a class="pg" href="#sec7"></a></div>
+  <div class="toc-item"><span class="t toc-h">8 &nbsp; Hardware &amp; Deployment</span><span class="dots"></span><a class="pg" href="#sec8"></a></div>
+  <div class="toc-item"><span class="t toc-h">9 &nbsp; Getting Started</span><span class="dots"></span><a class="pg" href="#sec9"></a></div>
+</section>
+
+<!-- ═══════════════════════ 1. PROBLEM ═══════════════════════ -->
+<section class="chapter" id="sec1">
+  <h1>1 · The Problem</h1>
+  <p class="lead">
+    Analysts across finance, public health, energy, policy, and research science share a
+    working loop: pull data from a dozen sources on a schedule, filter and aggregate it,
+    watch for anomalies, and write up what matters. The tooling for that loop has drifted
+    into two unsatisfying corners.
+  </p>
+  <p>
+    <strong>The enterprise corner</strong> - Splunk-class log platforms and
+    Bloomberg-class terminals - delivers the right interaction model (a pipe language over
+    indexed data, scheduled alerting, operational dashboards) at a per-seat or
+    per-gigabyte price that excludes individuals and small teams, and with an architecture
+    that requires shipping your data to someone else's infrastructure.
+  </p>
+  <p>
+    <strong>The DIY corner</strong> - a folder of Jupyter notebooks, cron jobs, and CSV
+    files - keeps the data local but abandons the platform properties that make the loop
+    reliable: scheduling with an audit trail, alerting that distinguishes a quiet day from
+    a broken pipeline, storage that enforces size budgets, credential handling that isn't
+    a plaintext <code>.env</code> file, and any notion of cost control once LLM calls
+    enter the workflow.
+  </p>
+  <p>
+    The gap widened when large language models became part of daily analysis. Cloud AI
+    assistants are powerful but unmetered by default - a scheduled job that silently
+    retries a failing LLM call can burn a month's budget overnight - and every prompt
+    ships potentially sensitive data to a third party. Self-hosted models eliminate both
+    concerns but arrive with no orchestration: no scheduling, no journaling of what was
+    asked and answered, no cost accounting to compare against cloud alternatives.
+  </p>
+  <div class="callout">
+    <p><strong>SpeakesQuery's thesis:</strong> a single operator on a single machine can run
+    a multi-source intelligence operation that previously required a team - if the
+    platform makes scheduled ingestion, pipe-based analysis, semantic search, and
+    cost-gated AI economical to express in one query language, and if all of it runs
+    where the data already lives.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 2. PRINCIPLES ═══════════════════════ -->
+<section class="chapter" id="sec2">
+  <h1>2 · Design Principles</h1>
+  <p>
+    Eight principles govern every subsystem. They are enforced by convention documents,
+    schema-drift tests, and - where money or data loss is at stake - by dedicated
+    regression tests that fail the build when a principle is violated.
+  </p>
+
+  <div class="principle">
+    <h3><span class="num">1</span>Local-first, zero telemetry</h3>
+    <p>The engine, the UI, the scheduler, the vector index, and the audit stores all run
+    on the operator's hardware. The software contains no analytics, no phone-home, no
+    account system. The only network traffic is the traffic you configure: your data
+    sources, your SMTP server, and (optionally) your chosen LLM endpoints.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">2</span>Open formats, no lock-in</h3>
+    <p>Data lands in gzip-compressed Apache Parquet and SQLite - readable by pandas,
+    DuckDB, Polars, R, or anything else, forever. Configuration is YAML. If you stop
+    using SpeakesQuery tomorrow, every byte of your data remains fully usable.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">3</span>A familiar language, not a new one</h3>
+    <p>SPQL is a pipe-delimited search language in the tradition analysts already know
+    from Splunk: <code>index="…" | search … | stats count by … | sort … | head 10</code>.
+    The 56 commands and 52 functions are defined in a formal ANTLR4 grammar; the grammar
+    is the single source of truth that also powers console autocomplete and the visual
+    query builder.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">4</span>Untrusted code runs sandboxed</h3>
+    <p>Ingestion scripts execute inside RestrictedPython with a curated module allowlist,
+    an outbound-domain allowlist, per-run resource budgets (rows, bytes, time) that scale
+    inversely with schedule frequency, and no filesystem or subprocess access. A separate,
+    explicitly opt-in "pro" tier grants the full scientific stack (scipy, scikit-learn,
+    numpy, duckdb) for scripts the operator chooses to trust.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">5</span>Every billable call is gated, metered, and journaled</h3>
+    <p>All LLM traffic flows through single choke points that enforce budgets
+    (<code>max_cost_usd</code>), support zero-cost previews (<code>dry_run</code>),
+    record full request/response history, and cache by content hash so idempotent re-runs
+    are free. The test suite includes "money-leak canaries": tests that patch the billable
+    client to explode, exercise every disabled/dry-run path, and assert zero invocations.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">6</span>Long-horizon data is append-only and additive-only</h3>
+    <p>Records meant to be consulted years later - trade journals, decision logs,
+    telemetry - live in a protected <code>IMMUTABLE/</code> namespace that the storage
+    janitor never touches. Schemas there may gain columns but never lose them, enforced by
+    frozen-snapshot tests, so a query written today still runs against a decade of history.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">7</span>Observability is just more data</h3>
+    <p>Search runs, ingestion runs, alert dispatches, configuration changes, and every AI
+    call (with token counts and dollar cost) are written as Parquet log streams - queryable
+    with the same SPQL as any dataset. "How much did model X cost this week, by alert
+    group?" is a one-line query, not a support ticket.</p>
+  </div>
+
+  <div class="principle">
+    <h3><span class="num">8</span>Crash-safe by construction</h3>
+    <p>Every persistent write - Parquet, YAML, settings, indexes - stages to a temporary
+    sibling and atomically renames into place. A power cut mid-write leaves the previous
+    consistent state, never a torn file. Deleted configurations are soft-deleted with a
+    30-day recovery window.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 3. ARCHITECTURE ═══════════════════════ -->
+<section class="chapter" id="sec3">
+  <h1>3 · Architecture</h1>
+  <p>
+    SpeakesQuery is a single Python 3.12 application (deployed as one Docker container)
+    organized as four cooperating planes over a shared storage layer.
+  </p>
+
+  <div class="figure">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" style="width:100%;height:auto;font-family:'Inter','Segoe UI',sans-serif;">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#5a6478"/>
+        </marker>
+      </defs>
+      <!-- Sources -->
+      <rect x="10" y="18" width="150" height="118" rx="6" fill="#f0f4f8" stroke="#b9c2d0" stroke-width="1"/>
+      <text x="85" y="38" text-anchor="middle" font-size="11" font-weight="700" fill="#16324e">DATA SOURCES</text>
+      <text x="85" y="58" text-anchor="middle" font-size="9" fill="#33405a">REST APIs · RSS · HTML</text>
+      <text x="85" y="74" text-anchor="middle" font-size="9" fill="#33405a">markets · macro · health</text>
+      <text x="85" y="90" text-anchor="middle" font-size="9" fill="#33405a">science · energy · policy</text>
+      <text x="85" y="112" text-anchor="middle" font-size="8.5" fill="#5a6478">135 library connectors</text>
+      <!-- Ingestion plane -->
+      <rect x="205" y="18" width="180" height="118" rx="6" fill="#eef5fb" stroke="#2272B8" stroke-width="1.2"/>
+      <text x="295" y="38" text-anchor="middle" font-size="11" font-weight="700" fill="#16324e">INGESTION PLANE</text>
+      <text x="295" y="58" text-anchor="middle" font-size="9" fill="#33405a">APScheduler cron pool</text>
+      <text x="295" y="74" text-anchor="middle" font-size="9" fill="#33405a">RestrictedPython sandbox</text>
+      <text x="295" y="90" text-anchor="middle" font-size="9" fill="#33405a">domain allowlist · budgets</text>
+      <text x="295" y="112" text-anchor="middle" font-size="8.5" fill="#5a6478">atomic Parquet writes</text>
+      <arrow/>
+      <line x1="160" y1="77" x2="203" y2="77" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+      <!-- Storage layer -->
+      <rect x="430" y="10" width="320" height="140" rx="6" fill="#0f1729"/>
+      <text x="590" y="32" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">STORAGE LAYER</text>
+      <rect x="446" y="44" width="138" height="42" rx="4" fill="#1a2540"/>
+      <text x="515" y="61" text-anchor="middle" font-size="8.5" font-weight="700" fill="#6AAEE0">indexes/ (Parquet)</text>
+      <text x="515" y="76" text-anchor="middle" font-size="7.5" fill="#aeb9cc">size-budgeted, compacted</text>
+      <rect x="596" y="44" width="138" height="42" rx="4" fill="#1a2540"/>
+      <text x="665" y="61" text-anchor="middle" font-size="8.5" font-weight="700" fill="#6AAEE0">IMMUTABLE/</text>
+      <text x="665" y="76" text-anchor="middle" font-size="7.5" fill="#aeb9cc">append-only, never evicted</text>
+      <rect x="446" y="96" width="138" height="42" rx="4" fill="#1a2540"/>
+      <text x="515" y="113" text-anchor="middle" font-size="8.5" font-weight="700" fill="#6AAEE0">logs/ (Parquet)</text>
+      <text x="515" y="128" text-anchor="middle" font-size="7.5" fill="#aeb9cc">runs, costs, config audit</text>
+      <rect x="596" y="96" width="138" height="42" rx="4" fill="#1a2540"/>
+      <text x="665" y="113" text-anchor="middle" font-size="8.5" font-weight="700" fill="#6AAEE0">sidecars + SQLite</text>
+      <text x="665" y="128" text-anchor="middle" font-size="7.5" fill="#aeb9cc">embeddings · vault · history</text>
+      <line x1="385" y1="77" x2="428" y2="77" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+      <!-- Query plane -->
+      <rect x="430" y="180" width="320" height="86" rx="6" fill="#eef5fb" stroke="#2272B8" stroke-width="1.2"/>
+      <text x="590" y="202" text-anchor="middle" font-size="11" font-weight="700" fill="#16324e">QUERY PLANE - SPQL ENGINE</text>
+      <text x="590" y="222" text-anchor="middle" font-size="8.5" fill="#33405a">ANTLR4 grammar → DuckDB pushdown → vectorized pipe stages</text>
+      <text x="590" y="238" text-anchor="middle" font-size="9" fill="#33405a">semantic pipes (local embeddings) · LLM pipes (budget-gated)</text>
+      <text x="590" y="256" text-anchor="middle" font-size="8.5" fill="#5a6478">56 commands · 52 functions · console + notebooks + visual builder</text>
+      <line x1="590" y1="152" x2="590" y2="178" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+      <!-- Automation plane -->
+      <rect x="430" y="296" width="320" height="86" rx="6" fill="#eef5fb" stroke="#2272B8" stroke-width="1.2"/>
+      <text x="590" y="318" text-anchor="middle" font-size="11" font-weight="700" fill="#16324e">AUTOMATION PLANE</text>
+      <text x="590" y="338" text-anchor="middle" font-size="8.5" fill="#33405a">scheduled searches (cron + timezones) · alert groups</text>
+      <text x="590" y="354" text-anchor="middle" font-size="8.5" fill="#33405a">feeder health · failure e-mails · heatmap + PDF report</text>
+      <text x="590" y="372" text-anchor="middle" font-size="8.5" fill="#5a6478">empty vs error distinguished end-to-end</text>
+      <line x1="590" y1="268" x2="590" y2="294" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+      <!-- Intelligence plane -->
+      <rect x="60" y="296" width="320" height="86" rx="6" fill="#fdf3ec" stroke="#dc6332" stroke-width="1.2"/>
+      <text x="220" y="318" text-anchor="middle" font-size="11" font-weight="700" fill="#7a3a1e">INTELLIGENCE PLANE</text>
+      <text x="220" y="338" text-anchor="middle" font-size="9" fill="#33405a">model registry → LLM router → Claude API / self-hosted</text>
+      <text x="220" y="354" text-anchor="middle" font-size="9" fill="#33405a">(Ollama · LM Studio · llama.cpp - OpenAI-compatible wire)</text>
+      <text x="220" y="372" text-anchor="middle" font-size="8.5" fill="#5a6478">budgets · dry-run · content-hash cache · full call journal</text>
+      <line x1="428" y1="339" x2="382" y2="339" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+      <!-- Outputs -->
+      <rect x="60" y="412" width="690" height="46" rx="6" fill="#f0f4f8" stroke="#b9c2d0" stroke-width="1"/>
+      <text x="405" y="431" text-anchor="middle" font-size="10.5" font-weight="700" fill="#16324e">OUTPUTS</text>
+      <text x="405" y="447" text-anchor="middle" font-size="9" fill="#33405a">e-mail briefs &amp; alerts · desktop/web UI · notebooks (HTML/PDF export) · REST API · journaled picks &amp; outcomes</text>
+      <line x1="590" y1="384" x2="590" y2="410" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+      <line x1="220" y1="384" x2="220" y2="410" stroke="#5a6478" stroke-width="1.4" marker-end="url(#arr)"/>
+    </svg>
+    <div class="cap">Figure 1 - SpeakesQuery's four planes over the shared storage layer. Every arrow is local; the only outbound traffic is source APIs, SMTP, and the LLM endpoints you configure.</div>
+  </div>
+
+  <h2>3.1 Storage</h2>
+  <p>
+    Ingested data lands as gzip-compressed Parquet under <code>indexes/</code>, one
+    subdirectory per source, with a mandatory Unix-epoch column that powers time-bounded
+    queries. Total and per-subdirectory disk budgets are enforced by a compaction and
+    cleanup job - with two carve-outs: the <code>logs/</code> stream has its own
+    independent budget (noisy logging can never evict data), and <code>IMMUTABLE/</code>
+    is never cleaned at all. Reference data (SQLite, CSV, JSON) is queryable alongside
+    Parquet through the same language.
+  </p>
+  <h2>3.2 Query execution</h2>
+  <p>
+    SPQL parses through a generated ANTLR4 parser. The initial <code>index=</code> clause
+    compiles to DuckDB reads with predicate and projection pushdown - so
+    <code>earliest=</code>/<code>latest=</code> bounds and field filters skip Parquet row
+    groups rather than scanning them. Subsequent pipe stages execute as vectorized pandas
+    operations. Every pipe handler treats an empty frame as a valid state, so a quiet day
+    propagates cleanly instead of raising.
+  </p>
+  <h2>3.3 Scheduling and dispatch</h2>
+  <p>
+    Two APScheduler-based engines drive automation: one executes ingestion scripts in the
+    sandbox, the other runs saved searches and alert groups on cron schedules with
+    per-job IANA timezones (a schedule authored as <code>30 10,15 * * mon-fri</code> in
+    <code>America/New_York</code> survives DST transitions untouched). Alert groups
+    aggregate up to ten searches into a single LLM dispatch and deliver the result as an
+    e-mail brief, with per-group budgets, failure alerting on a separate administrative
+    channel, and a per-feeder health resolver that can diagnose a broken pipeline layer
+    by layer.
+  </p>
+</section>
+
+<!-- ═══════════════════════ 4. CAPABILITIES ═══════════════════════ -->
+<section class="chapter" id="sec4">
+  <h1>4 · Platform Capabilities</h1>
+
+  <h2>4.1 SPQL - the query language</h2>
+  <p>
+    SPQL covers the working vocabulary of investigative analytics: filtering
+    (<code>search</code>, <code>where</code>, <code>regex</code>), derivation
+    (<code>eval</code> with 52 functions, <code>rex</code> field extraction), aggregation
+    (<code>stats</code>, <code>eventstats</code>, <code>streamstats</code>,
+    <code>timechart</code>, <code>bin</code>), reshaping (<code>table</code>,
+    <code>fields</code>, <code>mvexpand</code> and a full multivalue toolkit), joining
+    (<code>join</code>, <code>append</code>, <code>lookup</code>,
+    <code>multisearch</code>), and result management (<code>dedup</code>,
+    <code>sort</code>, <code>head</code>, <code>outputlookup</code>, <code>loadjob</code>).
+  </p>
+<pre><span class="c"># Which agencies' contract awards spiked this week vs. their 90-day baseline?</span>
+index=<span class="s">"indexes/gov/contract_awards/*.parquet"</span> earliest=<span class="s">"-90d"</span>
+  <span class="k">| eval</span> week = strftime(_epoch, <span class="s">"%Y-%W"</span>)
+  <span class="k">| stats</span> sum(award_usd) as weekly_usd by agency, week
+  <span class="k">| eventstats</span> avg(weekly_usd) as baseline by agency
+  <span class="k">| where</span> weekly_usd &gt; 2 * baseline
+  <span class="k">| sort</span> -weekly_usd <span class="k">| head</span> 20</pre>
+
+  <h2>4.2 Ingestion and the connector library</h2>
+  <p>
+    Scripts are authored, linted (an in-browser Pyflakes pass with no server round-trip),
+    tested against the real sandbox, and scheduled from the UI. The shipped library
+    provides 135 tested connectors - 101 of which need no API key - spanning prediction
+    markets (Polymarket, Kalshi, Metaculus, Manifold), macroeconomics (FRED, Treasury,
+    World Bank), equities and options (SEC EDGAR, earnings calendars, IV/skew/term-structure
+    suites), crypto (CoinGecko, DeFi Llama), public health (FDA, ClinicalTrials.gov),
+    energy (EIA), climate and hazards (NOAA, USGS), geopolitics (GDELT), science funding
+    (NIH, arXiv), sentiment (Reddit, Hacker News), and more. Every connector carries
+    schema-validated tests with mocked responses, and the platform's schema-drift
+    conventions catch upstream payload changes.
+  </p>
+
+  <h2>4.3 Semantic search</h2>
+  <p>
+    A local sentence-transformers model (all-MiniLM-L6-v2, 384 dimensions, ~80&nbsp;MB)
+    powers two pipes: <code>| nearest "hawkish central bank commentary"</code> ranks rows
+    by meaning rather than keywords, and <code>| dedup_semantic</code> collapses
+    near-duplicate stories across sources. A background sweeper pre-computes embedding
+    sidecar files per index, so semantic queries read precomputed vectors instead of
+    embedding at query time. No embedding API, no per-token cost, no data leaving the
+    machine.
+  </p>
+
+  <h2>4.4 Scheduled searches and alert groups</h2>
+  <p>
+    Any query can be promoted to a scheduled search with a cron expression, lookback
+    window, and e-mail alert. Alert groups compose multiple searches into one LLM-analyzed
+    brief on its own schedule - the platform's flagship pattern (Section&nbsp;6). Reusable
+    boilerplate prompts, per-group recipient lists (including <code>@group</code> mailing
+    lists), row caps, and token estimation keep dispatches predictable.
+  </p>
+
+  <h2>4.5 Notebooks and the visual builder</h2>
+  <p>
+    Notebook mode chains typed cells - SPQL, LLM, markdown - where each cell's output
+    feeds the next, with content-hash reactive caching so editing one prompt re-runs only
+    what changed. A <code>promote_to_alert_group</code> cell shows a dry-run preview
+    in-notebook and deploys to production only through an explicit endpoint - a
+    config-leak canary test guarantees notebook execution can never silently mutate
+    production. The visual builder offers the same grammar as a drag-drop canvas with
+    lossless round-trip to text, as the on-ramp for colleagues without SPQL fluency.
+  </p>
+
+  <h2>4.6 Operations: logs, schedule intelligence, backup</h2>
+  <p>
+    Every run of everything is a Parquet row you can query. The Schedule page renders
+    firing-count and data-volume heatmaps (day-of-week × hour), recent-activity charts,
+    and exports a branded PDF operations report with per-alert-group feeder health and
+    anomaly buckets - failing runs, never-ran jobs, empty output, latency outliers. A
+    stdlib-only persistence tool snapshots, backs up, restores, and diffs all user data;
+    the update script takes a pre-update snapshot and verifies a post-update diff
+    automatically.
+  </p>
+</section>
+
+<!-- ═══════════════════════ 5. INTELLIGENCE ═══════════════════════ -->
+<section class="chapter" id="sec5">
+  <h1>5 · The Intelligence Layer: Metered AI</h1>
+  <p class="lead">
+    SpeakesQuery treats LLM calls the way a database treats disk I/O: a metered resource
+    behind a uniform interface, never an unaccounted side effect.
+  </p>
+  <h2>5.1 The model registry and router</h2>
+  <p>
+    Models are YAML records - provider, endpoint, per-token costs, output ceilings,
+    timeouts, and sampling parameters. A provider-agnostic router dispatches every call by
+    model id: the Anthropic Claude API for frontier-quality analysis, or any self-hosted
+    server speaking the industry-standard Chat Completions wire format - LM Studio,
+    llama.cpp, vLLM - plus Ollama's native API. Swapping an alert group's analysis from a
+    cloud model to a LAN GPU host is a one-field change, and cost accounting stays
+    comparable because both paths land in the same journal with the same schema.
+  </p>
+  <h2>5.2 Composable LLM pipes</h2>
+  <p>
+    Because <code>| llm</code> is a pipe stage rather than a terminal step, model calls
+    compose with everything else:
+  </p>
+<pre><span class="c"># Classify only what survives the cheap filters; never spend more than 50¢</span>
+index=<span class="s">"indexes/news/articles/*.parquet"</span> earliest=<span class="s">"-1d"</span>
+  <span class="k">| dedup_semantic</span> title
+  <span class="k">| where</span> relevance_score &gt; 0.7
+  <span class="k">| llm</span> model=<span class="s">"local-8b"</span> prompt=<span class="s">"One-line risk assessment: $title$ - $summary$"</span>
+        max_cost_usd=0.50 dry_run=false</pre>
+  <p>
+    Four higher-order pipes orchestrate multi-model logic: <code>llm_route</code>
+    (confidence-based cost cascades - a cheap local model answers first, escalating to an
+    expensive model only on low confidence), <code>llm_refine</code> (drafter/critic
+    loops), <code>llm_ensemble</code> (multi-model voting), and <code>llm_until</code>
+    (convergence loops with hard cost ceilings). Every billable pipe honors
+    <code>max_cost_usd</code> and <code>dry_run</code> - the dry run prices the exact
+    dispatch without making it.
+  </p>
+  <h2>5.3 Cost control as an architectural property</h2>
+  <table>
+    <tr><th>Layer</th><th>Mechanism</th></tr>
+    <tr><td>Before dispatch</td><td>Cost estimation + <code>max_cost_usd</code> budget gates; <code>dry_run</code> previews; per-alert-group dollar budgets; daily analyzer budget</td></tr>
+    <tr><td>At dispatch</td><td>Single router choke point; retry policy that excludes timeouts (a retry against the same ceiling only doubles spend); optional prompt-compression proxy with fail-open semantics</td></tr>
+    <tr><td>After dispatch</td><td>Content-hash cache (identical re-runs are free and served locally); full request/response journal in SQLite; per-call cost rows in the Parquet log stream, SPQL-queryable</td></tr>
+    <tr><td>In the test suite</td><td>Money-leak canaries: billable clients are patched to raise on invocation, every disabled/dry-run path is exercised, zero invocations asserted</td></tr>
+  </table>
+  <div class="callout">
+    <p><strong>Practical effect:</strong> a daily multi-source brief that costs a few cents
+    on a frontier cloud model - or $0 marginal on a LAN inference host - with a queryable
+    ledger proving which. Runaway spend is a failing test, not a billing surprise.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 6. COMPOSITION ═══════════════════════ -->
+<section class="chapter" id="sec6">
+  <h1>6 · How It Composes: A Working Day</h1>
+  <p class="lead">
+    The subsystems exist to serve one loop. Here is a representative production
+    configuration - an options-market analyst's day - drawn from the platform's own
+    dogfooding.
+  </p>
+  <table>
+    <tr><th style="width:16%">When (ET)</th><th>What runs</th><th style="width:34%">Which subsystem</th></tr>
+    <tr><td>Overnight</td><td>Twenty-plus ingestion scripts pull markets, filings, macro series, and news on staggered crons; embedding sweeper refreshes sidecars</td><td>Ingestion plane · sandbox · semantic layer</td></tr>
+    <tr><td>~10:00</td><td>Six signal feeders run as saved searches - IV rank extremes, term-structure inversions, skew, pre-earnings implied moves, unusual activity - each a pure SPQL query over the night's data</td><td>Query plane · scheduler</td></tr>
+    <tr><td>10:30</td><td>The alert group serializes all six result sets into one prompt, dispatches to the configured model, parses the structured picks from the response, e-mails the brief</td><td>Alert groups · LLM router</td></tr>
+    <tr><td>10:30&nbsp;+&nbsp;ε</td><td>Every pick is journaled - instrument, direction, entry, stops, thesis, and the exact feeders that sourced it - to the append-only IMMUTABLE store</td><td>IMMUTABLE namespace</td></tr>
+    <tr><td>Daily</td><td>A deterministic tracker marks every open pick to market and grades closures against the rules as they existed at entry - no hindsight</td><td>Ingestion plane (pro tier)</td></tr>
+    <tr><td>Sunday</td><td>A weekly review aggregates outcomes into hit rate and calibration; the operations PDF reports every job's health, cost, and anomalies</td><td>Alert groups · schedule intelligence</td></tr>
+  </table>
+  <p>
+    Nothing in this loop is bespoke code. It is configuration over the same primitives
+    available for any domain: swap the feeders and the prompt, and the identical
+    machinery runs epidemiological surveillance over FDA and ClinicalTrials feeds,
+    grid-stress monitoring over EIA and NOAA data, or policy tracking over the Federal
+    Register and GDELT. The platform's own extension record demonstrates the claim - a
+    complete personal media-curation pipeline (multi-source candidate ingestion, an LLM
+    playlist composer, viewing-telemetry feedback) shipped as pure configuration plus a
+    thin REST contract, with zero engine forks.
+  </p>
+  <div class="callout">
+    <p><strong>The compounding property:</strong> every layer feeds the ones above it.
+    Ingestion feeds search; search feeds schedules; schedules feed alert groups; alert
+    groups journal to IMMUTABLE; IMMUTABLE feeds the weekly review that tunes the prompts;
+    and the logs of all of it are themselves data for the next investigation.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 7. SECURITY ═══════════════════════ -->
+<section class="chapter" id="sec7">
+  <h1>7 · Security &amp; Privacy Posture</h1>
+  <table>
+    <tr><th style="width:26%">Surface</th><th>Control</th></tr>
+    <tr><td>Data residency</td><td>All data, indexes, embeddings, and audit history remain on operator hardware. No accounts, no telemetry, no third-party analytics. Outbound traffic is limited to configured sources, SMTP, and chosen LLM endpoints.</td></tr>
+    <tr><td>Credentials</td><td>Fernet-encrypted vault (SQLite); master key stored outside the repository with <code>0600</code> permissions; decryption scoped to a single script run; key-rotation tool re-encrypts the vault in place. Vault mutations are audit-logged, and audit-log failures are never silently swallowed.</td></tr>
+    <tr><td>Untrusted code</td><td>RestrictedPython sandbox: module allowlist, no filesystem/subprocess access, no dunder access, resource budgets per run. Outbound HTTP restricted by a regex domain allowlist enforced at the engine layer - pro-tier scripts included.</td></tr>
+    <tr><td>Secrets in transit to LLMs</td><td>Secret-shaped tokens (API-key patterns) are regex-scrubbed from every request/response body before journaling, guarding against accidental key paste into prompts.</td></tr>
+    <tr><td>Web UI</td><td>Server binds LAN-configurable (localhost-only via one env var); all rendering escapes HTML; error responses never expose tracebacks.</td></tr>
+    <tr><td>Supply chain</td><td>Single container image built locally from source; Python dependencies pinned; static analysis (bandit, flake8) in the development gate alongside the 5,700-test suite.</td></tr>
+  </table>
+  <p class="muted">
+    Scope note: v1.0.0-rc1 targets single-operator deployments on trusted networks.
+    Multi-user authentication, TLS termination, and role separation are on the public
+    roadmap (Phase 6) and out of scope for this release.
+  </p>
+</section>
+
+<!-- ═══════════════════════ 8. HARDWARE ═══════════════════════ -->
+<section class="chapter" id="sec8">
+  <h1>8 · Hardware &amp; Deployment</h1>
+  <p>
+    SpeakesQuery's core is deliberately light: DuckDB and pandas over compressed Parquet on
+    one machine. The only meaningfully heavy option - local LLM inference - is optional
+    and lives on whatever second machine you point the model registry at.
+  </p>
+
+  <h2>8.1 Requirements</h2>
+  <table>
+    <tr><th style="width:22%"></th><th>Minimum</th><th>Recommended</th></tr>
+    <tr><td><strong>CPU</strong></td><td>2 cores, x86-64 or ARM64</td><td>8 cores (parallel ingestion + DuckDB scans + embedding batches)</td></tr>
+    <tr><td><strong>Memory</strong></td><td>8 GB</td><td>16–32 GB (comfortable headroom for wide multi-file scans and the embedding model)</td></tr>
+    <tr><td><strong>Storage</strong></td><td>20 GB free</td><td>100+ GB NVMe SSD (gzip-Parquet is compact - budget ~1–5 GB/year per busy source - but SSD latency dominates query feel)</td></tr>
+    <tr><td><strong>OS</strong></td><td colspan="2">Any Docker host - Linux, macOS (Intel or Apple Silicon), Windows via WSL2. Raspberry Pi 5-class ARM boards run the core acceptably for light schedules.</td></tr>
+    <tr><td><strong>Network</strong></td><td colspan="2">Outbound HTTPS to your data sources and SMTP. No inbound ports required beyond the UI (default 5111, LAN-configurable).</td></tr>
+  </table>
+  <p class="muted">
+    The semantic layer adds roughly 1 GB of working memory when active (the MiniLM model
+    plus batch buffers). Disk budgets are enforced by the platform itself - you set
+    <code>max_indexes_size_gb</code> and the janitor holds the line.
+  </p>
+
+  <h2>8.2 Intelligence-tier options</h2>
+  <table>
+    <tr><th style="width:24%">Tier</th><th>Hardware</th><th>What it gets you</th></tr>
+    <tr><td><strong>Cloud API only</strong></td><td>Nothing extra</td><td>Frontier-model quality (Anthropic Claude) for briefs and analysis; typical daily-brief workloads run cents per day, fully metered</td></tr>
+    <tr><td><strong>Small local</strong></td><td>16 GB unified memory or a 12 GB GPU on any LAN box</td><td>4–8B-class models via Ollama/LM Studio for classification, tagging, and routing tiers of cost cascades - $0 marginal</td></tr>
+    <tr><td><strong>Large local</strong></td><td>Dedicated inference host: 48–128 GB unified memory (Apple Silicon) or equivalent GPU VRAM</td><td>30–120B-class models handle full daily-brief analysis at $0 marginal cost; SpeakesQuery drives them over the LAN exactly like the cloud path, same journal, same budgets</td></tr>
+  </table>
+  <p>
+    Mixed fleets are the intended end state: route high-volume, low-stakes calls to local
+    tiers and reserve cloud calls for the judgments that warrant them - expressible
+    per-alert-group or per-pipe (<code>llm_route</code>).
+  </p>
+
+  <h2>8.3 Deployment shape</h2>
+  <p>
+    One Docker container, one command (<code>./install.sh</code> - preflight checks,
+    <code>.env</code> generation, build, launch). All user data bind-mounts to the host
+    tree, so container rebuilds never touch data. An <code>update.sh</code> wrapper
+    performs pull → snapshot → rebuild → verify, taking a pre-update backup and diffing
+    user data after the update as a regression gate. Non-Docker native installs are
+    supported for development via <code>setup.sh</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════ 9. GETTING STARTED ═══════════════════════ -->
+<section class="chapter" id="sec9">
+  <h1>9 · Getting Started</h1>
+<pre><span class="c"># 1. Clone and install (Docker required - that's the only prerequisite)</span>
+git clone https://github.com/13alvone/speakesquery.git
+cd speakesquery
+./install.sh
+<span class="c"># 2. Open http://localhost:5111 - deploy a no-key connector from the</span>
+<span class="c">#    Script Library (101 of 135 need no credentials), watch data land,</span>
+<span class="c">#    and run your first SPQL query against it.</span></pre>
+  <p>
+    A practical first hour: deploy two or three library connectors in your domain, let
+    them fire once, explore the indexes from the console with autocomplete, promote a
+    useful query to a scheduled search with an e-mail alert, then wrap several searches
+    into an alert group with a boilerplate prompt. The in-app Help serves the complete
+    documentation set - language fundamentals, cookbook, application guide, and
+    per-subsystem references.
+  </p>
+
+  <h2>Project posture</h2>
+  <p>
+    SpeakesQuery is authored infrastructure released under the Apache License 2.0. It is
+    intentionally non-rent-seeking: the core engine is free by design and remains so.
+    There is no hosted version, because a hosted version would contradict the premise.
+    The project survives on correctness, clarity, and trust - properties you can verify,
+    since every line that touches your data is inspectable on your own disk.
+  </p>
+
+  <div class="footer-note">
+    SpeakesQuery Technical Whitepaper · v1.0.0-rc1 · July 2026 · Apache License 2.0 ·
+    Copyright 2025–2026 Chris (13alvone) Speakes. Product names mentioned (Splunk,
+    Bloomberg, Anthropic Claude, Ollama, LM Studio) are trademarks of their respective
+    owners; references are descriptive only.
+  </div>
+</section>
+
+</body>
+</html>

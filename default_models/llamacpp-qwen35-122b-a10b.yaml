@@ -1,0 +1,57 @@
+id: llamacpp-qwen35-122b-a10b
+provider: lmstudio
+model_name: Qwen3.5-122B-A10B
+description: |
+  Qwen3.5-122B-A10B (Q4_K_M, hybrid GatedDeltaNet MoE) on a self-hosted
+  llama.cpp server - the "big local" default, replacing
+  llamacpp-qwen3-32b-q4km. The "big local" tier in the cost-cascade
+  pattern (see ROADMAP Bet 3): $0 LAN calls for high-judgment background
+  tasks (topic-cluster labeling, search-query synthesis from centroids).
+
+  llama.cpp exposes an OpenAI-compatible Chat Completions API, so it uses
+  the lmstudio provider transport (per CLAUDE.md: future similar
+  self-hosted backends like vLLM / llama.cpp server reuse the same wire
+  shape). mmproj-F16 vision is loaded; 256K-ctx capable; ~20 tok/s.
+
+  THINKS BY DEFAULT - the 122B emits a reasoning trace before its answer.
+  The trace lands in `message.reasoning_content`; the final answer lands
+  in `message.content` (which the lmstudio transport reads, so the trace
+  is ignored downstream). `/no_think` is IGNORED by this model; the only
+  way to disable thinking is `chat_template_kwargs:{"enable_thinking":false}`,
+  and this record assumes thinking ON. Consequence: max_output_tokens MUST
+  stay >= 4096 and default_timeout_seconds >= 300, or the trace starves
+  the answer and `content` comes back EMPTY. The 8192 / 1800 below leave
+  comfortable headroom: small calls take ~1-3 min; a large alert-group
+  brief (~21k input, 5-8k output at ~15 tok/s) can exceed 600s, so 1800s
+  covers worst-case output plus prefill with ~2x margin.
+
+  IMPORTANT - set `endpoint` to your llama.cpp host's URL before use.
+  Default `http://localhost:8085/v1` only works when llama.cpp runs on
+  the SAME machine as SpeakesQuery. For a dedicated remote box (the
+  recommended setup for a model this size), set `endpoint` to that
+  machine's reachable URL on your LAN, e.g. `http://192.168.1.50:8085/v1`.
+
+  No API key required by default. llama.cpp supports optional auth if you
+  expose the server beyond a trusted network - wire that through the
+  credential vault under `LMSTUDIO_API_KEY` (slice 2 router); the registry
+  record itself doesn't carry secrets.
+endpoint: http://localhost:8085/v1
+cost_per_input_million_usd: 0.0
+cost_per_output_million_usd: 0.0
+max_output_tokens: 8192
+default_timeout_seconds: 1800
+# Model-card recommended sampling for the THINKING path (unsloth card,
+# MODELS.md). presence_penalty is load-bearing: without it the <think>
+# trace loops and eats the entire max_output_tokens budget, so `content`
+# comes back EMPTY (validated 2026-06-07 - a labeling call hit the 8192
+# ceiling at 401s with no answer). With presence_penalty 1.5 the trace
+# self-terminates (~6.3k tokens) and the answer lands cleanly. The
+# transport forwards these verbatim into the Chat Completions payload.
+sampling:
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0
+  presence_penalty: 1.5
+created_at: "2026-06-07T00:00:00"
+updated_at: "2026-06-07T00:00:00"

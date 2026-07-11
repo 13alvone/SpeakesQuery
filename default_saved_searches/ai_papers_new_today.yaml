@@ -1,0 +1,49 @@
+name: ai_papers_new_today
+description: |
+  Slice C1 (2026-06-23). Feeder for the "AI Paper Diffs" daily alert group.
+  Reads the accumulating ai_papers/* parquets written by BOTH AI-paper
+  ingestion scripts (ai_papers_github_lists for the five curated GitHub
+  lists + ai_papers_huggingface for the Hugging Face Daily Papers feed;
+  one parquet per daily run per source, all rows sharing ONE _epoch) and
+  surfaces the papers appearing for the FIRST time in the last 30 days -
+  i.e. what was newly ADDED to the curated AI sources since they were last
+  snapshotted. This IS the daily "diff". Both sources key papers by arxiv
+  id, so a paper appearing in a GitHub list AND on Hugging Face cross-dedups.
+
+  Same first-seen dedup as github_hot_repos_today (base-column filters only,
+  never a where on a derived column - that logs a spurious pandas error):
+  - `where _epoch >= relative_time("-30d")` is the memory window (the
+    no-repeat-for-30-days throttle).
+  - `sort +_epoch | dedup paper_key` keeps each paper's EARLIEST appearance.
+  - `where _epoch >= relative_time("-1d")` keeps papers first seen in the
+    latest run (the AG runs right after the 07:00 ingestion).
+  - `head 20` caps the daily digest; the 122B prioritizes within it.
+
+  On the FIRST run there is no prior snapshot, so EVERY current paper counts
+  as "new" (a one-time cold-start flood, capped at 20). After that the feeder
+  shows only genuine additions - usually a handful, often zero on a quiet
+  day (the AG's skip_on_empty handles quiet days cleanly).
+query: |-
+  index="indexes/ai_papers/*/*.parquet"
+  | where _epoch >= relative_time("-30d")
+  | sort +_epoch
+  | dedup paper_key
+  | where _epoch >= relative_time("-1d")
+  | head 20
+  | table paper_key, title, url, source_repo, source, discovered_iso, _epoch
+cron_schedule: ""
+lookback: ""
+trigger: once
+email_address: ""
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+purpose: alert_group_feeder
+created_at: "2026-06-23T00:00:00"
+updated_at: "2026-06-23T00:00:00"

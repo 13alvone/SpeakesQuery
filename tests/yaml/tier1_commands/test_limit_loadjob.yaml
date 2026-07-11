@@ -1,0 +1,25 @@
+tests:
+  # ── limit - alias for head ──────────────────────────────────
+  - id: limit_001
+    title: "limit - return first N rows"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | limit 3
+    expect:
+      row_count: 3
+
+  # ── limit 1 ──────────────────────────────────────────────────
+  - id: limit_002
+    title: "limit 1 - single row"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | limit 1
+    expect:
+      row_count: 1
+
+  # ── loadjob - non-existent job ───────────────────────────────
+  - id: loadjob_001
+    title: "loadjob - non-existent job fails gracefully"
+    query: |
+      | loadjob nonexistent_job_id_12345
+    expect_error: true

@@ -1,0 +1,54 @@
+tests:
+  # ── Folder Insert Buttons - Visibility ─────────────────────────
+
+  - id: ui_fi_001
+    title: "Folder insert buttons appear in directory tree"
+    steps:
+      - action: navigate
+        page: query
+      - action: wait
+        selector: "#directory-tree details"
+        timeout: 5000
+    expect:
+      count_gte:
+        - selector: ".folder-insert-btn"
+          value: 1
+
+  # ── Folder Insert - Click Behavior ─────────────────────────────
+
+  - id: ui_fi_010
+    title: "Clicking root indexes folder insert button populates query with wildcard"
+    steps:
+      - action: navigate
+        page: query
+      - action: wait
+        selector: "#directory-tree details"
+        timeout: 5000
+      - action: clear
+        selector: "#query"
+      - action: click
+        selector: ".folder-insert-btn[data-folder-path='indexes']"
+    expect:
+      input_value_contains:
+        - selector: "#query"
+          value: 'index="indexes/**"'
+
+  - id: ui_fi_011
+    title: "Clicking folder insert button with existing query content prepends wildcard index"
+    steps:
+      - action: navigate
+        page: query
+      - action: wait
+        selector: "#directory-tree details"
+        timeout: 5000
+      - action: clear
+        selector: "#query"
+      - action: fill
+        selector: "#query"
+        value: "| head 5"
+      - action: click
+        selector: ".folder-insert-btn[data-folder-path='indexes']"
+    expect:
+      input_value_contains:
+        - selector: "#query"
+          value: 'index="indexes/**"'

@@ -1,0 +1,27 @@
+# Pre-commit hooks for SpeakesQuery.  Wire-up:
+#
+#   pip install -r requirements-dev.txt
+#   pre-commit install
+#
+# After that, every `git commit` runs flake8 + bandit on the staged files.
+# Run on demand against the whole repo with `pre-commit run --all-files`.
+#
+# CI parity: these are the same scanners documented in CLAUDE.md.  Keep this
+# file in sync with .flake8 and .bandit so local + hook + manual runs agree.
+
+repos:
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        # The repo-level .flake8 file controls excludes + ignore codes.
+        args: []
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.4
+    hooks:
+      - id: bandit
+        # Use the repo-level .bandit ini so excludes/skips match manual runs.
+        args: ["--ini", ".bandit"]
+        # Bandit is a security scanner - only run it on Python sources.
+        files: \.py$

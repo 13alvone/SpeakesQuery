@@ -1,0 +1,84 @@
+tests:
+  # ── Tour Engine Containers ──────────────────────────────────────
+
+  - id: ui_tours_001
+    title: "Tour engine - blocker, backdrop, and tooltip exist in DOM"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#tour-blocker"
+          value: 1
+        - selector: "#tour-backdrop"
+          value: 1
+        - selector: "#tour-tooltip"
+          value: 1
+
+  - id: ui_tours_002
+    title: "Tour engine - all containers hidden by default"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#tour-blocker", "#tour-backdrop", "#tour-tooltip"]
+
+  # ── Tour Cards on Docs Page ─────────────────────────────────────
+
+  - id: ui_tours_010
+    title: "Docs page - all three tour cards are present"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      count_gte:
+        - selector: "#docs-tour-section .tour-card"
+          value: 3
+
+  - id: ui_tours_011
+    title: "Tour cards - each has an icon, title, description, and start button"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      count_gte:
+        - selector: "#docs-tour-section .tc-icon"
+          value: 3
+        - selector: "#docs-tour-section .tc-title"
+          value: 3
+        - selector: "#docs-tour-section .tc-desc"
+          value: 3
+        - selector: "#docs-tour-section .tc-start"
+          value: 3
+
+  # ── Tour Card Content ───────────────────────────────────────────
+
+  - id: ui_tours_020
+    title: "GitHub Security tour card - correct title"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      text_contains:
+        - selector: '#docs-tour-section .tour-card[data-tour="github_security"] .tc-title'
+          value: "GitHub"
+
+  - id: ui_tours_021
+    title: "HackerNews Trends tour card - correct title"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      text_contains:
+        - selector: '#docs-tour-section .tour-card[data-tour="hackernews_trends"] .tc-title'
+          value: "HackerNews"
+
+  - id: ui_tours_022
+    title: "Weather Alerting tour card - correct title"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      text_contains:
+        - selector: '#docs-tour-section .tour-card[data-tour="weather_alerting"] .tc-title'
+          value: "Weather"

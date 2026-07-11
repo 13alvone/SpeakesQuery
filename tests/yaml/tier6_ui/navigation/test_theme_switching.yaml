@@ -1,0 +1,46 @@
+tests:
+  # ── Theme button sets data-theme on <html> ──────────────────
+
+  - id: ui_theme_001
+    title: "Switch to dark theme - data-theme updates to dark"
+    steps:
+      - action: click
+        selector: 'button.theme-btn[data-theme="dark"]'
+    expect:
+      attribute:
+        - selector: "html"
+          attr: "data-theme"
+          value: "dark"
+
+  - id: ui_theme_002
+    title: "Switch to light theme - data-theme updates to light"
+    steps:
+      - action: click
+        selector: 'button.theme-btn[data-theme="light"]'
+    expect:
+      attribute:
+        - selector: "html"
+          attr: "data-theme"
+          value: "light"
+
+  - id: ui_theme_003
+    title: "Switch to night theme - data-theme updates to night"
+    steps:
+      - action: click
+        selector: 'button.theme-btn[data-theme="night"]'
+    expect:
+      attribute:
+        - selector: "html"
+          attr: "data-theme"
+          value: "night"
+
+  - id: ui_theme_004
+    title: "Switch to cyber theme - data-theme updates to cyber"
+    steps:
+      - action: click
+        selector: 'button.theme-btn[data-theme="cyber"]'
+    expect:
+      attribute:
+        - selector: "html"
+          attr: "data-theme"
+          value: "cyber"

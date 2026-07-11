@@ -1,0 +1,32 @@
+name: cpb_worldbank_growth
+description: |
+  Alert-group feed: World Bank country growth indicators (GDP, CPI,
+  exports). Reuses existing indexes/macro/worldbank_growth parquet
+  emitted by worldbank_country_growth. Filtered to investable economies
+  with notable growth tier shifts. Powers the Civilization Pulse Brief's
+  long-arc economic context block - multi-decade civilization-scale
+  growth divergences.
+query: |-
+  index="indexes/macro/worldbank_growth/*.parquet"
+  | sort -_epoch
+  | dedup country_code, indicator_id
+  | where investability_tag IN ("INVESTABLE_EM","DEVELOPED")
+  | where growth_tier != "UNKNOWN"
+  | sort +country_code, +indicator_id
+  | table country_code, country_name, indicator_id, indicator_name, year, value, growth_tier, investability_tag, etf_hint, economic_thesis
+  | head 30
+cron_schedule: 30 11 * * sun
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

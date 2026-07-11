@@ -1,0 +1,40 @@
+tests:
+  # ── makeresults basic ────────────────────────────────────────
+  - id: makeresults_001
+    title: "makeresults - generate 3 rows"
+    query: |
+      | makeresults count=3
+    expect:
+      row_count: 3
+      columns_include: ["_epoch"]
+
+  # ── makeresults default count ────────────────────────────────
+  - id: makeresults_002
+    title: "makeresults - default count is 1"
+    query: |
+      | makeresults
+    expect:
+      row_count: 1
+
+  # ── makeresults with annotate ────────────────────────────────
+  - id: makeresults_003
+    title: "makeresults - annotate adds extra columns"
+    query: |
+      | makeresults count=3 annotate=true
+    expect:
+      row_count: 3
+      min_rows: 3
+
+  # ── makeresults then eval ────────────────────────────────────
+  - id: makeresults_004
+    title: "makeresults - followed by eval"
+    query: |
+      | makeresults count=2
+      | eval greeting="hello"
+    expect:
+      row_count: 2
+      columns_include: ["greeting"]
+      values:
+        - row: 0
+          column: greeting
+          value: "hello"

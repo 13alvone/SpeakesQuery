@@ -1,0 +1,30 @@
+name: egib_natural_gas_storage
+description: |
+  Alert-group feed: weekly Lower-48 natural gas working storage by region
+  (East, Midwest, Mountain, Pacific, South Central). Reuses indexes/
+  energy/eia_natural_gas parquet emitted by eia_natural_gas_storage.
+  EIA NGSR releases Thu 10:30 ET - defines the winter heating / summer
+  cooling supply-demand regime. Powers the Energy & Grid Intelligence
+  Brief's nat-gas block.
+query: |-
+  index="indexes/energy/eia_natural_gas/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | sort +region
+  | table series_id, region, latest_value, prior_value, change_wow_pct, change_yoy_pct, percentile_5y, regime_flag, investment_thesis, period
+  | head 10
+cron_schedule: 0 14 * * mon-fri
+lookback: -8d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

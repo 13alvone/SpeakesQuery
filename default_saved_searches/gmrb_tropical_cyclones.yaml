@@ -1,0 +1,30 @@
+name: gmrb_tropical_cyclones
+description: |
+  Alert-group feed: currently-active tropical cyclones (tropical storms,
+  hurricanes, typhoons) from the NHC with basin tagging (North Atlantic,
+  East Pacific, West Pacific, Indian Ocean) and economic thesis per basin.
+  Major hurricanes (Cat 3+, intensity >= 111 kts) surface first. Powers the
+  Global Macro Risk Brief's storm block.
+query: |-
+  index="indexes/climate/tropical_cyclones/*.parquet"
+  | sort -_epoch
+  | dedup storm_id
+  | where severity_tier IN ("MODERATE","HIGH","MAJOR")
+  | sort +severity_tier, -last_update_epoch
+  | table storm_id, storm_name, classification, intensity_kts, pressure_mb, basin, severity_tier, economic_thesis, advisory_url
+  | head 8
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

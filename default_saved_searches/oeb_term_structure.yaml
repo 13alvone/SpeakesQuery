@@ -1,0 +1,36 @@
+name: oeb_term_structure
+description: |
+  Options Edge Brief feeder: IV term-structure scan across the 40-ticker
+  watchlist.  Surfaces BACKWARDATION (front-month IV >= back-month IV
+  +5% - imminent event premium, classic calendar-spread setup) and FLAT
+  regimes (watch list).  Uses earliest="-7d" + dedup ticker so the same
+  underlying never appears twice across snapshots.  `count_in_structure`
+  via eventstats by-structure attaches each surviving row's regime size,
+  and `watchlist_n` carries the total cohort size - together they let
+  Claude cite the cross-regime breakdown in the executive summary.
+  Capped at 10 unique tickers.
+query: |-
+  index="indexes/equities/options_term_structure_pro/*.parquet" earliest="-7d"
+  | sort -_epoch
+  | dedup ticker
+  | eventstats count(_epoch) as watchlist_n
+  | eventstats count(_epoch) as count_in_structure by structure
+  | where structure IN ("BACKWARDATION", "FLAT") AND front_sample_size >= 2 AND back_sample_size >= 2
+  | table ticker, front_atm_iv, back_atm_iv, term_slope, term_ratio, structure, signal_class, front_dte_avg, back_dte_avg, front_sample_size, back_sample_size, watchlist_n, count_in_structure
+  | sort -term_ratio
+  | head 10
+cron_schedule: 5 14,19 * * mon-fri
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-04-30T00:00:00"

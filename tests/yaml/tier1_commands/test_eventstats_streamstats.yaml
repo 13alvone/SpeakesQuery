@@ -1,0 +1,26 @@
+tests:
+  # ── eventstats - count appended ──────────────────────────────
+  - id: eventstats_001
+    title: "eventstats - count by userRole appended to each row"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eventstats count by userRole
+    expect:
+      row_count: 5
+      columns_include: ["level", "userRole", "count"]
+      column_values:
+        - column: count
+          values: ["2", "2", "2", "2", "1"]
+
+  # ── streamstats - running count ──────────────────────────────
+  - id: streamstats_001
+    title: "streamstats - running count"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | streamstats count
+    expect:
+      row_count: 5
+      columns_include: ["count"]
+      column_values:
+        - column: count
+          values: ["1", "2", "3", "4", "5"]

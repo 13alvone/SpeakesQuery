@@ -1,0 +1,156 @@
+env/*
+__pycache__/*
+__pycache__/
+*/__pycache__/*
+*/*/__pycache__/*
+lexers/antlr4_active/__pycache__/
+jobs/*
+functionality/cpp_datetime_parser/build/*
+functionality/cpp_index_call/build/*
+query_engine/frontend/static/temp/*
+.env
+.idea
+.claude
+
+# ── Local-only secret file used for live-integration testing ──────
+# Never commit. Developers drop API keys / SMTP creds here and the
+# test harness reads them at runtime.
+secrets.txt
+.secrets
+
+# macOS metadata (ignore everywhere)
+.DS_Store
+
+# ── Databases (all SQLite / DB files, anywhere in the tree) ──────
+# These are user-generated runtime data. Back them up externally.
+*.db
+*.sqlite
+
+# ── Saved searches (user-generated YAML configs) ─────────────────
+/saved_searches/
+
+# ── Email groups / mailing lists (user-generated YAML configs) ───
+/email_groups/
+
+# ── Alert group YAML configs (user-generated; defaults live in
+#    /default_alert_groups/ and are seeded into /alert_groups/ on first
+#    init via AlertGroupStore._seed_defaults - never overwriting user
+#    edits). The Python files in /alert_groups/*.py are CODE and stay
+#    tracked. Pre-2026-04-30 the YAMLs were tracked here, which meant
+#    any `git pull` that updated a default could clobber the user's UI
+#    customisations. See CHANGELOG 2026-04-30 for the migration. ─────
+/alert_groups/*.yaml
+
+# ── LLM model registry (Phase 2 / Bet 3 slice 1, 2026-05-08) ─────
+# Same seed-from-defaults pattern as alert_groups/ - user edits live
+# in /models/ (gitignored), shipped defaults in /default_models/
+# (tracked) seed missing-only via ModelStore._seed_defaults.
+/models/*.yaml
+
+# ── Notebooks (Phase 3 / Bet 4 slice 1, 2026-05-08) ──────────────
+# .spqnb files are notebook-mode cell streams. User edits live in
+# /notebooks/ (gitignored, RW); shipped templates in /default_notebooks/
+# (tracked, RO mounted in Docker) seed missing-only via
+# NotebookStore._seed_defaults. Same seed-from-defaults pattern as
+# /alert_groups/ and /models/.
+/notebooks/*.spqnb
+
+# ── Notebook reactive cache (Phase 3 / Bet 4 slice 3, 2026-05-09) ─
+# Cell-output cache for content-hash invalidation (slice 3). Pickle
+# payloads under /notebook_cache/; SQLite index at /notebook_cache.sqlite
+# (covered by the generic *.sqlite ignore). Both regenerable -
+# losing the cache only loses iteration economy. Bind-mounted in
+# Docker so container rebuilds preserve it; not in default backups.
+/notebook_cache/
+
+# ── Global settings (user-specific overrides; defaults committed separately)
+/global_settings.yaml
+
+# ── Index data (immutable parquet store, machine-local) ──────────
+/indexes/**/*.parquet
+/indexes/**/*.tmp
+/indexes/**/.compacting
+
+# ── Tracked test/default fixtures (deterministic, required by tests) ─
+!/indexes/default_test/**/*.parquet
+!/indexes/archive/system_logs/system4.parquet
+!/indexes/archive/system_logs/error_tracking/
+!/indexes/archive/system_logs/error_tracking/*.parquet
+!/indexes/system_logs/
+!/indexes/system_logs/default.parquet
+
+# ── Compaction / cleanup temp files ──────────────────────────────
+*.tmp.parquet
+
+# ── Lookups: ignore CSVs only in this directory ──────────────────
+/lookups/*.csv
+# ...except the deterministic test fixture (200-row Congress-shape data)
+!/lookups/test.csv
+
+# ── Logs (ignore contents, keep dirs via placeholder if desired) ─
+/logs/
+/lexers/logs/
+
+# ── Frontend temp artifacts ──────────────────────────────────────
+/frontend/static/temp/*.pkl
+
+# ── Scheduled search outputs ─────────────────────────────────────
+/executed_scheduled_searches/
+
+# ── Input repos (git-cloned ingestion scripts) ───────────────────
+/input_repos/
+
+# ── speaktube / Curator: Google Takeout YouTube export ───────────
+# User-supplied Takeout data - history, subscriptions, playlists,
+# watch-later, etc. Read once by ``tools/curator_takeout_import.py``
+# and emitted as structured parquets under
+# ``indexes/IMMUTABLE/curator_takeout/`` (which IS backed up). The
+# raw Takeout export is the user's own external file; SpeakesQuery
+# does not need to track it.
+/youtube_profile/
+
+# ── Test artifacts ───────────────────────────────────────────────
+/tests/**/*.parquet
+/tests/temp/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# ── Python packaging ────────────────────────────────────────────
+*.egg-info/
+dist/
+build/
+*.pyc
+*.pyo
+
+# ── IDE / Editor ────────────────────────────────────────────────
+.vscode/
+workspace.xml
+*.swp
+*.swo
+*~
+.speakesQueryDevEnv/
+*.sqlite-shm
+*.sqlite-wal
+
+# ── Machine-local agent / tooling config (unique per developer) ──
+.mcp.json
+
+# ── Python tooling caches + local virtualenvs ────────────────────
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage.*
+.ipynb_checkpoints/
+.venv/
+venv/
+*.sqlite3
+
+# ── OS metadata (Windows) ────────────────────────────────────────
+Thumbs.db
+
+# ── Personal Google Takeout data (never ship user data) ─────────
+history/
+playlists/
+music (library and uploads)/
+subscriptions/

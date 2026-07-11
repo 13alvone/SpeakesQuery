@@ -1,0 +1,21 @@
+{
+  "title": "AI Paper Lists - Hugging Face Trending",
+  "description": "Fetches Hugging Face's Daily Papers feed (huggingface.co/api/daily_papers, which backs the /papers/trending page) and emits one row per paper keyed by arxiv id -- the same schema as ai_papers_github_lists, so the same paper appearing in both a GitHub list and Hugging Face cross-dedups. The ai_papers_new_today feeder reads both sources and surfaces only papers newly appearing in the last 30 days for the AI Paper Diffs alert group. No auth.",
+  "category": "Forecasting and Research",
+  "api_url": "https://huggingface.co/api/daily_papers",
+  "requires_credentials": [],
+  "credential_kinds": {},
+  "suggested_cron": "0 7 * * *",
+  "suggested_subdirectory": "ai_papers/huggingface",
+  "suggested_overwrite": false,
+  "trust_level": "sandboxed",
+  "tags": [
+    "free",
+    "no-auth",
+    "huggingface",
+    "research",
+    "ai",
+    "papers"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\n# ai_papers_huggingface -- Slice C2 (2026-06-23).\n# Fetches Hugging Face's Daily Papers feed (huggingface.co/api/daily_papers,\n# which backs the /papers/trending page) and emits the SAME paper-row schema\n# as ai_papers_github_lists, keyed by arxiv id so the same paper appearing in\n# both a GitHub list AND Hugging Face cross-dedups in the feeder. Written to\n# ai_papers/huggingface/; the ai_papers_new_today feeder reads ai_papers/*/*\n# so both sources flow into one daily diff. Single _epoch per run. No auth.\n\nnow = datetime.now(timezone.utc)\nnow_epoch = int(now.timestamp())\ndiscovered_iso = now.isoformat()\n\nEXPECTED_COLUMNS = [\n    'paper_key', 'title', 'url', 'link_text', 'source_repo', 'source',\n    'discovered_iso', '_epoch',\n]\n\nrows = []\nseen = set()\ntry:\n    resp = requests.get(\n        'https://huggingface.co/api/daily_papers',\n        params={'limit': 100},\n        headers={'User-Agent': 'SpeakesQuery-Ingest', 'Accept': 'application/json'},\n        timeout=30,\n    )\n    resp.raise_for_status()\n    items = resp.json()\nexcept Exception:\n    items = []\nif not isinstance(items, list):\n    items = []\nfor ii in range(len(items)):\n    item = items[ii]\n    if not isinstance(item, dict):\n        continue\n    paper = item.get('paper', {})\n    if not isinstance(paper, dict):\n        paper = {}\n    pid = (paper.get('id', '') or '').strip()\n    title = (item.get('title', '') or paper.get('title', '') or '').strip()\n    title = ' '.join(title.split())\n    if not pid or not title:\n        continue\n    key = 'arxiv:' + pid\n    if key in seen:\n        continue\n    seen.add(key)\n    if len(title) > 250:\n        title = title[0:250]\n    rows.append({\n        'paper_key': key,\n        'title': title,\n        'url': 'https://huggingface.co/papers/' + pid,\n        'link_text': title[0:100],\n        'source_repo': 'huggingface.co/papers',\n        'source': 'huggingface',\n        'discovered_iso': discovered_iso,\n        '_epoch': now_epoch,\n    })\n\nif rows:\n    df = pd.DataFrame(rows, columns=EXPECTED_COLUMNS)\nelse:\n    df = pd.DataFrame(columns=EXPECTED_COLUMNS)\n\nGENERATE_RESULTS(df)\n"
+}

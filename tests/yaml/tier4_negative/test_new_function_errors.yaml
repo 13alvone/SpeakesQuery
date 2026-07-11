@@ -1,0 +1,125 @@
+tests:
+  # ═══════════════════════════════════════════════════════════════
+  # Malformed uses of the new grammar functions.  Every test here
+  # either (a) expects the query engine to return None (failure)
+  # or (b) expects a specific error-tolerant fallback behaviour.
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── strftime - wrong arity ───────────────────────────────────
+  - id: neg_strftime_missing_format_arg
+    title: "strftime - missing format argument (1-arg call is invalid)"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705329000)
+    expect_error: true
+
+  - id: neg_strftime_too_many_args
+    title: "strftime - three args is invalid (grammar rejects)"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705329000, "%Y-%m-%d", "extra")
+    expect_error: true
+
+  # ── strptime - wrong arity ───────────────────────────────────
+  - id: neg_strptime_no_args
+    title: "strptime - zero arguments is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=strptime()
+    expect_error: true
+
+  # ── strptime - unparseable input gracefully returns blank (not error) ──
+  - id: neg_strptime_nonsense_string_blank
+    title: "strptime - non-date non-numeric string → field is blank (None rendered as empty string)"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("this is not a date at all")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: ""
+
+  # ── now() - called with an argument ──────────────────────────
+  - id: neg_now_takes_no_args
+    title: "now - grammar rejects any argument to now()"
+    query: |
+      | makeresults count=1
+      | eval t=now(42)
+    expect_error: true
+
+  # ── relative_time - empty arg ────────────────────────────────
+  - id: neg_relative_time_no_arg
+    title: "relative_time - zero-arg call is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=relative_time()
+    expect_error: true
+
+  # ── split - missing delimiter ───────────────────────────────
+  - id: neg_split_no_delimiter
+    title: "split - single-arg call is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=split("a,b,c")
+    expect_error: true
+
+  # ── base64_encode / base64_decode - wrong arity ─────────────
+  - id: neg_base64_encode_no_arg
+    title: "base64_encode - zero-arg call is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=base64_encode()
+    expect_error: true
+
+  - id: neg_base64_decode_invalid_input
+    title: "base64_decode - invalid base64 content fails during evaluation"
+    query: |
+      | makeresults count=1
+      | eval e=base64_decode("this-is-not-base64!")
+    expect_error: true
+
+  # ── mvsort - wrong arity ────────────────────────────────────
+  - id: neg_mvsort_no_arg
+    title: "mvsort - zero-arg call is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=mvsort()
+    expect_error: true
+
+  # ── type - wrong arity ───────────────────────────────────────
+  - id: neg_type_no_arg
+    title: "type - zero-arg call is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=type()
+    expect_error: true
+
+  # ── randomize - no arg ──────────────────────────────────────
+  - id: neg_randomize_no_arg
+    title: "randomize - zero-arg call is invalid"
+    query: |
+      | makeresults count=1
+      | eval e=randomize()
+    expect_error: true
+
+  # ── Combined malformed usage ─────────────────────────────────
+  - id: neg_strftime_format_not_a_string_coerced
+    title: "strftime - numeric format is str()-coerced, yielding the literal digits"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705329000, 42)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "42"
+
+  - id: neg_unknown_function_call
+    title: "unknown function - totally fake function name fails in eval"
+    query: |
+      | makeresults count=1
+      | eval x=notarealfunction(1, 2)
+    expect_error: true

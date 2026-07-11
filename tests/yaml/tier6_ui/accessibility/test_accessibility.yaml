@@ -1,0 +1,93 @@
+tests:
+  # ── ELI5 Tooltips ───────────────────────────────────────────────
+
+  - id: ui_a11y_001
+    title: "Settings page - ELI5 tooltips attached to form fields"
+    steps:
+      - action: navigate
+        page: settings
+    expect:
+      count_gte:
+        - selector: ".ss-field[data-eli5]"
+          value: 10
+
+  # ── Keyboard Shortcuts ──────────────────────────────────────────
+
+  - id: ui_a11y_010
+    title: "Query page - Enter in query field triggers query execution"
+    steps:
+      - action: navigate
+        page: query
+      - action: fill
+        selector: "#query"
+        value: "this_is_not_a_valid_query_12345"
+      - action: key
+        selector: "#query"
+        key: "Enter"
+    expect:
+      notification:
+        type: error
+
+  - id: ui_a11y_011
+    title: "YAML modal - Escape key closes modal"
+    steps:
+      - action: navigate
+        page: searches
+      - action: js
+        code: |
+          document.getElementById('yaml-viewer-modal').style.display = 'block';
+      - action: key
+        selector: "body"
+        key: "Escape"
+    expect:
+      hidden: ["#yaml-viewer-modal"]
+
+  - id: ui_a11y_012
+    title: "History modal - Escape key closes modal"
+    steps:
+      - action: navigate
+        page: ingestion
+      - action: js
+        code: |
+          document.getElementById('history-modal').style.display = 'block';
+      - action: key
+        selector: "body"
+        key: "Escape"
+    expect:
+      hidden: ["#history-modal"]
+
+  # ── Theme Persistence ──────────────────────────────────────────
+
+  - id: ui_a11y_020
+    title: "Theme switcher - all four theme buttons available"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: ".theme-switcher .theme-btn"
+          value: 4
+
+  # ── Notification Accessibility ──────────────────────────────────
+
+  - id: ui_a11y_030
+    title: "Notification container exists and starts empty"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#notification-container"
+          value: 1
+
+  # ── Version Display ─────────────────────────────────────────────
+
+  - id: ui_a11y_040
+    title: "Version badge is displayed in the UI"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count_gte:
+        - selector: "#version-badge"
+          value: 1

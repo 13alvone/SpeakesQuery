@@ -1,0 +1,24 @@
+{
+  "title": "SEC Balance Sheet Health Screen XBRL Frames",
+  "description": "Optional credential: SEC_EDGAR_CONTACT overrides the default SEC fair-access User-Agent. SEC EDGAR doesn't issue API keys - it just wants a reachable email in the User-Agent string. Leave it unset and the script uses the SpeakesQuery default; set it (e.g. \"your.name@example.com\") to supply your own contact. Screens all SEC-reporting companies by total assets, total liabilities, and stockholders equity using the XBRL frames API. Calculates debt-to-equity ratio and equity ratio - companies with strong balance sheets (low D/E, high equity ratio) are more resilient in downturns. Flags overleveraged companies (D/E > 3.0) as high-risk and fortress balance sheets (D/E < 0.5) as defensive plays.",
+  "category": "SEC Filings",
+  "api_url": "https://data.sec.gov/api/xbrl/frames/",
+  "requires_credentials": [],
+  "suggested_cron": "0 8 * * mon",
+  "suggested_subdirectory": "sec/balance_sheet_screen",
+  "suggested_overwrite": false,
+  "tags": [
+    "sec",
+    "edgar",
+    "xbrl",
+    "balance-sheet",
+    "assets",
+    "liabilities",
+    "debt",
+    "screening"
+  ],
+  "code": "import pandas as pd\nimport requests\nimport time\nfrom datetime import datetime, timezone\n\ncontact = (CREDENTIALS.get('SEC_EDGAR_CONTACT') or '').strip()\nif not contact or '@' not in contact:\n    # SEC EDGAR's fair-access policy accepts any User-Agent that contains\n    # a reachable email - it is NOT an API key / authentication token. Fall\n    # back to the project default so scheduled SEC jobs run out of the box;\n    # users can override by setting SEC_EDGAR_CONTACT in Settings → Credentials.\n    contact = 'SpeakesQuery EDGAR (noreply@speakesquery.local)'\nHEADERS = {'User-Agent': contact}\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nnow = datetime.now(timezone.utc)\nyear = now.year\nmonth = now.month\nif month <= 3:\n    q_year = year - 1\n    quarter = 4\nelif month <= 6:\n    q_year = year\n    quarter = 1\nelif month <= 9:\n    q_year = year\n    quarter = 2\nelse:\n    q_year = year\n    quarter = 3\n\nperiod = f'CY{q_year}Q{quarter}I'\n\n# Fetch assets, liabilities, and equity\nconcepts = ['Assets', 'Liabilities', 'StockholdersEquity']\nall_data = {}\n\nfor concept in concepts:\n    url = f'https://data.sec.gov/api/xbrl/frames/us-gaap/{concept}/USD/{period}.json'\n    resp = requests.get(url, headers=HEADERS, timeout=30)\n    if resp.status_code != 200:\n        continue\n    entries = resp.json().get('data', [])\n    for entry in entries:\n        cik = int(entry.get('cik', 0))\n        if cik not in all_data:\n            all_data[cik] = {\n                'entity_name': entry.get('entityName', ''),\n                'filed_date': entry.get('filed', ''),\n                'form': entry.get('form', ''),\n            }\n        all_data[cik][concept] = float(entry.get('val', 0))\n    time.sleep(0.15)\n\nrows = []\ncik_list = list(all_data.keys())\nfor cik in cik_list:\n    info = all_data[cik]\n    assets = info.get('Assets', 0)\n    liabilities = info.get('Liabilities', 0)\n    equity = info.get('StockholdersEquity', 0)\n\n    if assets <= 0:\n        continue\n\n    debt_to_equity = round(liabilities / equity, 4) if equity > 0 else 999.0\n    equity_ratio = round(equity / assets, 4) if assets > 0 else 0.0\n\n    if debt_to_equity > 3.0:\n        health = 'HIGH_LEVERAGE'\n    elif debt_to_equity > 1.5:\n        health = 'MODERATE_LEVERAGE'\n    elif debt_to_equity > 0.5:\n        health = 'HEALTHY'\n    elif debt_to_equity >= 0:\n        health = 'FORTRESS'\n    else:\n        health = 'NEGATIVE_EQUITY'\n\n    rows.append({\n        'cik': cik,\n        'entity_name': info.get('entity_name', ''),\n        'period': period,\n        'total_assets': assets,\n        'total_liabilities': liabilities,\n        'stockholders_equity': equity,\n        'assets_billions': round(assets / 1_000_000_000, 2),\n        'debt_to_equity': debt_to_equity,\n        'equity_ratio': equity_ratio,\n        'balance_sheet_health': health,\n        'filed_date': info.get('filed_date', ''),\n        'form': info.get('form', ''),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('total_assets', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)",
+  "credential_kinds": {
+    "SEC_EDGAR_CONTACT": "contact"
+  }
+}

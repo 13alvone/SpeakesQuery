@@ -1,0 +1,20 @@
+tests:
+  # ── mode ─────────────────────────────────────────────────────
+  - id: func_agg_mode_001
+    title: "stats mode - most frequent region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats mode(region)
+    expect:
+      row_count: 1
+      columns_include: ["mode(region)"]
+
+  # ── stats count by with multiple groups ──────────────────────
+  - id: func_agg_mode_002
+    title: "stats count by region - group counts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by region
+    expect:
+      row_count: 3
+      columns_include: ["region", "count"]

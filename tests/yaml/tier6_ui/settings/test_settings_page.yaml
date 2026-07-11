@@ -1,0 +1,169 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_settings_001
+    title: "Settings page - action buttons visible"
+    steps:
+      - action: navigate
+        page: settings
+    expect:
+      active_page: page-settings
+      visible: ["#save-settings-btn", "#reset-settings-btn", "#test-email-btn"]
+
+  - id: ui_settings_002
+    title: "Settings page - storage fields visible and populated"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-indexes-root"
+        timeout: 5000
+    expect:
+      visible:
+        - "#set-indexes-root"
+        - "#set-max-total-size-gb"
+        - "#set-max-subdirectory-size-gb"
+        - "#set-max-parquet-file-mb"
+        - "#set-cleanup-interval-hours"
+        - "#set-max-subdirectory-depth"
+
+  - id: ui_settings_003
+    title: "Settings page - ingestion fields visible"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-default-script-timeout-seconds"
+        timeout: 5000
+    expect:
+      visible:
+        - "#set-default-script-timeout-seconds"
+        - "#set-max-retries"
+        - "#set-http-request-timeout-seconds"
+        - "#set-max-output-rows"
+        - "#set-max-requests-per-execution"
+        - "#set-max-response-size-mb"
+
+  - id: ui_settings_004
+    title: "Settings page - SMTP fields visible"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-smtp-server"
+        timeout: 5000
+    expect:
+      visible:
+        - "#set-smtp-server"
+        - "#set-smtp-port"
+        - "#set-smtp-user"
+        - "#set-smtp-password"
+        - "#set-smtp-from"
+        - "#set-smtp-starttls"
+
+  - id: ui_settings_005
+    title: "Settings page - credential and security fields visible"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-credential-key-dir"
+        timeout: 5000
+    expect:
+      visible:
+        - "#set-credential-key-dir"
+        - "#set-allowed-api-domains"
+
+  # ── Settings Load (populated from server defaults) ──────────────
+
+  - id: ui_settings_010
+    title: "Settings page - indexes_root has default value after load"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-indexes-root"
+        timeout: 5000
+    expect:
+      input_value:
+        - selector: "#set-indexes-root"
+          value: "indexes"
+
+  - id: ui_settings_011
+    title: "Settings page - max_total_size_gb has default value"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-max-total-size-gb"
+        timeout: 5000
+    expect:
+      input_value:
+        - selector: "#set-max-total-size-gb"
+          value: "200"
+
+  - id: ui_settings_012
+    title: "Settings page - SMTP server has default value"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-smtp-server"
+        timeout: 5000
+    expect:
+      input_value:
+        - selector: "#set-smtp-server"
+          value: "smtp.gmail.com"
+
+  - id: ui_settings_013
+    title: "Settings page - SMTP port has default value"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-smtp-port"
+        timeout: 5000
+    expect:
+      input_value:
+        - selector: "#set-smtp-port"
+          value: "587"
+
+  # ── Save Settings ──────────────────────────────────────────────
+
+  - id: ui_settings_020
+    title: "Save settings - success notification appears"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-indexes-root"
+        timeout: 5000
+      - action: click
+        selector: "#save-settings-btn"
+      - action: wait
+        selector: "#notification-container .notification.is-success"
+        timeout: 10000
+    expect:
+      notification:
+        type: success
+
+  # ── Test Email (validation) ────────────────────────────────────
+
+  - id: ui_settings_030
+    title: "Test email without credentials - shows error in test-email-msg"
+    steps:
+      - action: navigate
+        page: settings
+      - action: wait
+        selector: "#set-smtp-user"
+        timeout: 5000
+      - action: fill
+        selector: "#set-smtp-user"
+        value: ""
+      - action: click
+        selector: "#test-email-btn"
+    expect:
+      visible: ["#test-email-msg"]
+      text_contains:
+        - selector: "#test-email-msg"
+          value: "Enter a username"

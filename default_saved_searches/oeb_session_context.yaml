@@ -1,0 +1,48 @@
+name: oeb_session_context
+description: |
+  Options Edge Brief feeder: session + holiday + ex-dividend context.
+  Joins the latest market-status row with upcoming dividends within the
+  next 14 days.  Used by the brief to (a) gate liquidity-sensitive picks
+  ahead of holidays / early-close days, (b) flag picks where ex-dividend
+  falls inside the contract's DTE window (call pricing distortion).
+  Fix 2026-04-30: moved `sort -_epoch | head 1` BEFORE `table` so the
+  sort-key column still exists when sort runs (the previous ordering
+  caused DataFrameError: column ['_epoch'] missing).  Both branches now
+  also bound by earliest= and dedup so stale snapshots can't slip in.
+
+  Widened 2026-05-01: earliest="-3d" (was "-1d") for both branches so
+  weekend / holiday data-freshness gaps don't silent-kill the feeder.
+  If still empty after this, suspect the upstream script isn't deployed
+  / scheduled - the AG debug report's ingestion-probe section will show
+  whether the parquet directory has any data at all.
+query: |-
+  index="indexes/equities/options_market_status/*.parquet" earliest="-3d"
+  | where session != ""
+  | sort -_epoch
+  | head 1
+  | table session, exchanges_open_count, exchanges_open_list, is_early_close_today, minutes_to_close, next_holiday_date, next_holiday_name, next_holiday_status, advisory
+  | append [
+      index="indexes/equities/options_ex_div_calendar/*.parquet" earliest="-7d"
+      | sort -_epoch
+      | dedup ticker
+      | where days_to_ex_div >= 0 AND days_to_ex_div <= 14
+      | sort +days_to_ex_div
+      | head 8
+      | table ticker, ex_dividend_date, days_to_ex_div, cash_amount, frequency, pay_date
+    ]
+  | where ticker != "" OR session != ""
+cron_schedule: 20 14,19 * * mon-fri
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-04-30T00:00:00"

@@ -1,0 +1,354 @@
+tests:
+  # ═══════════════════════════════════════════════════════════════
+  # strftime / strptime - PRECISION + ACCURACY stress tests
+  # All epochs are UTC; handler uses datetime.fromtimestamp(tz=UTC).
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── Exact epoch boundary points ──────────────────────────────
+  - id: stress_strftime_epoch_zero
+    title: "strftime - epoch zero is the UTC epoch boundary"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(0, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "1970-01-01 00:00:00"
+
+  - id: stress_strftime_one_second_after_epoch
+    title: "strftime - 1 second after epoch"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "1970-01-01 00:00:01"
+
+  - id: stress_strftime_exact_day_boundary
+    title: "strftime - exact day boundary (86400) lands on next day at 00:00:00"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(86400, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "1970-01-02 00:00:00"
+
+  - id: stress_strftime_last_second_of_day
+    title: "strftime - 86399 (1s before next day) renders as 23:59:59"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(86399, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "1970-01-01 23:59:59"
+
+  # ── Pre-epoch (negative) ─────────────────────────────────────
+  - id: stress_strftime_one_second_before_epoch
+    title: "strftime - negative epoch (1s before 1970-01-01) renders as 1969-12-31 23:59:59"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(-1, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "1969-12-31 23:59:59"
+
+  - id: stress_strftime_far_pre_epoch_day
+    title: "strftime - one day before epoch is 1969-12-31 00:00:00"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(-86400, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "1969-12-31 00:00:00"
+
+  # ── Leap day + leap year boundary ────────────────────────────
+  - id: stress_strftime_leap_day_2024
+    title: "strftime - 2024-02-29 exists (2024 is a leap year)"
+    query: |
+      | makeresults count=1
+      | eval epoch=strptime("2024-02-29 00:00:00")
+      | eval s=strftime(epoch, "%Y-%m-%d")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024-02-29"
+
+  - id: stress_strftime_day_after_leap_day
+    title: "strftime - 2024-02-29 + 86400s = 2024-03-01"
+    query: |
+      | makeresults count=1
+      | eval feb29=strptime("2024-02-29 00:00:00")
+      | eval s=strftime(feb29 + 86400, "%Y-%m-%d")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024-03-01"
+
+  - id: stress_strftime_end_of_feb_non_leap_year
+    title: "strftime - 2023-02-28 + 86400s = 2023-03-01 (2023 not a leap year)"
+    query: |
+      | makeresults count=1
+      | eval feb28=strptime("2023-02-28 00:00:00")
+      | eval s=strftime(feb28 + 86400, "%Y-%m-%d")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2023-03-01"
+
+  # ── Century boundaries ───────────────────────────────────────
+  - id: stress_strftime_year_2000_boundary
+    title: "strftime - 2000-01-01 00:00:00 UTC (Y2K)"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(946684800, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2000-01-01 00:00:00"
+
+  - id: stress_strftime_year_2038_boundary
+    title: "strftime - beyond the 2038 signed-32-bit ceiling"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(2147483648, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2038-01-19 03:14:08"
+
+  # ── Microsecond precision (handler preserves fractional seconds) ──
+  - id: stress_strftime_microsecond_precision
+    title: "strftime - %f shows microseconds for fractional epochs"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705329000.123456, "%Y-%m-%d %H:%M:%S.%f")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024-01-15 14:30:00.123456"
+
+  - id: stress_strptime_microsecond_roundtrip
+    title: "strptime round-trip - microsecond precision preserved"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("2024-01-15 14:30:00.500000")
+      | eval s=strftime(e, "%Y-%m-%d %H:%M:%S.%f")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024-01-15 14:30:00.500000"
+
+  # ── Format whitelist coverage (one per format family) ────────
+  - id: stress_strptime_iso_T_separator
+    title: "strptime - ISO-T (YYYY-MM-DDTHH:MM:SS) parses to correct epoch"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("2024-01-15T14:30:00")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705329000
+
+  - id: stress_strptime_us_slash_separator
+    title: "strptime - MM/DD/YYYY HH:MM:SS"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("01/15/2024 14:30:00")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705329000
+
+  - id: stress_strptime_us_12_hour_pm
+    title: "strptime - 12-hour clock with PM marker"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("01/15/2024 02:30:00 PM")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705329000
+
+  - id: stress_strptime_compact_with_T_separator
+    title: "strptime - compact YYYYMMDDThhmmss with explicit format (T bypasses numeric fast-path)"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("20240115T143000", "%Y%m%dT%H%M%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705329000
+
+  - id: stress_strptime_numeric_fast_path_passthrough
+    title: "strptime - pure-digit string is treated as an epoch passthrough (no format parsing)"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("1705329000")
+      | eval s=strftime(e, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "2024-01-15 14:30:00"
+
+  - id: stress_strptime_date_only_us_slash
+    title: "strptime - MM/DD/YYYY (date only, no time) → midnight UTC"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("01/15/2024")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705276800
+
+  - id: stress_strptime_date_only_iso
+    title: "strptime - YYYY-MM-DD (ISO date) → midnight UTC"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("2024-01-15")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705276800
+
+  - id: stress_strptime_numeric_epoch_passthrough
+    title: "strptime - numeric epoch string passes through unchanged"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("1705329000")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705329000
+
+  - id: stress_strptime_explicit_format_overrides_detection
+    title: "strptime - explicit fmt overrides whitelist detection"
+    query: |
+      | makeresults count=1
+      | eval e=strptime("2024.01.15 14:30:00", "%Y.%m.%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: e
+          value: 1705329000
+
+  # ── Round-trip precision across a column ─────────────────────
+  - id: stress_strftime_column_roundtrip
+    title: "strftime → strptime round-trip across multiple rows (column-homogeneous fast path)"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval iso=strftime(_epoch, "%Y-%m-%d %H:%M:%S")
+      | eval back=strptime(iso)
+      | eval delta=back - _epoch
+      | stats sum(delta) as total_drift, count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: total_drift
+          value: 0
+        - row: 0
+          column: count
+          value: 100
+
+  # ── strftime directives coverage ─────────────────────────────
+  - id: stress_strftime_day_of_year
+    title: "strftime - %j day-of-year on Jan 15"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705276800, "%j")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "015"
+
+  - id: stress_strftime_iso_week_day
+    title: "strftime - %A full weekday name (2024-01-15 is a Monday)"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705276800, "%A")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "Monday"
+
+  - id: stress_strftime_literal_percent_sign
+    title: "strftime - %% renders a literal percent sign inside brackets (parens-before-space triggers eval identifier normaliser)"
+    query: |
+      | makeresults count=1
+      | eval s=strftime(1705329000, "[%Y-%m-%d_%%]")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: s
+          value: "[2024-01-15_%]"
+
+  # ── strftime with arithmetic on epoch ────────────────────────
+  - id: stress_strftime_plus_minus_arithmetic
+    title: "strftime composes with +/- arithmetic on the epoch"
+    query: |
+      | makeresults count=1
+      | eval base=1705329000
+      | eval one_hour_later=strftime(base + 3600, "%Y-%m-%d %H:%M:%S")
+      | eval one_day_before=strftime(base - 86400, "%Y-%m-%d %H:%M:%S")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: one_hour_later
+          value: "2024-01-15 15:30:00"
+        - row: 0
+          column: one_day_before
+          value: "2024-01-14 14:30:00"

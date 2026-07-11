@@ -1,0 +1,203 @@
+tests:
+  # ── count by single field ────────────────────────────────────
+  - id: stats_001
+    title: "stats - count by level"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | stats count by level
+    expect:
+      row_count: 5
+      columns: ["level", "count"]
+
+  # ── count by field on larger data ────────────────────────────
+  - id: stats_002
+    title: "stats - count by region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by region
+    expect:
+      row_count: 3
+      columns: ["region", "count"]
+
+  # ── count by userRole on system_alerts ───────────────────────
+  - id: stats_003
+    title: "stats - count by userRole"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count by userRole
+    expect:
+      row_count: 5
+      columns: ["userRole", "count"]
+
+  # ── Multiple aggregations ────────────────────────────────────
+  - id: stats_004
+    title: "stats - count and avg by region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count, avg(attempts) by region
+    expect:
+      row_count: 3
+      columns: ["region", "count", "avg(attempts)"]
+
+  # ── sum aggregation ──────────────────────────────────────────
+  - id: stats_005
+    title: "stats - sum of attempts by region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats sum(attempts) by region
+    expect:
+      row_count: 3
+      columns: ["region", "sum(attempts)"]
+
+  # ── Global stats (no BY clause) ──────────────────────────────
+  - id: stats_006
+    title: "stats - global count"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 100
+
+  # ── dc (distinct count) ─────────────────────────────────────
+  - id: stats_007
+    title: "stats - distinct count of userRole"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats dc(userRole)
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: "dc(userRole)"
+          value: 5
+
+  # ── min / max ────────────────────────────────────────────────
+  - id: stats_008
+    title: "stats - min and max attempts"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats min(attempts), max(attempts)
+    expect:
+      row_count: 1
+      columns_include: ["min(attempts)", "max(attempts)"]
+      values:
+        - row: 0
+          column: "min(attempts)"
+          value: 1
+        - row: 0
+          column: "max(attempts)"
+          value: 9
+
+  # ── values() aggregation ─────────────────────────────────────
+  - id: stats_009
+    title: "stats - values of region"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | stats values(region)
+    expect:
+      row_count: 1
+      columns_include: ["values(region)"]
+
+  # ── No-parens shorthand alias regression (2026-05-16) ──────────
+  # Bug surfaced while building curator slice 2: ``stats count as A
+  # by X`` silently dropped the alias because the regex's ``\s*``
+  # after (\w+) consumed the whitespace the alias group's ``\s+``
+  # needed to anchor. Fix: move the ``\s*`` inside the optional
+  # paren group. Grammar also updated to allow no-parens forms for
+  # min/max/avg/sum/dc/median/mode/range alongside count.
+
+  - id: stats_alias_count_no_parens
+    title: "stats count as A by X - alias preserved (no-parens shorthand)"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | stats count as customer_count by grp
+    expect:
+      row_count: 1
+      columns_include: ["grp", "customer_count"]
+      values:
+        - row: 0
+          column: customer_count
+          value: 2
+
+  - id: stats_alias_avg_no_parens
+    title: "stats avg as A by X - alias preserved"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | eval x=10
+      | stats avg as mean_x by grp
+    expect:
+      row_count: 1
+      columns_include: ["grp", "mean_x"]
+
+  - id: stats_alias_min_no_parens
+    title: "stats min as A by X - alias preserved"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | eval x=10
+      | stats min as lowest by grp
+    expect:
+      row_count: 1
+      columns_include: ["grp", "lowest"]
+
+  - id: stats_alias_max_no_parens
+    title: "stats max as A by X - alias preserved"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | eval x=10
+      | stats max as highest by grp
+    expect:
+      row_count: 1
+      columns_include: ["grp", "highest"]
+
+  - id: stats_alias_sum_no_parens
+    title: "stats sum as A by X - alias preserved"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | eval x=10
+      | stats sum as total by grp
+    expect:
+      row_count: 1
+      columns_include: ["grp", "total"]
+
+  - id: stats_alias_dc_no_parens
+    title: "stats dc as A by X - alias preserved"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | stats dc as distinct_n by grp
+    expect:
+      row_count: 1
+      columns_include: ["grp", "distinct_n"]
+
+  - id: stats_alias_count_no_parens_no_by
+    title: "stats count as A - alias preserved without BY"
+    query: |
+      | makeresults count=3
+      | stats count as total_rows
+    expect:
+      row_count: 1
+      columns_include: ["total_rows"]
+      values:
+        - row: 0
+          column: total_rows
+          value: 3
+
+  - id: stats_alias_no_silent_bare_column
+    title: "stats count as A - the BARE 'count' column must NOT appear (silent-alias-drop canary)"
+    query: |
+      | makeresults count=2
+      | eval grp="g"
+      | stats count as customers by grp
+      | rename customers as renamed_count
+    expect:
+      row_count: 1
+      columns_include: ["grp", "renamed_count"]

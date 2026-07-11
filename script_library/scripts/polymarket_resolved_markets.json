@@ -1,0 +1,12 @@
+{
+  "title": "Polymarket Resolved Markets",
+  "description": "Fetches recently resolved/closed markets from Polymarket. Captures final outcomes, volumes, and resolution data. Essential for calibration analysis - comparing final prices to actual outcomes to find edges in probability assessment.",
+  "category": "Prediction Markets",
+  "api_url": "https://gamma-api.polymarket.com/markets",
+  "requires_credentials": [],
+  "suggested_cron": "0 */12 * * *",
+  "suggested_subdirectory": "polymarket/resolved_markets",
+  "suggested_overwrite": false,
+  "tags": ["free", "no-auth", "polymarket", "prediction-markets", "resolution", "calibration"],
+  "code": "import pandas as pd\nimport requests\nimport json\nfrom datetime import datetime, timezone\n\nBASE = 'https://gamma-api.polymarket.com'\nLIMIT = 100\nMAX_PAGES = 5\n\nrows = []\nfor page in range(MAX_PAGES):\n    offset = page * LIMIT\n    resp = requests.get(\n        f'{BASE}/markets',\n        params={'limit': LIMIT, 'offset': offset, 'active': 'false', 'closed': 'true'},\n        timeout=30,\n    )\n    resp.raise_for_status()\n    markets = resp.json()\n    if not markets:\n        break\n    for m in markets:\n        prices = m.get('outcomePrices', '[]')\n        if isinstance(prices, str):\n            prices = json.loads(prices)\n        yes_price = float(prices[0]) if prices else None\n        no_price = float(prices[1]) if len(prices) > 1 else None\n        tags_raw = m.get('tags', [])\n        if isinstance(tags_raw, str):\n            tags_raw = json.loads(tags_raw)\n        tag_labels = []\n        for t in (tags_raw or []):\n            if isinstance(t, dict):\n                tag_labels.append(t.get('label', t.get('slug', '')))\n            else:\n                tag_labels.append(str(t))\n        rows.append({\n            'market_id': m.get('id', ''),\n            'question': m.get('question', ''),\n            'slug': m.get('slug', ''),\n            'final_yes_price': yes_price,\n            'final_no_price': no_price,\n            'volume': float(m.get('volume', 0) or 0),\n            'liquidity': float(m.get('liquidity', 0) or 0),\n            'category': m.get('category', ''),\n            'tags': ','.join(tag_labels),\n            'end_date': m.get('endDate', ''),\n            'market_type': m.get('marketType', ''),\n            'condition_id': m.get('conditionId', ''),\n            'resolved': m.get('closed', False),\n            '_epoch': int(datetime.now(timezone.utc).timestamp()),\n        })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

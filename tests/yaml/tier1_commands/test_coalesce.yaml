@@ -1,0 +1,11 @@
+tests:
+  # ── coalesce picks first non-null ────────────────────────────
+  - id: coalesce_001
+    title: "coalesce - fill missing errorCode with 0"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 5
+      | eval filled=coalesce(errorCode, 0)
+    expect:
+      row_count: 5
+      columns_include: ["filled"]

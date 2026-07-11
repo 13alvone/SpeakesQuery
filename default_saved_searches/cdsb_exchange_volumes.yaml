@@ -1,0 +1,31 @@
+name: cdsb_exchange_volumes
+description: |
+  Alert-group feed: 24-hour spot trading volume by centralised exchange
+  (Binance, Coinbase, OKX, Bybit, Kraken, etc.) with trust scores and
+  quote-pair counts. Reuses indexes/crypto/coingecko_exchanges parquet.
+  Surging volume on a single exchange relative to its trailing trend often
+  signals concentrated buying or jurisdictional flight. Powers the Crypto
+  Deep Signals Brief's exchange-flow block.
+query: |-
+  index="indexes/crypto/coingecko_exchanges/*.parquet"
+  | sort -_epoch
+  | dedup exchange_id
+  | where volume_24h_btc >= 1000
+  | sort -volume_24h_btc_normalized
+  | table exchange_id, name, country, trust_score, trust_rank, volume_24h_btc, volume_24h_btc_normalized, suspected_wash_pct, year_established, has_trading_incentive
+  | head 15
+cron_schedule: 0 1 * * *
+lookback: -36h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-04-25T00:00:00"

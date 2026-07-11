@@ -1,0 +1,185 @@
+tests:
+  # ═══════════════════════════════════════════════════════════════
+  # Deep (6+ stage) pipelines - PRECISION + ACCURACY under load
+  # Each test chains multiple NEW grammar functions with existing
+  # pipes and asserts a deterministic end-state.
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── 7-stage: search → eval → eval → eval → stats → sort → head
+  - id: stress_deep_time_bucket_pipeline
+    title: "deep pipeline - bucket system_alerts by ISO date via strftime, count, sort, head"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | search region="US"
+      | eval iso_day=strftime(_epoch, "%Y-%m-%d")
+      | eval weekday=strftime(_epoch, "%A")
+      | eval hour_of_day=strftime(_epoch, "%H")
+      | stats count by iso_day
+      | sort - count
+      | head 3
+    expect:
+      max_rows: 3
+      columns: ["iso_day", "count"]
+
+  # ── 7-stage: parse → format → bucket → aggregate
+  - id: stress_deep_roundtrip_preserves_count
+    title: "deep pipeline - strftime → strptime round-trip preserves all rows (SPQL uses single = for where)"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval iso=strftime(_epoch, "%Y-%m-%d %H:%M:%S")
+      | eval back=strptime(iso)
+      | eval drift=back - _epoch
+      | where drift = 0
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 100
+
+  # ── 8-stage: relative_time filter → bucket → dedup chain
+  - id: stress_deep_split_dedup_sort_chain
+    title: "deep pipeline - split → mvdedup → mvsort → mvjoin canonicalises tags (single row)"
+    query: |
+      | makeresults count=1
+      | eval raw="zeta,alpha,beta,alpha,gamma,beta,zeta"
+      | eval parts=split(raw, ",")
+      | eval raw_count=mvcount(parts)
+      | eval unique=mvdedup(parts)
+      | eval unique_count=mvcount(unique)
+      | eval ordered=mvsort(unique)
+      | eval canonical=mvjoin(ordered, ",")
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: raw_count
+          value: 7
+        - row: 0
+          column: unique_count
+          value: 4
+        - row: 0
+          column: canonical
+          value: "alpha,beta,gamma,zeta"
+
+  # ── 9-stage: category derivation → conditional → type-check → group
+  - id: stress_deep_case_dispatch_on_time_bucket
+    title: "deep pipeline - case-based time bucket dispatch across the system_alerts dataset"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval day=strftime(_epoch, "%Y-%m-%d")
+      | eval weekday_num=strftime(_epoch, "%w")
+      | eval bucket=case(weekday_num == "0" or weekday_num == "6", "weekend", weekday_num == "5", "friday", "weekday")
+      | eval priority_bucket=case(priority == "critical", "P0", priority == "high", "P1", "P2")
+      | stats count by bucket, priority_bucket
+      | sort - count
+      | head 5
+    expect:
+      max_rows: 5
+      columns: ["bucket", "priority_bucket", "count"]
+
+  # ── 7-stage: base64 round-trip across a column
+  - id: stress_deep_base64_roundtrip_column
+    title: "deep pipeline - base64_encode/decode round-trips every non-null level"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval enc=base64_encode(level)
+      | eval dec=base64_decode(enc)
+      | eval matches=if_(dec == level, 1, 0)
+      | stats sum(matches) as perfect, count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: perfect
+          value: 5
+        - row: 0
+          column: count
+          value: 5
+
+  # ── 8-stage: extract → transform → bucket → aggregate → sort
+  - id: stress_deep_time_aggregation_precision
+    title: "deep pipeline - multiple time-derived columns with stats precision checks"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval day_epoch=strptime(strftime(_epoch, "%Y-%m-%d"))
+      | eval age_seconds=_epoch - day_epoch
+      | eval hour_of_day=age_seconds / 3600
+      | stats count, avg(hour_of_day) as mean_hod, min(hour_of_day) as min_hod, max(hour_of_day) as max_hod by region
+      | sort + region
+      | head 3
+    expect:
+      max_rows: 3
+      columns_include: ["region", "count"]
+
+  # ── 10-stage - max complexity: multi-source conditional aggregation
+  - id: stress_deep_max_complexity_ten_stages
+    title: "deep pipeline - 10 stage chain: search → 4 evals → stats → sort → head → eval → table"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | search status="critical"
+      | eval day=strftime(_epoch, "%Y-%m-%d")
+      | eval weekday=strftime(_epoch, "%A")
+      | eval price_bucket=case(amount < 100, "low", amount < 1000, "mid", "high")
+      | eval risk_tag=concat(priority, "-", price_bucket)
+      | stats count, avg(amount) as avg_amt, avg(responseTime) as avg_rt by risk_tag
+      | sort - count
+      | head 5
+      | eval is_high_volume=if_(count >= 5, "yes", "no")
+      | table risk_tag, count, avg_amt, avg_rt, is_high_volume
+    expect:
+      max_rows: 5
+      columns: ["risk_tag", "count", "avg_amt", "avg_rt", "is_high_volume"]
+
+  # ── Stress: many concurrent new functions
+  - id: stress_deep_many_new_functions_in_one_eval
+    title: "single pipeline uses 5 new functions together (now/strftime/strptime/relative_time/type)"
+    query: |
+      | makeresults count=1
+      | eval t=now()
+      | eval iso=strftime(t, "%Y-%m-%d %H:%M:%S")
+      | eval back=strptime(iso)
+      | eval yesterday=relative_time("-1d")
+      | eval elem_type=type(t)
+      | eval roundtrip_ok=if_(back - t > -2 and back - t < 2, 1, 0)
+      | eval yesterday_ok=if_(t - yesterday > 80000 and t - yesterday < 90000, 1, 0)
+      | eval all_ok=roundtrip_ok * yesterday_ok
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: all_ok
+          value: 1
+
+  # ── Multi-source union with time normalization
+  - id: stress_deep_multi_source_union
+    title: "deep pipeline - multi-file wildcard union aggregates both fixtures (8 rows total)"
+    query: |
+      index="indexes/default_test/output_parquets/test*.parquet"
+      | eval upper_level=upper(level)
+      | eval type_tag=concat(upper_level, "-", tostring(x))
+      | stats count by upper_level
+      | sort + upper_level
+    expect:
+      min_rows: 1
+      columns: ["upper_level", "count"]
+
+  # ── Precision invariant across large DataFrame
+  - id: stress_deep_precision_across_100_rows
+    title: "deep pipeline - 100-row DataFrame with cumulative precision invariant"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | eval iso=strftime(_epoch, "%Y-%m-%dT%H:%M:%S")
+      | eval parsed=strptime(iso)
+      | eval drift_sq=(parsed - _epoch) * (parsed - _epoch)
+      | stats sum(drift_sq) as total_sq_drift, count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: total_sq_drift
+          value: 0
+        - row: 0
+          column: count
+          value: 100

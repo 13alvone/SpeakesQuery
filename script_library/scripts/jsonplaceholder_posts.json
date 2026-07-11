@@ -1,0 +1,12 @@
+{
+  "title": "JSONPlaceholder Posts",
+  "description": "Fetches all 100 sample posts from JSONPlaceholder - a free fake REST API for testing and prototyping. No API key required. Great for verifying your ingestion pipeline works end-to-end.",
+  "category": "Testing",
+  "api_url": "https://jsonplaceholder.typicode.com/posts",
+  "requires_credentials": [],
+  "suggested_cron": "0 */12 * * *",
+  "suggested_subdirectory": "jsonplaceholder/posts",
+  "suggested_overwrite": true,
+  "tags": ["free", "no-auth", "testing", "rest-api"],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\n# JSONPlaceholder - free fake REST API\n# https://jsonplaceholder.typicode.com/\nresponse = requests.get('https://jsonplaceholder.typicode.com/posts', timeout=30)\nresponse.raise_for_status()\nposts = response.json()\n\ndf = pd.DataFrame(posts)\n\n# Add a timestamp since the API doesn't provide one\ndf['_epoch'] = int(datetime.now(timezone.utc).timestamp())\n\n# Rename columns for clarity\ndf = df.rename(columns={'userId': 'user_id'})\n\nGENERATE_RESULTS(df)"
+}

@@ -1,0 +1,89 @@
+tests:
+  # ── Arithmetic eval ──────────────────────────────────────────
+  - id: eval_001
+    title: "eval - multiply column"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval doubled=x*2
+    expect:
+      row_count: 5
+      columns_include: ["doubled"]
+      column_values:
+        - column: doubled
+          values: ["8", "8", "10", "8", "12"]
+
+  # ── String assignment ────────────────────────────────────────
+  - id: eval_002
+    title: "eval - assign string literal"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval tag="test_tag"
+    expect:
+      row_count: 5
+      columns_include: ["tag"]
+      values:
+        - row: 0
+          column: tag
+          value: "test_tag"
+
+  # ── Addition of two columns ──────────────────────────────────
+  - id: eval_003
+    title: "eval - add two columns"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval sum_xz=x+z
+    expect:
+      row_count: 5
+      columns_include: ["sum_xz"]
+      column_values:
+        - column: sum_xz
+          values: ["9", "10", "12", "12", "15"]
+
+  # ── Division ─────────────────────────────────────────────────
+  - id: eval_004
+    title: "eval - division"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval ratio=test/x
+    expect:
+      row_count: 5
+      columns_include: ["ratio"]
+
+  # ── Subtraction ──────────────────────────────────────────────
+  - id: eval_005
+    title: "eval - subtraction"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval diff=z-x
+    expect:
+      row_count: 5
+      columns_include: ["diff"]
+      column_values:
+        - column: diff
+          values: ["1", "2", "2", "4", "3"]
+
+  # ── Negative literal ─────────────────────────────────────────
+  - id: eval_006
+    title: "eval - negative literal then abs"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval neg=-5
+      | eval pos=abs(neg)
+    expect:
+      row_count: 5
+      columns_include: ["neg", "pos"]
+      values:
+        - row: 0
+          column: pos
+          value: 5
+
+  # ── Chained eval ─────────────────────────────────────────────
+  - id: eval_007
+    title: "eval - two evals in sequence"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval xstr=tostring(x)
+      | eval xnum=tonumber(xstr)
+    expect:
+      row_count: 5
+      columns_include: ["xstr", "xnum"]

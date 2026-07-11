@@ -1,0 +1,26 @@
+name: dob_macro_regime
+description: |
+  Alert-group feed: latest reading for each FRED fear-gauge series (VIX, HY
+  spread, IG spread, St. Louis financial stress index, dollar index).  Context
+  block for the analyst - sets overall risk-on / risk-off posture.  Not a pick
+  source on its own.
+query: |-
+  index="indexes/macro/fred_fear_gauges_pro/*.parquet"
+  | dedup metric
+  | table metric, description, latest_value, latest_date, prior_value, change, change_pct, fear_level, percentile_rank, z_score_1y, regime
+  | head 10
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

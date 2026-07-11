@@ -1,0 +1,40 @@
+name: pppb_congress_bills
+description: |
+  Alert-group feed: substantive Congress.gov bills with real legislative
+  progress (signed into law, passed chamber, vetoed, or reported out of
+  committee). Reuses indexes/politics/congress_bills parquet emitted by
+  congress_gov_bills. Tightened 2026-05-01 to drop ceremonial
+  resolutions: filters to substantive bill_types (S, HR, SJRES, HJRES -
+  excludes SRES/HRES which are commemorative), requires the
+  latest_action_text to mention real legislative action (Public Law,
+  passed chamber, veto, or "reported with"). Also bumped lookback 7d →
+  30d so the brief sees the legislative cadence properly. Tagged by
+  policy area. Powers the Politics & Policy Prediction Brief's
+  legislation block.
+query: |-
+  index="indexes/politics/congress_bills/*.parquet"
+  | sort -_epoch
+  | dedup bill_id
+  | where importance_tier IN ("HIGH","MEDIUM")
+  | where bill_type IN ("S","HR","SJRES","HJRES")
+  | eval is_substantive=if_(match(latest_action_text, "(?i)became public law|passed.{0,30}(senate|house)|veto|reported with|reported without"), 1, 0)
+  | where is_substantive = 1
+  | eventstats count(_epoch) as n_substantive
+  | sort -latest_action_date
+  | table bill_id, congress, bill_type, title, sponsor_party, latest_action_date, latest_action_text, importance_tier, policy_area, n_substantive, url
+  | head 15
+cron_schedule: 0 20,21 * * *
+lookback: -30d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-25T00:00:00"
+updated_at: "2026-05-01T22:30:00"

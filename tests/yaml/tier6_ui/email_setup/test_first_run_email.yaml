@@ -1,0 +1,98 @@
+tests:
+  # ── Email Setup Panel Structure ─────────────────────────────────
+
+  - id: ui_email_setup_001
+    title: "Email setup - backdrop and panel exist in DOM"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#email-setup-backdrop"
+          value: 1
+        - selector: "#email-setup-panel"
+          value: 1
+
+  - id: ui_email_setup_002
+    title: "Email setup - panel hidden by default"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#email-setup-panel"]
+
+  - id: ui_email_setup_003
+    title: "Email setup - panel has correct heading"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      text_contains:
+        - selector: "#email-setup-panel h2"
+          value: "Set Up Email Alerts"
+
+  # ── Email Setup Form Fields ─────────────────────────────────────
+
+  - id: ui_email_setup_010
+    title: "Email setup - all form inputs exist"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#es-smtp-user"
+          value: 1
+        - selector: "#es-smtp-password"
+          value: 1
+        - selector: "#es-smtp-from"
+          value: 1
+        - selector: "#es-test-to"
+          value: 1
+
+  - id: ui_email_setup_011
+    title: "Email setup - Configure and Skip buttons exist"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#es-configure-btn"
+          value: 1
+        - selector: "#es-skip-btn"
+          value: 1
+
+  - id: ui_email_setup_012
+    title: "Email setup - spinner hidden by default"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      hidden: ["#es-spinner"]
+
+  # ── Email Setup Skip Button ─────────────────────────────────────
+
+  - id: ui_email_setup_020
+    title: "Email setup - Skip button dismisses the panel"
+    steps:
+      - action: navigate
+        page: query
+      - action: js
+        code: |
+          document.getElementById('email-setup-backdrop').style.display = 'block';
+          document.getElementById('email-setup-panel').style.display = 'block';
+      - action: click
+        selector: "#es-skip-btn"
+    expect:
+      hidden: ["#email-setup-panel"]
+
+  # ── Email Setup Guide Link ─────────────────────────────────────
+
+  - id: ui_email_setup_030
+    title: "Email setup - guide link exists"
+    steps:
+      - action: navigate
+        page: query
+    expect:
+      count:
+        - selector: "#email-setup-guide-link"
+          value: 1

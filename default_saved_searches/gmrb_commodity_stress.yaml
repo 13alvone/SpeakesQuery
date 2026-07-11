@@ -1,0 +1,31 @@
+name: gmrb_commodity_stress
+description: |
+  Alert-group feed: latest spot / monthly prices for WTI, Brent, Henry Hub
+  natgas, gold, copper, aluminum, corn, wheat, soybeans, with 30-day and
+  90-day percentage changes and regime flags (SURGING / RISING / STEADY /
+  FALLING / COLLAPSING). Each row carries the most-liquid US-listed ETF
+  proxy (USO, BNO, UNG, GLD, COPX, JJU, CORN, WEAT, SOYB) and a
+  regime-specific thesis. Powers the Global Macro Risk Brief's commodity
+  supply/demand block.
+query: |-
+  index="indexes/commodities/fred_prices/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | sort +category, -change_30d_pct
+  | table series_id, description, category, latest_value, unit, change_30d_pct, change_90d_pct, regime_flag, investment_thesis, etf_ticker
+  | head 10
+cron_schedule: 0 7,13 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-22T00:00:00"
+updated_at: "2026-04-22T00:00:00"

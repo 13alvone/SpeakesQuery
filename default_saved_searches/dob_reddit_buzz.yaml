@@ -1,0 +1,26 @@
+name: dob_reddit_buzz
+description: |
+  Alert-group feed: Tickers with HIGH or VIRAL buzz across at least two
+  financial subreddits and >=5 mentions.  Retail momentum historically
+  front-runs volume spikes by 12-24 hours.  Capped at 15.
+query: |-
+  index="indexes/reddit/ticker_mentions_pro/*.parquet"
+  | where buzz_level IN ("HIGH","VIRAL") AND subreddit_count >= 2 AND mention_count >= 5
+  | table ticker, mention_count, total_score, total_comments, avg_upvote_ratio, median_upvote_ratio, subreddit_count, subreddits, buzz_level, weighted_buzz_score, buzz_score_z, momentum_percentile
+  | sort -buzz_score_z, -mention_count
+  | head 15
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

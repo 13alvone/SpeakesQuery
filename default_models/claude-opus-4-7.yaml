@@ -1,0 +1,15 @@
+id: claude-opus-4-7
+provider: anthropic
+model_name: claude-opus-4-7
+description: |
+  Claude Opus 4.7 - Anthropic's most capable model. Best for the
+  highest-stakes analytical stages where Sonnet's quality is the
+  bottleneck (multi-step reasoning, deep finance / legal / scientific
+  analysis). 5× the price of Sonnet - use selectively.
+endpoint: ""
+cost_per_input_million_usd: 15.00
+cost_per_output_million_usd: 75.00
+max_output_tokens: 8192
+default_timeout_seconds: 600
+created_at: "2026-05-08T00:00:00"
+updated_at: "2026-05-08T00:00:00"

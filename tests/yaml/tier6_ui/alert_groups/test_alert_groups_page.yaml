@@ -1,0 +1,60 @@
+tests:
+  # ── Initial state ─────────────────────────────────────────────
+  - id: ui_ag_001
+    title: "Alert Groups page - list container and primary buttons visible"
+    steps:
+      - action: navigate
+        page: alert_groups
+    expect:
+      active_page: page-alert-groups
+      visible: ["#ag-list", "#ag-new-btn", "#ag-refresh-btn"]
+
+  - id: ui_ag_002
+    title: "Alert Groups page - create/edit form hidden initially"
+    steps:
+      - action: navigate
+        page: alert_groups
+    expect:
+      hidden: ["#ag-form-box"]
+
+  # ── Form structure ────────────────────────────────────────────
+  - id: ui_ag_010
+    title: "Alert Groups page - core form elements exist in DOM"
+    steps:
+      - action: navigate
+        page: alert_groups
+    expect:
+      count:
+        - selector: "#ag-form-box"
+          value: 1
+        - selector: "#ag-name"
+          value: 1
+        - selector: "#ag-description"
+          value: 1
+        - selector: "#ag-form-title"
+          value: 1
+
+  # ── New-button reveals the form ───────────────────────────────
+  - id: ui_ag_020
+    title: "Alert Groups page - clicking + New reveals the create form"
+    steps:
+      - action: navigate
+        page: alert_groups
+      - action: click
+        selector: "#ag-new-btn"
+      - action: wait
+        selector: "#ag-form-box"
+        state: visible
+    expect:
+      visible: ["#ag-form-box", "#ag-name", "#ag-description"]
+
+  # ── List container is initially empty (no groups in fresh test env)
+  - id: ui_ag_030
+    title: "Alert Groups page - message area exists for status text"
+    steps:
+      - action: navigate
+        page: alert_groups
+    expect:
+      count:
+        - selector: "#ag-message"
+          value: 1

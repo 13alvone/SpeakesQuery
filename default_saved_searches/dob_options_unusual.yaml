@@ -1,0 +1,26 @@
+name: dob_options_unusual
+description: |
+  Alert-group feed: unusual options activity on 40 liquid tickers - vol/OI
+  ratio >=3 with HIGH or CRITICAL alert and at least 2 days to expiry.  Smart
+  money footprints that often precede equity moves.  Capped at 15.
+query: |-
+  index="indexes/equities/options_unusual_pro/*.parquet"
+  | where alert_level IN ("HIGH","CRITICAL") AND vol_oi_ratio >= 3.0 AND days_to_expiry >= 2
+  | table ticker, contract_type, strike, expiration, volume, open_interest, vol_oi_ratio, last_price, implied_vol, iv_rank, delta, gamma, vega, theta, days_to_expiry, alert_level, direction_bias
+  | sort -vol_oi_ratio
+  | head 15
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

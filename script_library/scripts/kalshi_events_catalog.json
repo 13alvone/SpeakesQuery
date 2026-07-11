@@ -1,0 +1,12 @@
+{
+  "title": "Kalshi Events Catalog",
+  "description": "Catalogs all active events on Kalshi with their associated market count, total volume, and category. Events group related binary markets - e.g., 'Fed Rate Decision March 2026' contains markets for each possible rate outcome. Tracks which categories (Economics, Weather, Politics, Finance) are seeing the most trading activity. Useful for identifying where institutional attention is concentrating.",
+  "category": "Prediction Markets",
+  "api_url": "https://api.elections.kalshi.com/trade-api/v2/events",
+  "requires_credentials": [],
+  "suggested_cron": "0 */6 * * *",
+  "suggested_subdirectory": "kalshi/events_catalog",
+  "suggested_overwrite": false,
+  "tags": ["free", "no-auth", "kalshi", "prediction-markets", "events", "categories"],
+  "code": "import pandas as pd\nimport requests\nimport time\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.elections.kalshi.com/trade-api/v2'\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nrows = []\ncursor = None\n\nfor page in range(5):\n    params = {'limit': 200, 'status': 'active'}\n    if cursor:\n        params['cursor'] = cursor\n\n    resp = requests.get(f'{BASE}/events', params=params, timeout=30)\n    resp.raise_for_status()\n    data = resp.json()\n    events = data.get('events', [])\n    if not events:\n        break\n\n    for ev in events:\n        markets = ev.get('markets', [])\n        market_count = len(markets) if markets else int(ev.get('market_count', 0) or 0)\n\n        total_volume = 0\n        total_oi = 0\n        if markets:\n            for mk in markets:\n                total_volume = total_volume + int(mk.get('volume', 0) or 0)\n                total_oi = total_oi + int(mk.get('open_interest', 0) or 0)\n\n        rows.append({\n            'event_ticker': ev.get('event_ticker', ''),\n            'title': ev.get('title', ''),\n            'category': ev.get('category', ''),\n            'sub_title': ev.get('sub_title', ''),\n            'market_count': market_count,\n            'total_volume': total_volume,\n            'total_open_interest': total_oi,\n            'status': ev.get('status', 'active'),\n            '_epoch': now_epoch,\n        })\n\n    cursor = data.get('cursor', '')\n    if not cursor:\n        break\n    time.sleep(0.1)\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('total_volume', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)"
+}

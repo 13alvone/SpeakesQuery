@@ -1,0 +1,120 @@
+tests:
+  # ── Initial State ───────────────────────────────────────────────
+
+  - id: ui_macros_001
+    title: "Macros page - list and buttons visible"
+    steps:
+      - action: navigate
+        page: macros
+    expect:
+      active_page: page-macros
+      visible: ["#macros-list", "#macro-new-btn", "#macro-refresh-btn"]
+
+  - id: ui_macros_002
+    title: "Macros page - form hidden by default"
+    steps:
+      - action: navigate
+        page: macros
+    expect:
+      hidden: ["#macro-form-box"]
+
+  - id: ui_macros_003
+    title: "Macros page - test expansion section visible"
+    steps:
+      - action: navigate
+        page: macros
+    expect:
+      visible: ["#macro-test-query", "#macro-expand-btn", "#macro-test-btn"]
+
+  # ── New Macro Button ────────────────────────────────────────────
+
+  - id: ui_macros_010
+    title: "Click New Macro - form appears"
+    steps:
+      - action: navigate
+        page: macros
+      - action: click
+        selector: "#macro-new-btn"
+    expect:
+      visible:
+        - "#macro-form-box"
+        - "#macro-name"
+        - "#macro-definition"
+        - "#macro-parameters"
+        - "#macro-description"
+        - "#macro-save-btn"
+        - "#macro-cancel-btn"
+
+  - id: ui_macros_011
+    title: "Click New Macro - form title shows 'Create Macro'"
+    steps:
+      - action: navigate
+        page: macros
+      - action: click
+        selector: "#macro-new-btn"
+    expect:
+      text_contains:
+        - selector: "#macro-form-title"
+          value: "Create Macro"
+
+  - id: ui_macros_012
+    title: "Click New Macro - parameters field is readonly"
+    steps:
+      - action: navigate
+        page: macros
+      - action: click
+        selector: "#macro-new-btn"
+    expect:
+      attribute:
+        - selector: "#macro-parameters"
+          attr: "readonly"
+          value: ""
+
+  # ── Cancel Button ───────────────────────────────────────────────
+
+  - id: ui_macros_020
+    title: "Click Cancel - form hides"
+    steps:
+      - action: navigate
+        page: macros
+      - action: click
+        selector: "#macro-new-btn"
+      - action: wait
+        selector: "#macro-form-box"
+        state: visible
+      - action: click
+        selector: "#macro-cancel-btn"
+    expect:
+      hidden: ["#macro-form-box"]
+
+  # ── Validation ──────────────────────────────────────────────────
+
+  - id: ui_macros_030
+    title: "Save empty macro - shows validation error in form message"
+    steps:
+      - action: navigate
+        page: macros
+      - action: click
+        selector: "#macro-new-btn"
+      - action: fill
+        selector: "#macro-name"
+        value: ""
+      - action: fill
+        selector: "#macro-definition"
+        value: ""
+      - action: click
+        selector: "#macro-save-btn"
+    expect:
+      text_contains:
+        - selector: "#macro-form-message"
+          value: "required"
+
+  # ── Test Expansion Section ──────────────────────────────────────
+
+  - id: ui_macros_040
+    title: "Macros page - expanded query area hidden initially"
+    steps:
+      - action: navigate
+        page: macros
+    expect:
+      hidden: ["#macro-test-expansion"]

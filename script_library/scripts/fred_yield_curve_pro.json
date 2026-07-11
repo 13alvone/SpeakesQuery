@@ -1,0 +1,29 @@
+{
+  "title": "FRED Yield Curve Pro",
+  "description": "Pro-tier variant of fred_yield_curve. Keeps all base columns and adds a Nelson-Siegel-style level/slope/curvature decomposition computed from the nine tenor points: curve_level (long-end anchor, 20y+30y average), curve_slope (10y minus 2y, sign-preserved), curve_curvature (2×5y minus 2y minus 10y - positive = humped, negative = valley), plus inversion_depth_bp (the maximum magnitude of any negative spread in basis points). Gives Claude a compact three-number characterization of the curve shape. trust_level: unrestricted - uses numpy (which is actually allowlisted in the sandbox, but this variant lives under the unrestricted tier for consistency with the _pro pattern and to demonstrate the convention).",
+  "category": "Macro Economics",
+  "api_url": "https://api.stlouisfed.org/fred/series/observations",
+  "requires_credentials": [
+    "FRED_API_KEY"
+  ],
+  "credential_kinds": {
+    "FRED_API_KEY": "api_key"
+  },
+  "suggested_cron": "0 */6 * * *",
+  "suggested_subdirectory": "macro/fred_yield_curve_pro",
+  "suggested_overwrite": false,
+  "trust_level": "unrestricted",
+  "tags": [
+    "fred",
+    "macro",
+    "yields",
+    "bonds",
+    "recession",
+    "treasury",
+    "interest-rates",
+    "pro",
+    "unrestricted",
+    "numpy"
+  ],
+  "code": "import pandas as pd\nimport numpy as np\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.stlouisfed.org/fred/series/observations'\nAPI_KEY = CREDENTIALS.get('FRED_API_KEY', '')\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nSERIES = [\n    ('DGS1MO', '1_month'),\n    ('DGS3MO', '3_month'),\n    ('DGS6MO', '6_month'),\n    ('DGS1', '1_year'),\n    ('DGS2', '2_year'),\n    ('DGS5', '5_year'),\n    ('DGS10', '10_year'),\n    ('DGS20', '20_year'),\n    ('DGS30', '30_year'),\n]\n\nyields = {}\nfor series_id, label in SERIES:\n    resp = requests.get(\n        BASE,\n        params={\n            'series_id': series_id,\n            'api_key': API_KEY,\n            'file_type': 'json',\n            'sort_order': 'desc',\n            'limit': 1,\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    obs = resp.json().get('observations', [])\n    if obs and obs[0].get('value', '.') != '.':\n        yields[label] = float(obs[0]['value'])\n    else:\n        yields[label] = None\n\ny10 = yields.get('10_year')\ny2 = yields.get('2_year')\ny3m = yields.get('3_month')\ny30 = yields.get('30_year')\ny5 = yields.get('5_year')\ny20 = yields.get('20_year')\n\nspread_10y_2y = round(y10 - y2, 4) if y10 is not None and y2 is not None else None\nspread_10y_3m = round(y10 - y3m, 4) if y10 is not None and y3m is not None else None\nspread_30y_10y = round(y30 - y10, 4) if y30 is not None and y10 is not None else None\n\nis_inverted_10y2y = spread_10y_2y < 0 if spread_10y_2y is not None else False\nis_inverted_10y3m = spread_10y_3m < 0 if spread_10y_3m is not None else False\n\nif is_inverted_10y2y and is_inverted_10y3m:\n    signal = 'STRONG_RECESSION_WARNING'\nelif is_inverted_10y2y or is_inverted_10y3m:\n    signal = 'RECESSION_WATCH'\nelse:\n    signal = 'NORMAL'\n\n# --- Pro additions: level / slope / curvature decomposition ---\nlong_end = [v for v in (y20, y30) if v is not None]\ncurve_level = round(float(np.mean(long_end)), 4) if long_end else None\ncurve_slope = spread_10y_2y  # same definition\n# Nelson-Siegel curvature proxy: 2*medium - short - long\nif y5 is not None and y2 is not None and y10 is not None:\n    curve_curvature = round(2.0 * y5 - y2 - y10, 4)\nelse:\n    curve_curvature = None\n\n# Inversion depth: the most negative spread in basis points (100 bp = 1 full yield-percent)\nspreads = [s for s in (spread_10y_2y, spread_10y_3m, spread_30y_10y) if s is not None]\nnegatives = [s for s in spreads if s < 0]\ninversion_depth_bp = round(float(min(negatives)) * 100.0, 2) if negatives else 0.0\n\n# Curve shape classifier\nif curve_level is None or curve_slope is None:\n    curve_shape = 'UNKNOWN'\nelif curve_slope < -0.1:\n    curve_shape = 'INVERTED'\nelif curve_curvature is not None and curve_curvature > 0.3:\n    curve_shape = 'HUMPED'\nelif curve_slope < 0.2:\n    curve_shape = 'FLAT'\nelse:\n    curve_shape = 'STEEP' if curve_slope > 1.0 else 'NORMAL'\n\nrows = [{\n    'yield_1m': yields.get('1_month'),\n    'yield_3m': yields.get('3_month'),\n    'yield_6m': yields.get('6_month'),\n    'yield_1y': yields.get('1_year'),\n    'yield_2y': yields.get('2_year'),\n    'yield_5y': yields.get('5_year'),\n    'yield_10y': yields.get('10_year'),\n    'yield_20y': yields.get('20_year'),\n    'yield_30y': yields.get('30_year'),\n    'spread_10y_2y': spread_10y_2y,\n    'spread_10y_3m': spread_10y_3m,\n    'spread_30y_10y': spread_30y_10y,\n    'is_inverted_10y2y': is_inverted_10y2y,\n    'is_inverted_10y3m': is_inverted_10y3m,\n    'curve_signal': signal,\n    # Pro additions:\n    'curve_level': curve_level,\n    'curve_slope': curve_slope,\n    'curve_curvature': curve_curvature,\n    'inversion_depth_bp': inversion_depth_bp,\n    'curve_shape': curve_shape,\n    '_epoch': now_epoch,\n}]\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 320" width="1160" height="320">
+  <defs>
+    <filter id="pencilTexture" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="grayNoise"/>
+      <feBlend in="SourceGraphic" in2="grayNoise" mode="multiply"/>
+    </filter>
+
+    <filter id="roughEdge" x="-3%" y="-3%" width="106%" height="106%">
+      <feTurbulence type="turbulence" baseFrequency="0.035" numOctaves="4" seed="14" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <filter id="paperGrain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="5" seed="3" result="grain"/>
+      <feColorMatrix in="grain" type="saturate" values="0" result="mono"/>
+      <feBlend in="SourceGraphic" in2="mono" mode="multiply"/>
+    </filter>
+
+    <clipPath id="bubbleClip">
+      <path d="
+        M 120,28
+        C 188,28  242,68  242,124
+        C 242,180  188,222  120,222
+        C 102,222  86,218  72,212
+        L 38,242
+        L 50,208
+        C 28,192  10,166  10,140
+        C 10,76  56,28  120,28
+        Z
+      "/>
+    </clipPath>
+  </defs>
+
+  <!-- Bright white paper -->
+  <rect width="1060" height="320" rx="8" fill="#FFFFFF"/>
+  <rect width="1060" height="320" rx="8" fill="#FAFAFA" filter="url(#paperGrain)" opacity="0.3"/>
+
+  <!-- ICON - blue pencil-rubbed bubble -->
+  <g filter="url(#roughEdge)">
+    <path d="
+      M 120,28
+      C 188,28  242,68  242,124
+      C 242,180  188,222  120,222
+      C 102,222  86,218  72,212
+      L 38,242
+      L 50,208
+      C 28,192  10,166  10,140
+      C 10,76  56,28  120,28
+      Z
+    " fill="#2670A8" filter="url(#pencilTexture)" opacity="0.78"/>
+
+    <!-- Data rows - paper showing through the stencil gaps -->
+    <g clip-path="url(#bubbleClip)">
+      <rect x="44" y="50" width="48" height="6" rx="1" fill="#FFFFFF" opacity="0.06"/>
+      <rect x="98" y="50" width="32" height="6" rx="1" fill="#FFFFFF" opacity="0.04"/>
+
+      <rect x="44" y="66" width="56" height="6" rx="1" fill="#FFFFFF" opacity="0.1"/>
+      <rect x="106" y="66" width="40" height="6" rx="1" fill="#FFFFFF" opacity="0.06"/>
+      <rect x="152" y="66" width="30" height="6" rx="1" fill="#FFFFFF" opacity="0.06"/>
+
+      <rect x="44" y="82" width="40" height="6" rx="1" fill="#FFFFFF" opacity="0.15"/>
+      <rect x="90" y="82" width="54" height="6" rx="1" fill="#FFFFFF" opacity="0.08"/>
+      <rect x="150" y="82" width="36" height="6" rx="1" fill="#FFFFFF" opacity="0.08"/>
+
+      <rect x="44" y="98" width="62" height="6" rx="1" fill="#FFFFFF" opacity="0.22"/>
+      <rect x="112" y="98" width="34" height="6" rx="1" fill="#FFFFFF" opacity="0.12"/>
+      <rect x="152" y="98" width="48" height="6" rx="1" fill="#FFFFFF" opacity="0.12"/>
+
+      <rect x="44" y="114" width="46" height="6" rx="1" fill="#FFFFFF" opacity="0.3"/>
+      <rect x="96" y="114" width="56" height="6" rx="1" fill="#FFFFFF" opacity="0.17"/>
+      <rect x="158" y="114" width="38" height="6" rx="1" fill="#FFFFFF" opacity="0.17"/>
+
+      <rect x="44" y="130" width="54" height="6" rx="1" fill="#FFFFFF" opacity="0.4"/>
+      <rect x="104" y="130" width="38" height="6" rx="1" fill="#FFFFFF" opacity="0.24"/>
+      <rect x="148" y="130" width="50" height="6" rx="1" fill="#FFFFFF" opacity="0.24"/>
+
+      <rect x="44" y="146" width="38" height="6" rx="1" fill="#FFFFFF" opacity="0.5"/>
+      <rect x="88" y="146" width="50" height="6" rx="1" fill="#FFFFFF" opacity="0.3"/>
+      <rect x="144" y="146" width="42" height="6" rx="1" fill="#FFFFFF" opacity="0.3"/>
+
+      <rect x="44" y="164" width="58" height="6" rx="1" fill="#FFFFFF" opacity="0.7"/>
+      <rect x="108" y="164" width="42" height="6" rx="1" fill="#FFFFFF" opacity="0.48"/>
+      <rect x="156" y="164" width="52" height="6" rx="1" fill="#FFFFFF" opacity="0.48"/>
+
+      <line x1="42" y1="178" x2="212" y2="178" stroke="#FFFFFF" stroke-width="0.4" opacity="0.16"/>
+    </g>
+
+    <text x="46" y="200" 
+          font-family="'SF Mono', 'Cascadia Code', 'Fira Code', monospace" 
+          font-size="18" font-weight="500"
+          fill="#FFFFFF" opacity="0.45">&gt;_</text>
+
+    <rect x="80" y="188" width="2.5" height="13" rx="1" fill="#FFFFFF" opacity="0.55"/>
+  </g>
+
+  <!-- WORDMARK - "Speak" in dark graphite, "Query" in blue pencil -->
+  <g filter="url(#pencilTexture)">
+    <text x="278" y="162" 
+          font-family="'Segoe UI', 'SF Pro Display', 'Helvetica Neue', sans-serif" 
+          font-size="100" font-weight="700" letter-spacing="-3"
+          fill="#1E2D3C" opacity="0.82">Speakes</text>
+
+    <text x="682" y="162" 
+          font-family="'Segoe UI', 'SF Pro Display', 'Helvetica Neue', sans-serif" 
+          font-size="100" font-weight="700" letter-spacing="2"
+          fill="#2670A8" opacity="0.78">Query</text>
+  </g>
+
+  <!-- Tagline -->
+  <g filter="url(#pencilTexture)" opacity="0.48">
+    <text x="282" y="208" 
+          font-family="'SF Mono', 'Cascadia Code', 'Fira Code', monospace" 
+          font-size="14" font-weight="500"
+          fill="#2670A8">&gt;</text>
+    <text x="300" y="208" 
+          font-family="'Segoe UI', 'SF Pro Display', 'Helvetica Neue', sans-serif" 
+          font-size="15" font-weight="500" letter-spacing="5"
+          fill="#4A6078">LOCAL-FIRST DATA ENGINE</text>
+  </g>
+</svg>

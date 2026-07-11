@@ -1,0 +1,30 @@
+tests:
+  # ── Basic dedup ──────────────────────────────────────────────
+  - id: dedup_001
+    title: "dedup - unique userRole values"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | dedup userRole
+    expect:
+      row_count: 3
+      column_values:
+        - column: userRole
+          values: ["user", "admin", "guest"]
+
+  # ── Dedup with count ─────────────────────────────────────────
+  - id: dedup_002
+    title: "dedup - keep 2 per userRole"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | dedup 2 userRole
+    expect:
+      row_count: 5
+
+  # ── Dedup on system_alerts ───────────────────────────────────
+  - id: dedup_003
+    title: "dedup - unique regions"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | dedup region
+    expect:
+      row_count: 3

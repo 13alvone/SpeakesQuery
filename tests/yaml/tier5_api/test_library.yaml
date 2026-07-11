@@ -1,0 +1,30 @@
+tests:
+  # ── List ───────────────────────────────────────────────────
+  - id: api_library_001
+    title: "GET /api/library/list - returns script list"
+    method: GET
+    path: /api/library/list
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [scripts]
+      min_results: 1
+
+  # ── Get known script ───────────────────────────────────────
+  - id: api_library_002
+    title: "GET /api/library/github_public_events - returns script details"
+    method: GET
+    path: /api/library/github_public_events
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [script]
+
+  # ── Not found ──────────────────────────────────────────────
+  - id: api_library_003
+    title: "GET /api/library/nonexistent_script_abc123 - returns 404"
+    method: GET
+    path: /api/library/nonexistent_script_abc123
+    expect:
+      status_code: 404
+      json_status: error

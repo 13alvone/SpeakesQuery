@@ -1,0 +1,35 @@
+tests:
+  # ── rex - named capture group ────────────────────────────────
+  - id: rex_001
+    title: "rex - extract word before message"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | rex field=message "(?P<word>\w+) message"
+    expect:
+      row_count: 5
+      columns_include: ["word"]
+      column_values:
+        - column: word
+          values: ["Debug", "Info", "Warning", "Error", "Critical"]
+
+  # ── regex - filter matching rows ─────────────────────────────
+  - id: regex_001
+    title: "regex - filter rows containing Error"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | regex message="Error"
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: level
+          value: "ERROR"
+
+  # ── regex - filter on system_alerts ──────────────────────────
+  - id: regex_002
+    title: "regex - filter action containing log"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | regex action="log"
+    expect:
+      min_rows: 1

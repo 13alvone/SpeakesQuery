@@ -1,0 +1,334 @@
+# ── SpeakesQuery Global Settings (Defaults Reference) ──────────────
+# This file is committed to the repo as a reference - it mirrors the
+# DEFAULTS dict in global_settings.py. User overrides live in
+# global_settings.yaml (gitignored). Keys below must stay in lock-step
+# with the Python DEFAULTS; a drift test at tests/test_settings_ui_coverage.py
+# guards the Settings UI against drift, but the .yaml below is reviewed by
+# humans - keep them aligned when changing defaults.
+
+# ── Indexes / Storage ──────────────────────────────────
+indexes_root: "indexes"                  # relative to project root
+max_total_size_gb: 200                   # total indexes/ cap before trimming
+max_subdirectory_size_gb: 5              # per-subdirectory cap
+max_parquet_file_mb: 128                 # target parquet file size for compaction
+
+# ── Logs Index (SPQL-queryable log stream, separate budget) ──────
+logs_root: "indexes/logs"                # parallel tree under indexes/logs/
+max_logs_size_gb: 5                      # total logs/ cap before trimming (independent of indexes budget)
+max_logs_subdirectory_size_gb: 2         # per-category log-subdir cap (1 GB floor)
+logs_enabled: true                       # master switch for structured Parquet logging
+logs_flush_interval_seconds: 30          # buffered log-writer flush cadence (5-600)
+
+# ── Immutable Namespace (data that must survive forever) ─────────
+# Wave 2 of Options Edge Brief (2026-04-26) - pick journal, closure
+# events, performance review observations, future trading-record
+# streams live here. Excluded from BOTH indexes/ and logs/ cleanup
+# budgets so mtime-based eviction never deletes them. SPQL-queryable
+# at indexes/IMMUTABLE/<subdir>/*.parquet. Writers should call
+# settings.immutable_subdir(name).mkdir(parents=True, exist_ok=True)
+# then write Parquet (atomic) into that path.
+immutable_root: "indexes/IMMUTABLE"
+
+# ── Trading Account Sizing (Wave 2 of OEB) ──────────────────────
+# Drives the dual hit-rate compute in performance attribution.
+# Picks where account_size_floor_usd <= this value count in
+# hit_rate_account_fit; all picks count in hit_rate_overall.
+# Grow this number as the account compounds over the decade horizon.
+current_account_size_usd: 1000.0
+
+# ── Maintenance Schedule ───────────────────────────────
+cleanup_interval_hours: 6                # how often compaction + cleanup runs (floor: 1)
+
+# ── Ingestion Defaults ─────────────────────────────────
+default_script_timeout_seconds: 600      # max wall-clock time per ingestion script (bumped 2026-05-04 to give all scripts adequate runtime)
+max_retries: 3                           # retry count for transient failures
+http_request_timeout_seconds: 30         # timeout for HTTP requests inside scripts
+
+# ── Per-Execution Resource Budgets ───────────────────
+max_output_rows: 500000                  # max DataFrame rows written per execution (1K–10M)
+max_requests_per_execution: 50           # max HTTP requests per script run (1–500)
+max_response_size_mb: 10                 # max size per HTTP response body (1–100 MB)
+
+# ── Subdirectory Limits ────────────────────────────────
+max_subdirectory_depth: 5                # max nesting depth for output subdirectories (5-20)
+
+# ── Credential Vault ──────────────────────────────────
+credential_key_dir: "~/.speakes-query"     # directory for master.key (outside repo)
+
+# ── Email / SMTP ─────────────────────────────────────
+smtp_server: "smtp.gmail.com"            # SMTP relay hostname
+smtp_port: 587                           # SMTP port (587 = STARTTLS, 465 = SSL)
+smtp_user: ""                            # SMTP username (e.g. you@gmail.com)
+smtp_password: ""                        # SMTP password or App Password
+smtp_from: ""                            # From address (defaults to smtp_user if empty)
+smtp_starttls: true                      # Use STARTTLS (true for port 587)
+
+# ── Security ──────────────────────────────────────────
+allowed_api_domains:                     # regex patterns for allowed HTTP hostnames
+  - "^gamma-api\\.polymarket\\.com$"
+  - "^data-api\\.polymarket\\.com$"
+  - "^clob\\.polymarket\\.com$"
+  - "^api\\.coingecko\\.com$"
+  - "^api\\.llama\\.fi$"
+  - "^yields\\.llama\\.fi$"
+  - "^stablecoins\\.llama\\.fi$"
+  - "^api\\.stlouisfed\\.org$"
+  - "^data\\.sec\\.gov$"
+  - "^www\\.sec\\.gov$"
+  - "^efts\\.sec\\.gov$"
+  - "^api\\.elections\\.kalshi\\.com$"
+  - "^www\\.reddit\\.com$"
+  - "^wikimedia\\.org$"
+  - "^api\\.nasdaq\\.com$"                 # earnings_calendar_72h
+  - "^api\\.massive\\.com$"                # options_unusual_activity_pro (Massive.com - formerly polygon.io)
+  - "^api\\.polygon\\.io$"                 # backward-compat for Massive's prior brand
+  - "^api\\.gdeltproject\\.org$"           # gmrb_geopolitical_events
+  - "^api\\.worldbank\\.org$"              # gmrb_emerging_markets_growth
+  - "^earthquake\\.usgs\\.gov$"            # gmrb_seismic_activity
+  - "^api\\.weather\\.gov$"                # gmrb_severe_weather
+  - "^www\\.nhc\\.noaa\\.gov$"             # gmrb_tropical_cyclones
+  - "^volcanoes\\.usgs\\.gov$"             # gmrb_volcanic_activity
+  - "^api\\.the-odds-api\\.com$"           # spbeb_odds_movements (Wave 1)
+  - "^site\\.api\\.espn\\.com$"            # spbeb_injuries (Wave 1)
+  - "^api\\.eia\\.gov$"                    # egib_* energy + grid (Wave 1)
+  - "^api\\.congress\\.gov$"               # pppb_congress_bills (Wave 2)
+  - "^www\\.federalregister\\.gov$"        # pppb_federal_register (Wave 2)
+  - "^api\\.fda\\.gov$"                    # phpb_fda_* (Wave 2)
+  - "^clinicaltrials\\.gov$"               # phpb_clinical_trials_phase3 (Wave 2)
+  - "^www\\.metaculus\\.com$"              # sfcb_metaculus_questions (Wave 3)
+  - "^export\\.arxiv\\.org$"               # sfcb_arxiv_trending (Wave 3)
+  - "^api\\.reporter\\.nih\\.gov$"         # sfcb_nih_grants (Wave 3)
+  - "^localhost$"                          # curator_telemetry_pull - speaktube on the same machine; add your LAN host if it runs elsewhere
+  - "^www\\.youtube\\.com$"                # curator_youtube_rss_pull (Phase 6 / Bet 5 slice 1.5, 2026-05-16)
+  - "^archive\\.org$"                      # curator_archive_org_pull (Phase 6 / Bet 5 slice 7, 2026-05-17)
+  - "^github\\.com$"                        # github_trending_repos scrape (Slice B, 2026-06-23)
+  - "^huggingface\\.co$"                    # ai_papers_huggingface (Slice C2, 2026-06-23)
+
+# ── Headroom Compression Proxy (optional, self-hosted) ───────────
+# Drop-in Anthropic endpoint that compresses request bodies to cut
+# input-token cost. Alert-analysis Claude calls route through it when
+# on; any connection-level failure fails open to direct Anthropic.
+# Per-AG ``use_headroom`` (tri-state) overrides this global default.
+# Default OFF - turn on only if you self-host a Headroom instance.
+# Kill switch: set false here, or env HEADROOM_DISABLE=1. See
+# analyzers/headroom.py + docs/lang/12_alert_groups.md.
+global_use_headroom_default: false       # default OFF (enable if you run a Headroom proxy)
+headroom_proxy_url: "http://localhost:8787"  # env HEADROOM_PROXY_URL overrides; empty → built-in default
+
+# ── Claude Analyzer ──────────────────────────────────
+claude_analyzer_enabled: false           # master switch - pipeline unchanged when false
+claude_analyzer_boilerplate_prompt: ""   # system-level prompt sent with every analysis (optional)
+claude_analyzer_model_primary: "claude-sonnet-4-6"       # for CRITICAL/HIGH alerts
+claude_analyzer_model_triage: "claude-haiku-4-5-20251001" # for MODERATE/initial triage
+# Per-call default output cap. Raised 2026-04-20 from 1024 after the
+# first production Daily Opportunity Brief truncated at opportunity #1
+# with output_tokens=1488. A 5-opportunity brief with web_search
+# citations needs 8192+; individual alert groups can override higher
+# via the per-AG ``max_output_tokens`` field (ceiling 32768).
+claude_analyzer_max_output_tokens: 8192
+claude_analyzer_max_input_rows: 20       # truncate result sets beyond this for API call
+claude_analyzer_enable_cache: true       # prompt caching (cache_control ephemeral)
+claude_analyzer_enable_batch: false      # batch API (async, 50% off)
+claude_analyzer_daily_budget_cents: 50   # kill switch: stop calling API if daily spend exceeds this
+claude_analyzer_spike_threshold: 10.0    # spike_multiple above this → use primary model
+claude_analyzer_min_liquidity: 5000.0    # skip markets below this liquidity
+claude_analyzer_mv_truncate_limit: 5     # max distinct values shown per token before truncation
+claude_analyzer_batch_poll_interval_minutes: 5  # how often the batch poller checks for results (1-60)
+
+# ── Claude API robustness + accounting ────────────────
+# Raised 2026-04-21 from 120s after the first live Daily Opportunity
+# Brief timed out: web_search-enabled briefs legitimately take 2-5
+# minutes. At 120s every attempt hit the wall and the retry loop burned
+# 8 minutes hitting the same ceiling. Ceiling is 3600s for future
+# heavier briefs. APITimeoutError is intentionally NOT retried (see
+# analyzers/claude_client.py::_is_retryable): retrying a timeout fires
+# another attempt against the same wall. Raise THIS setting, not retries.
+claude_request_timeout_seconds: 600
+claude_retry_attempts: 3                 # only applies to 429 / 5xx / connection errors (NOT timeouts)
+claude_retry_initial_backoff_seconds: 2  # exponential backoff base
+# Full request+response retention for every Claude call in
+# claude_api_history.sqlite (lives OUTSIDE indexes/ so cleanup never
+# touches it). Set false only if disk is tight - user is the keeper.
+claude_history_retain_payloads: true
+
+# ── Alert group observability / failure alerts ────────
+alert_group_failure_email_enabled: true  # notify admin when an AG dispatch status=error
+alert_group_failure_email_to: ""         # recipient; falls back to smtp_from, then smtp_user
+
+# ── Alert group production hardening (2026-04-20+) ────
+alert_group_max_feeder_staleness_hours: 48  # per-AG override wins; "dead feeder" threshold
+alert_group_fail_on_stale_feeder: false     # if true, a stale feeder fails the AG instead of warning
+# Circuit breaker: after N consecutive error runs, auto-disable the AG
+# via ``circuit_breaker_tripped: true`` on the YAML. Reset via POST
+# /api/alert-groups/<name>/reset-circuit-breaker after investigating.
+alert_group_circuit_breaker_consecutive_failures: 5
+alert_group_circuit_breaker_auto_disable: true
+# Cap on saved-search feeders per alert group. Allowed range 2-100; default
+# 10 preserves the pre-2026-04-21 limit. Raise for wider multi-sector briefs.
+alert_group_max_feeders: 10
+
+# ── SEC fair-access fallback ──────────────────────────
+# EDGAR requires a User-Agent identifying a contact. This default fires
+# only when the per-task ``SEC_EDGAR_CONTACT`` credential is missing -
+# otherwise the script's own contact string wins. Kind=="contact" is a
+# non-secret identifier, hence the silent fallback is acceptable (see
+# reference_silent_credential_fallback_antipattern memory).
+sec_edgar_contact_default: "SpeakesQuery EDGAR (noreply@speakesquery.local)"
+
+# ── Semantic Search (Phase 1 / Bet 2) ─────────────────
+# Master switch for the embedding subsystem. When false, the sweeper
+# does not run; existing | nearest / | dedup_semantic queries still
+# work - they embed on the fly per call. Default off so existing
+# deployments don't suddenly start populating ~80 MB of model + N×1.5KB
+# of sidecar parquet without explicit operator opt-in.
+embeddings_enabled: false
+# Cap on the embedding-sidecar tree (sum of all *.embeddings.parquet
+# under indexes/). Independent of max_total_size_gb so a runaway
+# sweeper can never evict actual indexed data. ~3M rows fit in 5GB
+# at 384 dims/float32. Range: 1-1000 GB.
+max_embeddings_size_gb: 5
+# HuggingFace model identifier. Default all-MiniLM-L6-v2 is small
+# (~80 MB), MIT-licensed, CPU-friendly, 384 dims. BGE-base / Nomic
+# (768 dims, ~270-440 MB) are higher-recall alternatives. Changing
+# this triggers a full re-embed on next sweep - sidecar metadata
+# carries the model name for drift detection.
+embedding_model_name: "sentence-transformers/all-MiniLM-L6-v2"
+# Batch size for SentenceTransformer.encode(). 32 is CPU-friendly;
+# bump to 128+ on a beefy GPU. Range: 1-1024.
+embedding_batch_size: 32
+# How often the embedding sweeper runs (minutes). Floor 1, ceiling
+# 1440 (one day). Default 15 min keeps fresh ingestion lag low.
+embedding_sweep_interval_minutes: 15
+
+# ── Notebook reactive cache (Phase 3 / Bet 4 - slice 3) ─────────────
+# Master switch for cell-output caching. When True (default), notebook
+# cells are content-hash keyed; unchanged inputs serve from disk for
+# free. Off = every cell re-runs every time.
+notebook_cache_enabled: true
+# Total disk budget for the cache (sum of pickle payloads under
+# notebook_cache/). LRU eviction at the budget boundary. Range 0.1 -
+# 100.0 GB. Default 1.0 GB.
+max_notebook_cache_gb: 1.0
+
+# ── LLM Pipes (Phase 2 / Bet 3 - slice 7) ───────────────────────────
+# Hard ceiling on cumulative cost (USD) for any | llm / | llm_batch
+# invocation that doesn't pass an inline max_cost_usd= kwarg.
+# 0.0 means no cap (unlimited). The in-pipe kwarg ALWAYS wins over
+# this default. Range 0.0 - 1000.0.
+llm_default_max_cost_usd: 0.0
+# UI threshold for the "expensive query" warning banner. The SPA
+# displays a warning when a dry-run estimate exceeds this value.
+# Backend doesn't enforce. 0.0 disables the warning entirely.
+# Range 0.0 - 1000.0.
+llm_warn_above_estimated_usd: 1.0
+
+# ── Patch drafter (Phase 4 / Bet 4 slice 8a) ────────────────────────
+# When True, an ingestion task failure triggers a Claude call that
+# asks for a unified-diff fix. The diff is RECORDED to the
+# patch_suggestions log (queryable via SPQL) for the operator to
+# review + apply manually. NEVER auto-applied. Default OFF - opt-in
+# for cost safety. Slice 8b will add GitHub PR creation on top.
+patch_drafter_enabled: false
+# Claude model for the patch drafter. Haiku is the default - small,
+# fast, cheap, code-aware. Switch to Sonnet for higher-quality diffs
+# at higher cost.
+patch_drafter_model: "claude-haiku-4-5-20251001"
+# Per-call hard cost ceiling (USD). Worst-case-cost-exceeds-this →
+# call skipped with status="skipped_budget" and no network call.
+# 0.0 = uncapped (NOT recommended). Range 0.0 - 1000.0.
+patch_drafter_max_cost_usd: 0.10
+# Per-call timeout (seconds). The drafter is a single-shot diff
+# request; 60s is generous for Haiku.
+patch_drafter_timeout_seconds: 60
+
+# ── Curator / speaktube integration (Phase 6 / Bet 5 slice 1 + slice 8, 2026-05-16/17) ─
+# BIPOLAR exploration knob for the playlist composer (slice 8, 2026-05-17).
+# -1.0 = stay strictly within known interests (max comfort).
+#  0.0 = balanced - mostly familiar with a few exploratory slots.
+# +1.0 = maximum exploration / never-watched channels.
+# Written by the speaktube player via POST /api/growth_dial; read by
+# the playlist-composition alert group at run time. Default -0.7 =
+# "mostly familiar" (bipolar equivalent of the old 0.15 default).
+curator_growth_dial: -0.7
+# Base URL of the speaktube sidecar's telemetry endpoint. The hourly
+# curator_telemetry_pull ingestion script HTTP-fetches NDJSON from
+# <base>/api/telemetry/<YYYY-MM-DD>.jsonl. Empty string disables the
+# pull until speaktube ships the endpoint.
+curator_speaktube_base_url: ""
+# How many days of telemetry to back-fill per ingestion run.
+# 1 = today only; 3 = today + 2 prior days (paranoid catch-up).
+curator_telemetry_lookback_days: 3
+# Target playlist size (items) for hybrid expansion (slice 6, 2026-05-17).
+# LLM composes top 10-20 with rationale + slot_kind; dispatcher appends
+# scored candidates up to this target (bulk-fill, empty rationale).
+# Set to 20 to disable expansion. Range 20-5000.
+curator_playlist_target_count: 500
+# Channel diversity cap (slice 9, 2026-05-17 - speaktube req #5).
+# Per-channel ceiling as fraction of total playlist size. For a
+# 500-item playlist, 0.10 caps each channel at 50. Bulk-fill items
+# from over-cap channels are dropped (LLM picks count toward the
+# cap but are never dropped - the prompt's 10% rule handles the
+# LLM side). Range 0.01-1.0; set to 1.0 to disable.
+curator_channel_cap_percent: 0.10
+# Rolling-window same-channel limit (slice 9, 2026-05-17).
+# Within any 10 consecutive positions, no channel exceeds this many
+# items. Default 3 matches speaktube's spec. Applied only to bulk-fill
+# placement; LLM-curated order is preserved. Range 1-10; set to 10
+# to effectively disable.
+curator_channel_max_in_window: 3
+# ── Thin-history aggressive discovery (slice 10, 2026-05-17 - speaktube req #12)
+# When the user has watched fewer than `threshold_seconds` of video
+# in the trailing 30 days, the composer's effective growth_dial is
+# boosted by `dial_bias` (clamped to +1.0). Detection runs against
+# indexes/IMMUTABLE/curator_telemetry/. Disable to use the dial value
+# verbatim regardless of telemetry.
+curator_thin_history_enabled: true
+# 5 hours = 18000s. Below this, thin-history activates. Range 0 to
+# 30 days in seconds (2,592,000). 0 = always thin; max = never thin.
+curator_thin_history_threshold_seconds: 18000
+# Additive bias on growth_dial when thin-history fires. Default 0.5
+# shifts -0.7 (mostly familiar) up to -0.2 (slight bias). Range 0.0
+# - 2.0; clamped to dial's [-1, +1] after addition.
+curator_thin_history_dial_bias: 0.5
+# ── Keyword preferences (slice 11, 2026-05-17 - speaktube req #10)
+# speaktube's Discover view POSTs keywords here to bias the next
+# composer fire. The dispatcher's keyword-boost hook reads the
+# active pool and boosts interest_score on matching candidates.
+# Storage is IMMUTABLE (forever); the pool itself resets each
+# composer fire.
+curator_keyword_boost_enabled: true
+# Additive boost on interest_score per match (case-insensitive
+# substring against title). Range 0.0 - 1.0. 0.0 disables.
+curator_keyword_boost_amount: 0.2
+# Fallback lookback when no curator_playlist composition exists
+# yet. Default 24h. Range 3600s (1h) to 604800s (1 week).
+curator_keyword_pool_fallback_seconds: 86400
+
+# ── Curator topic vectors (Phase 6 / Bet 5 slice 3, 2026-05-16) ──────
+# Master switch for the engine-scheduled topic-snapshot refresh job.
+# Default OFF (opt-in) - the first refresh on a populated history takes
+# ~30-60s of CPU. The CLI tool (python -m tools.curator_topic_snapshot_refresh)
+# is always available regardless of this setting.
+curator_topic_snapshot_refresh_enabled: false
+# How often the refresh job runs (hours). Default weekly. Topic style
+# is slow-evolving - your style doesn't change hour-to-hour.
+# Range 1 - 720 hours (30 days).
+curator_topic_snapshot_refresh_interval_hours: 168
+# KMeans target cluster count. 8-12 is the sweet spot for personal
+# histories of 1k-10k watches. Capped at len(history) at compute time.
+# Range 2 - 100.
+curator_topic_n_clusters: 10
+# Recency decay half-life in days. With 180 (≈6-month half-life), a
+# watch from a year ago counts ~0.25× a watch from yesterday in cluster
+# definition. Higher = older watches matter more.
+# Range 1 - 3650 days.
+curator_topic_decay_lambda_days: 180
+# Registry id for the LLM that labels clusters (cluster_id → 3-5 word
+# human label). Default targets a self-hosted Qwen3.5-122B-A10B on
+# llama.cpp (endpoint from the model registry, $0). Swap for
+# claude-haiku-4-5-20251001 for a $-costing cloud fallback.
+curator_topic_label_model_id: "llamacpp-qwen35-122b-a10b"
+# Hard ceiling on cumulative labeling cost per snapshot refresh.
+# Belt-and-suspenders: with the local default the cost is $0 anyway.
+# Bump this when using a cloud labeling model.
+curator_topic_label_max_cost_usd: 0.05

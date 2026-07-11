@@ -1,0 +1,23 @@
+{
+  "title": "Polymarket Public Profile Lookup",
+  "description": "Looks up a Polymarket user's public profile by wallet address. Returns username, bio, profile image, and any public stats. Use alongside the leaderboard and whale tracker to build a dossier on high-performing or high-volume traders.",
+  "category": "Prediction Markets",
+  "api_url": "https://gamma-api.polymarket.com/public-profile",
+  "requires_credentials": [
+    "POLYMARKET_USER_ADDRESS"
+  ],
+  "suggested_cron": "0 0 * * *",
+  "suggested_subdirectory": "polymarket/profiles",
+  "suggested_overwrite": true,
+  "tags": [
+    "polymarket",
+    "prediction-markets",
+    "profile",
+    "user-tracking",
+    "investigative"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://gamma-api.polymarket.com'\nuser_addr = CREDENTIALS['POLYMARKET_USER_ADDRESS']\n\nresp = requests.get(\n    f'{BASE}/public-profile/{user_addr}',\n    timeout=30,\n)\nresp.raise_for_status()\nprofile = resp.json()\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nrow = {\n    'user_address': user_addr,\n    'username': profile.get('username', profile.get('name', '')),\n    'bio': profile.get('bio', profile.get('description', '')),\n    'profile_image': profile.get('profileImage', profile.get('avatar', '')),\n    'markets_traded': profile.get('marketsTraded', profile.get('markets_traded', 0)),\n    'volume': float(profile.get('volume', profile.get('totalVolume', 0)) or 0),\n    'profit': float(profile.get('profit', profile.get('pnl', 0)) or 0),\n    'positions_won': int(profile.get('positionsWon', profile.get('positions_won', 0)) or 0),\n    'positions_lost': int(profile.get('positionsLost', profile.get('positions_lost', 0)) or 0),\n    '_epoch': now_epoch,\n}\n\ndf = pd.DataFrame([row])\nGENERATE_RESULTS(df)",
+  "credential_kinds": {
+    "POLYMARKET_USER_ADDRESS": "identifier"
+  }
+}

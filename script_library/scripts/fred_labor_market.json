@@ -1,0 +1,25 @@
+{
+  "title": "FRED Labor Market Dashboard",
+  "description": "Tracks key U.S. labor market indicators: unemployment rate (U3), broad unemployment (U6), initial jobless claims, continuing claims, nonfarm payrolls, and labor force participation. Rising jobless claims are a leading recession indicator - a sustained move above 250K weekly claims historically precedes downturns. The U3/U6 gap widening signals hidden labor market slack.",
+  "category": "Macro Economics",
+  "api_url": "https://api.stlouisfed.org/fred/series/observations",
+  "requires_credentials": [
+    "FRED_API_KEY"
+  ],
+  "credential_kinds": {
+    "FRED_API_KEY": "api_key"
+  },
+  "suggested_cron": "0 8 * * *",
+  "suggested_subdirectory": "macro/fred_labor",
+  "suggested_overwrite": false,
+  "tags": [
+    "fred",
+    "macro",
+    "labor",
+    "unemployment",
+    "jobs",
+    "claims",
+    "recession"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.stlouisfed.org/fred/series/observations'\nAPI_KEY = CREDENTIALS.get('FRED_API_KEY', '')\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nSERIES = [\n    ('UNRATE', 'unemployment_rate_u3', 'Unemployment Rate (U3)', 'pct'),\n    ('U6RATE', 'unemployment_rate_u6', 'Unemployment Rate (U6 broad)', 'pct'),\n    ('ICSA', 'initial_claims', 'Initial Jobless Claims (weekly)', 'count'),\n    ('CCSA', 'continuing_claims', 'Continuing Claims (weekly)', 'count'),\n    ('PAYEMS', 'nonfarm_payrolls', 'Total Nonfarm Payrolls (thousands)', 'count'),\n    ('CIVPART', 'labor_participation', 'Labor Force Participation Rate', 'pct'),\n    ('LNS12300060', 'prime_age_employment', 'Prime-Age (25-54) Employment-Population Ratio', 'pct'),\n]\n\nrows = []\nfor i in range(len(SERIES)):\n    series_id = SERIES[i][0]\n    label = SERIES[i][1]\n    description = SERIES[i][2]\n    unit = SERIES[i][3]\n\n    resp = requests.get(\n        BASE,\n        params={\n            'series_id': series_id,\n            'api_key': API_KEY,\n            'file_type': 'json',\n            'sort_order': 'desc',\n            'limit': 5,\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    obs = resp.json().get('observations', [])\n\n    valid = []\n    for o in obs:\n        if o.get('value', '.') != '.':\n            valid.append(o)\n\n    if not valid:\n        continue\n\n    latest = float(valid[0]['value'])\n    prev = float(valid[1]['value']) if len(valid) >= 2 else latest\n    change = round(latest - prev, 2)\n\n    # Directional signal\n    if label == 'initial_claims':\n        if latest > 300000:\n            signal = 'RECESSION_WARNING'\n        elif latest > 250000:\n            signal = 'ELEVATED'\n        else:\n            signal = 'HEALTHY'\n    elif label == 'unemployment_rate_u3':\n        if latest > 5.0:\n            signal = 'HIGH'\n        elif latest > 4.0:\n            signal = 'RISING'\n        else:\n            signal = 'LOW'\n    else:\n        if change > 0:\n            signal = 'IMPROVING' if unit == 'pct' and 'participation' in label else 'RISING'\n        elif change < 0:\n            signal = 'DECLINING'\n        else:\n            signal = 'UNCHANGED'\n\n    rows.append({\n        'series_id': series_id,\n        'metric': label,\n        'description': description,\n        'latest_value': latest,\n        'latest_date': valid[0].get('date', ''),\n        'prior_value': prev,\n        'change': change,\n        'unit': unit,\n        'signal': signal,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+}

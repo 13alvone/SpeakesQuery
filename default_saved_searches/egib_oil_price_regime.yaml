@@ -1,0 +1,31 @@
+name: egib_oil_price_regime
+description: |
+  Alert-group feed: WTI crude, Brent crude, Henry Hub natural gas spot
+  prices with 30/90-day momentum and regime flag. Reuses the existing
+  indexes/commodities/fred_prices parquet (no new ingestion).
+  Filtered to energy commodities for the Energy & Grid Intelligence
+  Brief's price-context block - pairs with EIA inventory / storage /
+  demand data so Claude can spot price-vs-fundamentals divergences.
+query: |-
+  index="indexes/commodities/fred_prices/*.parquet"
+  | sort -_epoch
+  | dedup series_id
+  | where category="energy" OR series_id IN ("DCOILWTICO","DCOILBRENTEU","DHHNGSP")
+  | sort +series_id
+  | table series_id, description, category, latest_value, change_30d_pct, change_90d_pct, regime_flag, investment_thesis, etf_ticker
+  | head 5
+cron_schedule: 0 14 * * mon-fri
+lookback: -2d
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

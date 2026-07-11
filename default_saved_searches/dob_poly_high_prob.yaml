@@ -1,0 +1,27 @@
+name: dob_poly_high_prob
+description: |
+  Alert-group feed: Polymarket markets priced 75-95% with expiry >24h away and
+  volume >$50k.  Feeds daily_opportunity_brief.  Capped at 15 rows.
+query: |-
+  index="indexes/polymarket/high_probability_pro/*.parquet"
+  | where volume > 50000 AND leading_price >= 0.75 AND leading_price < 0.95
+  | eval hours_to_expiry = round((strptime(end_date,"%Y-%m-%dT%H:%M:%SZ") - now()) / 3600, 1)
+  | where hours_to_expiry > 24
+  | sort -leading_price, -volume
+  | table question, slug, leading_outcome, leading_price, payout_if_win, volume, liquidity, hours_to_expiry, probability_tier, implied_edge_vs_50, payout_multiple, expected_value_if_price_equals_fair
+  | head 15
+cron_schedule: 30 5,11 * * mon-fri
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-16T00:00:00"
+updated_at: "2026-04-16T00:00:00"

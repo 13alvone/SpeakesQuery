@@ -1,0 +1,83 @@
+tests:
+  # ── Wildcard index loads multiple files ──────────────────────
+  - id: multi_001
+    title: "wildcard - loads both test parquets"
+    query: |
+      index="indexes/default_test/output_parquets/*"
+    expect:
+      row_count: 8
+      columns_include: ["level", "message", "userRole"]
+
+  # ── Append merges two different indexes ──────────────────────
+  - id: multi_002
+    title: "append - merge output_parquets and error_tracking"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | append [index="indexes/default_test/error_tracking/system_alerts.parquet" | head 5]
+    expect:
+      row_count: 10
+
+  # ── Wildcard + stats ─────────────────────────────────────────
+  - id: multi_003
+    title: "wildcard then stats - aggregate across both test files"
+    query: |
+      index="indexes/default_test/output_parquets/*"
+      | stats count
+    expect:
+      row_count: 1
+      values:
+        - row: 0
+          column: count
+          value: 8
+
+  # ── Wildcard + dedup ─────────────────────────────────────────
+  - id: multi_004
+    title: "wildcard then dedup - unique levels from both files"
+    query: |
+      index="indexes/default_test/output_parquets/*"
+      | dedup level
+    expect:
+      min_rows: 3
+      max_rows: 6
+
+  # ── Append with eval in subsearch ────────────────────────────
+  - id: multi_005
+    title: "append - subsearch with eval"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | eval source="test0"
+      | append [index="indexes/default_test/output_parquets/test1.parquet" | eval source="test1"]
+    expect:
+      min_rows: 8
+      columns_include: ["source"]
+
+  # ── Join with `search index=` subsearch (2026-05-16 regression) ─
+  # Pre-fix: ``[search index="X" | stats ...]`` silently filtered the
+  # OUTER pipeline's main_df instead of loading the index, because
+  # ``search`` is in _command_map and the subsearch dispatch routed
+  # to the "transforming command" branch. Result: subsearch returned
+  # empty, join silently returned "No data returned". Caught during
+  # curator slice 2 scoring-SPQL prototyping on real Takeout data.
+  # Fix: detect ``search`` + ``index=`` and route to process_index_calls.
+
+  - id: multi_006_join_search_index_subsearch
+    title: "join - subsearch `[search index=... | stats ...]` loads index correctly"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 5
+      | table userRole
+      | join userRole [search index="indexes/default_test/output_parquets/test1.parquet" | stats count as match_count by userRole]
+    expect:
+      min_rows: 1
+      columns_include: ["userRole", "match_count"]
+
+  - id: multi_007_join_bare_index_subsearch
+    title: "join - subsearch `[index=... | ...]` (bare, no leading search)"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | head 5
+      | table userRole
+      | join userRole [index="indexes/default_test/output_parquets/test1.parquet" | stats count as match_count by userRole]
+    expect:
+      min_rows: 1
+      columns_include: ["userRole", "match_count"]

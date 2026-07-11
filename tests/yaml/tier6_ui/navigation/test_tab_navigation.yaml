@@ -1,0 +1,94 @@
+tests:
+  # ── Each tab activates the correct page ─────────────────────
+
+  - id: ui_nav_001
+    title: "Click Query tab - page-query becomes active"
+    steps:
+      - action: navigate
+        page: settings
+      - action: navigate
+        page: query
+    expect:
+      active_page: page-query
+      visible: ["#query", "#run-query-btn"]
+
+  - id: ui_nav_002
+    title: "Click Lookups tab - page-lookups becomes active"
+    steps:
+      - action: navigate
+        page: lookups
+    expect:
+      active_page: page-lookups
+
+  - id: ui_nav_003
+    title: "Click Import tab - page-import becomes active"
+    steps:
+      - action: navigate
+        page: import
+    expect:
+      active_page: page-import
+
+  - id: ui_nav_004
+    title: "Click Create Search tab - page-create-search becomes active"
+    steps:
+      - action: navigate
+        page: create_search
+    expect:
+      active_page: page-create-search
+
+  - id: ui_nav_005
+    title: "Click Searches tab - page-searches becomes active"
+    steps:
+      - action: navigate
+        page: searches
+    expect:
+      active_page: page-searches
+
+  - id: ui_nav_006
+    title: "Click Create Ingestion tab - page-create-ingestion becomes active"
+    steps:
+      - action: navigate
+        page: create_ingestion
+    expect:
+      active_page: page-create-ingestion
+
+  - id: ui_nav_007
+    title: "Click Ingestion Scripts tab - page-ingestion becomes active"
+    steps:
+      - action: navigate
+        page: ingestion
+    expect:
+      active_page: page-ingestion
+
+  - id: ui_nav_008
+    title: "Click Script Library tab - page-library becomes active"
+    steps:
+      - action: navigate
+        page: library
+    expect:
+      active_page: page-library
+
+  - id: ui_nav_009
+    title: "Click Docs tab - page-docs becomes active"
+    steps:
+      - action: navigate
+        page: docs
+    expect:
+      active_page: page-docs
+
+  - id: ui_nav_010
+    title: "Click Settings tab - page-settings becomes active"
+    steps:
+      - action: navigate
+        page: settings
+    expect:
+      active_page: page-settings
+      visible: ["#save-settings-btn", "#reset-settings-btn", "#test-email-btn"]
+
+  - id: ui_nav_011
+    title: "Click Macros tab - page-macros becomes active"
+    steps:
+      - action: navigate
+        page: macros
+    expect:
+      active_page: page-macros

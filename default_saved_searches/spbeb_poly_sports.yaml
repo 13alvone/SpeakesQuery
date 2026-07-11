@@ -1,0 +1,31 @@
+name: spbeb_poly_sports
+description: |
+  Alert-group feed: Polymarket sports-related contracts (NFL, NBA, MLB,
+  soccer, MMA, F1, tennis, etc.). Reuses the existing indexes/polymarket/
+  sports parquet emitted by polymarket_sports_markets. Sorted by volume
+  descending so the brief sees liquid markets first. Powers the Sports
+  Betting Edge Brief's Polymarket prediction-market block - cross-
+  reference vs sportsbook odds and Kalshi for arbitrage.
+query: |-
+  index="indexes/polymarket/sports/*.parquet"
+  | sort -_epoch
+  | dedup market_id
+  | where volume >= 10000
+  | sort -volume
+  | table question, slug, yes_price, no_price, implied_american_odds, volume, liquidity, category, end_date
+  | head 25
+cron_schedule: 0 13,15 * * *
+lookback: -48h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-24T00:00:00"
+updated_at: "2026-04-24T00:00:00"

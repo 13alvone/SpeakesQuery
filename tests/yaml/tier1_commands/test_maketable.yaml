@@ -1,0 +1,10 @@
+tests:
+  # ── maketable - creates an empty DataFrame with specified columns ──
+  # Note: maketable creates an empty DF, which the backend treats as
+  # "no data returned" (returns None). This is expected behavior.
+  - id: maketable_001
+    title: "maketable - returns empty table (treated as no data)"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | maketable level userRole
+    expect_error: true

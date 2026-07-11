@@ -1,0 +1,30 @@
+tests:
+  # ── fillnull all columns ─────────────────────────────────────
+  - id: fillnull_001
+    title: "fillnull - fill all NaN values with 0"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | fillnull value = 0
+    expect:
+      row_count: 3
+
+  # ── fillnull specific column ─────────────────────────────────
+  - id: fillnull_002
+    title: "fillnull - fill errorCode NaN with N/A"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 3
+      | fillnull value = "N/A" errorCode
+    expect:
+      row_count: 3
+
+  # ── fillnull multiple fields ─────────────────────────────────
+  - id: fillnull_003
+    title: "fillnull - fill specific columns"
+    query: |
+      index="indexes/default_test/error_tracking/system_alerts.parquet"
+      | head 5
+      | fillnull value = 0 errorCode attempts
+    expect:
+      row_count: 5

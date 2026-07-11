@@ -1,0 +1,35 @@
+name: oeb_skew_extreme
+description: |
+  Options Edge Brief feeder: 25-delta IV skew scan, surfacing STRESS_BIDDED
+  (skew_pct >= 0.10 - fear elevated, contrarian long-equity / short-vol
+  edge at extremes) and CALL_SKEW (skew_pct <= 0.0 - upside-priced-in,
+  often stretch-for-yield or short-squeeze setup) regimes.  Uses
+  earliest="-7d" + dedup ticker so each underlying appears once at its
+  most-recent snapshot.  `count_in_regime` via eventstats by-regime tells
+  Claude how many of the watchlist's N names are in each regime.  Capped
+  at 10 unique tickers.
+query: |-
+  index="indexes/equities/options_skew_pro/*.parquet" earliest="-7d"
+  | sort -_epoch
+  | dedup ticker
+  | eventstats count(_epoch) as watchlist_n
+  | eventstats count(_epoch) as count_in_regime by regime
+  | where regime IN ("STRESS_BIDDED", "CALL_SKEW") AND sample_put >= 2 AND sample_call >= 2
+  | table ticker, put_iv_25d, call_iv_25d, skew_25d, atm_iv, skew_pct, regime, sample_put, sample_call, avg_dte, watchlist_n, count_in_regime
+  | sort -skew_pct
+  | head 10
+cron_schedule: 10 14,19 * * mon-fri
+lookback: -24h
+trigger: once
+email_address: noreply@speakesquery.local
+email_body: ""
+mv_truncate_limit: 3
+attach_csv: "no"
+token_validation_days: 30
+send_email: "no"
+analyzer_prompt: ""
+analyzer_filter_enabled: false
+analyzer_filter_question: ""
+disabled: false
+created_at: "2026-04-26T00:00:00"
+updated_at: "2026-04-30T00:00:00"

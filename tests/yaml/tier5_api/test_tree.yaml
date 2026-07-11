@@ -1,0 +1,19 @@
+tests:
+  - id: api_tree_001
+    title: "GET /api/tree - returns directory tree"
+    method: GET
+    path: /api/tree
+    expect:
+      status_code: 200
+      json_status: success
+      has_keys: [tree, current_dir]
+
+  - id: api_tree_002
+    title: "GET /api/tree - invalid path returns error"
+    method: GET
+    path: /api/tree
+    query_params:
+      path: /nonexistent/directory/that/should/not/exist
+    expect:
+      status_code: 200
+      json_status: error

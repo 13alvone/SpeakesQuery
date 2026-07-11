@@ -1,0 +1,21 @@
+{
+  "title": "CoinGecko Top Coins Pro",
+  "description": "Pro-tier variant of coingecko_top_coins. Preserves all base columns and adds volatility_score (RMS of the 1h/24h/7d/30d % changes - a quick proxy for recent realised vol), momentum_score (weighted blend of the same four deltas with longer windows down-weighted), and sharpe_proxy (momentum_score divided by volatility_score when positive). Lets Claude identify coins that have moved strongly AND consistently rather than just spikily. trust_level: unrestricted - requires numpy for the vector ops (importable in the sandbox but cleaner here; this variant also demonstrates the pattern for non-allowlisted future extensions).",
+  "category": "Crypto Markets",
+  "api_url": "https://api.coingecko.com/api/v3/coins/markets",
+  "requires_credentials": [],
+  "suggested_cron": "0 */6 * * *",
+  "suggested_subdirectory": "crypto/coingecko_top_pro",
+  "suggested_overwrite": false,
+  "trust_level": "unrestricted",
+  "tags": [
+    "free",
+    "no-auth",
+    "crypto",
+    "coingecko",
+    "pro",
+    "unrestricted",
+    "numpy"
+  ],
+  "code": "import pandas as pd\nimport numpy as np\nimport requests\nimport time\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.coingecko.com/api/v3'\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\nrows = []\n\nfor page in range(1, 3):\n    resp = requests.get(\n        f'{BASE}/coins/markets',\n        params={\n            'vs_currency': 'usd',\n            'order': 'market_cap_desc',\n            'per_page': 250,\n            'page': page,\n            'sparkline': 'false',\n            'price_change_percentage': '1h,24h,7d,30d',\n        },\n        timeout=30,\n    )\n    resp.raise_for_status()\n    coins = resp.json()\n    if not coins:\n        break\n    for c in coins:\n        mcap = float(c.get('market_cap', 0) or 0)\n        vol = float(c.get('total_volume', 0) or 0)\n        ath = float(c.get('ath', 0) or 0)\n        price = float(c.get('current_price', 0) or 0)\n        ath_pct = round(((price - ath) / ath) * 100, 2) if ath > 0 else 0.0\n        vol_mcap = round(vol / mcap, 4) if mcap > 0 else 0.0\n\n        c1 = float(c.get('price_change_percentage_1h_in_currency', 0) or 0)\n        c24 = float(c.get('price_change_percentage_24h', 0) or 0)\n        c7 = float(c.get('price_change_percentage_7d_in_currency', 0) or 0)\n        c30 = float(c.get('price_change_percentage_30d_in_currency', 0) or 0)\n\n        changes = np.array([c1, c24, c7, c30], dtype=float)\n        volatility_score = float(np.sqrt(np.mean(changes ** 2)))\n        # Weighted momentum: longer windows contribute more stably\n        weights = np.array([0.1, 0.3, 0.35, 0.25], dtype=float)\n        momentum_score = float(np.dot(changes, weights))\n        sharpe_proxy = round(float(momentum_score / volatility_score), 4) if volatility_score > 0 else 0.0\n\n        rows.append({\n            'rank': c.get('market_cap_rank', 0),\n            'coin_id': c.get('id', ''),\n            'symbol': str(c.get('symbol', '')).upper(),\n            'name': c.get('name', ''),\n            'price_usd': price,\n            'change_1h_pct': round(c1, 2),\n            'change_24h_pct': round(c24, 2),\n            'change_7d_pct': round(c7, 2),\n            'change_30d_pct': round(c30, 2),\n            'volume_24h': vol,\n            'market_cap': mcap,\n            'vol_mcap_ratio': vol_mcap,\n            'circulating_supply': float(c.get('circulating_supply', 0) or 0),\n            'total_supply': float(c.get('total_supply', 0) or 0),\n            'ath_usd': ath,\n            'ath_distance_pct': ath_pct,\n            'fully_diluted_valuation': float(c.get('fully_diluted_valuation', 0) or 0),\n            # Pro additions:\n            'volatility_score': round(volatility_score, 2),\n            'momentum_score': round(momentum_score, 2),\n            'sharpe_proxy': sharpe_proxy,\n            '_epoch': now_epoch,\n        })\n    if page < 2:\n        time.sleep(1.5)\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values(['sharpe_proxy', 'momentum_score'], ascending=[False, False]).reset_index(drop=True)\nGENERATE_RESULTS(df)"
+}
