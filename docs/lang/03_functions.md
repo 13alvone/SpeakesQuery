@@ -681,7 +681,7 @@ Replace a numeric or list value with a randomised variant (useful for redaction 
 
 **String**: `lower`, `upper`, `capitalize`, `trim`, `ltrim`, `rtrim`, `len`, `tostring`, `substr`, `replace`, `concat`, `match`, `split`, `urlencode`, `urldecode`, `defang`, `fang`
 
-**Numeric**: `round`, `abs`, `sqrt`, `random`, `randomize`, `tonumber`, `avg`, `min`, `max`
+**Numeric**: `round`, `floor`, `ceil`, `abs`, `sqrt`, `random`, `randomize`, `tonumber`, `avg`, `min`, `max`, `sum`, `median`, `mode`, `range`
 
 **Conditional**: `if_`, `case`, `coalesce`, `isnull`, `isnotnull`
 

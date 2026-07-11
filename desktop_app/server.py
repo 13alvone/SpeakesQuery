@@ -5119,10 +5119,12 @@ def notebooks_export_pdf(notebook_id):
 
     try:
         from weasyprint import HTML as _WP_HTML
-    except ImportError:
+    except (ImportError, OSError) as exc:
+        # OSError covers pip-installed WeasyPrint missing its system
+        # libraries (pango/cairo) - same user-facing remedy either way.
         return jsonify({
             "status": "error",
-            "message": "WeasyPrint is not installed; PDF export unavailable.",
+            "message": f"WeasyPrint unavailable; PDF export disabled: {exc}",
             "error_class": "MissingDependency",
             "expected": "weasyprint",
         }), 503

@@ -9,9 +9,11 @@ and Playwright-based UI testing fixtures.
 import sys
 import os
 import glob
+import shutil
 import signal
 import socket
 import subprocess
+import tempfile
 import time
 import yaml
 import pytest
@@ -25,6 +27,114 @@ if PROJECT_ROOT not in sys.path:
 os.chdir(PROJECT_ROOT)
 
 from query_engine.CmdExecutionBackend import run_query_and_return_results_df
+
+
+# ---------------------------------------------------------------------------
+# User-state guard
+# ---------------------------------------------------------------------------
+# The suite exercises real endpoints against the real stores: the settings
+# reset test wipes global_settings.yaml, AG/store tests write real YAML,
+# lookup tests write real CSVs, etc. On a developer or user machine those
+# are LIVE files. Caught 2026-07-11 when the UI reset test clobbered the
+# operator's global_settings.yaml during the post-3.14 verification pass.
+# This guard snapshots every user-state file before the session and puts
+# it back afterward, deleting any file a test created. Opt out with
+# SPQ_TESTS_NO_STATE_GUARD=1 (e.g. inside a throwaway container).
+
+_USER_STATE_FILES = [
+    "global_settings.yaml",
+    "credentials.sqlite",
+    "scheduled_inputs.db",
+    "scheduled_inputs_history.db",
+    "alert_group_runs.sqlite",
+    "last_chance.sqlite",
+    "notebook_cache.sqlite",
+    "analyzer_results.sqlite",
+]
+
+# Top-level files in these dirs are snapshotted/restored (subdirs like
+# __pycache__ are left alone).
+_USER_STATE_DIRS = [
+    "alert_groups",
+    "saved_searches",
+    "email_groups",
+    "macros",
+    "models",
+    "notebooks",
+    "boilerplate_prompts",
+    "analyzer_prompts",
+    "lookups",
+]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def preserve_user_state():
+    """Snapshot user-state files before the session; restore after."""
+    if os.environ.get("SPQ_TESTS_NO_STATE_GUARD") == "1":
+        yield
+        return
+
+    backup_root = tempfile.mkdtemp(prefix="spq_user_state_guard_")
+    file_backups = {}
+    for rel in _USER_STATE_FILES:
+        src = os.path.join(PROJECT_ROOT, rel)
+        if os.path.isfile(src):
+            dst = os.path.join(backup_root, rel.replace(os.sep, "__"))
+            shutil.copy2(src, dst)
+            file_backups[rel] = dst
+
+    dir_backups = {}
+    for rel in _USER_STATE_DIRS:
+        src_dir = os.path.join(PROJECT_ROOT, rel)
+        if not os.path.isdir(src_dir):
+            continue
+        entries = {}
+        for name in os.listdir(src_dir):
+            p = os.path.join(src_dir, name)
+            if os.path.isfile(p):
+                dst = os.path.join(backup_root, f"{rel}__{name}")
+                shutil.copy2(p, dst)
+                entries[name] = dst
+        dir_backups[rel] = entries
+
+    yield
+
+    for rel, dst in file_backups.items():
+        try:
+            shutil.copy2(dst, os.path.join(PROJECT_ROOT, rel))
+        except OSError as exc:
+            print(f"[!] user-state guard: could not restore {rel}: {exc}")
+    for rel in _USER_STATE_FILES:
+        if rel not in file_backups:
+            p = os.path.join(PROJECT_ROOT, rel)
+            if os.path.isfile(p):
+                os.remove(p)
+        # Stray sqlite WAL/journal siblings from a test-opened connection
+        for suffix in ("-wal", "-shm", "-journal"):
+            stray = os.path.join(PROJECT_ROOT, rel + suffix)
+            if os.path.isfile(stray):
+                os.remove(stray)
+
+    for rel, entries in dir_backups.items():
+        src_dir = os.path.join(PROJECT_ROOT, rel)
+        if not os.path.isdir(src_dir):
+            os.makedirs(src_dir, exist_ok=True)
+        current = {
+            n for n in os.listdir(src_dir)
+            if os.path.isfile(os.path.join(src_dir, n))
+        }
+        for name in current - set(entries):
+            try:
+                os.remove(os.path.join(src_dir, name))
+            except OSError as exc:
+                print(f"[!] user-state guard: could not remove {rel}/{name}: {exc}")
+        for name, dst in entries.items():
+            try:
+                shutil.copy2(dst, os.path.join(src_dir, name))
+            except OSError as exc:
+                print(f"[!] user-state guard: could not restore {rel}/{name}: {exc}")
+
+    shutil.rmtree(backup_root, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

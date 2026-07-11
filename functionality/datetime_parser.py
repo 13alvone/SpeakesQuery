@@ -135,7 +135,10 @@ def parse_relative_time(rel_str: str) -> Optional[int]:
     if unit not in _UNIT_SECONDS:
         return None
 
-    now_dt = _dt.datetime.utcnow()
+    # Aware UTC now - utcnow() is deprecated on 3.12+. timetuple() on an
+    # aware-UTC datetime yields UTC wall-clock fields, so timegm() below
+    # keeps returning the same epoch.
+    now_dt = _dt.datetime.now(_dt.timezone.utc)
     delta = _dt.timedelta(seconds=sign * num * _UNIT_SECONDS[unit])
     result = now_dt + delta
     if snap and snap in _UNIT_SECONDS:

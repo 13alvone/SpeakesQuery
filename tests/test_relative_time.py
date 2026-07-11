@@ -139,7 +139,7 @@ class TestSnapTo:
         import datetime
         result = _parse_relative_time("-7d@w")
         assert result is not None
-        dt = datetime.datetime.utcfromtimestamp(result)
+        dt = datetime.datetime.fromtimestamp(result, datetime.timezone.utc)
         assert dt.weekday() == 0  # Monday
         assert dt.hour == 0
         assert dt.minute == 0

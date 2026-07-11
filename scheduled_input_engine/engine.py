@@ -195,7 +195,11 @@ class ScheduledInputEngine:
         long-horizon trading record. Return the relative first-segment of
         EACH protected tree so the main cleanup can skip them all.
         """
-        skip: list[str] = []
+        # Seed the conventional names unconditionally so a failure in any
+        # path lookup below fails SAFE (tree skipped) rather than open
+        # (protected tree exposed to cleanup). Skipping a subdir that
+        # does not exist is a no-op.
+        skip: list[str] = ["logs", "IMMUTABLE"]
         try:
             indexes_dir = self._get_indexes_dir()
         except Exception:

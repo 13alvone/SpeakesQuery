@@ -20,9 +20,26 @@ import shutil
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
+
+
+def _utc_now() -> datetime:
+    """Aware UTC now - datetime.utcnow() is deprecated on Python 3.12+."""
+    return datetime.now(timezone.utc)
+
+
+def _parse_utc(iso_str: str) -> datetime:
+    """Parse a stored ISO timestamp as aware UTC.
+
+    Legacy job indexes were written with naive utcnow().isoformat();
+    coerce those to UTC so aware-vs-naive comparisons never raise.
+    """
+    dt = datetime.fromisoformat(iso_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 import pandas as pd
 
@@ -84,7 +101,7 @@ class JobStore:
             "job_id": job_id,
             "name": None,
             "query": query,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": _utc_now().isoformat(),
             "expires_at": None,  # auto-jobs expire via rotation, not TTL
             "row_count": len(df),
             "col_count": len(df.columns),
@@ -134,7 +151,7 @@ class JobStore:
             if meta is None:
                 raise FileNotFoundError(f"Job '{job_id}' not found.")
 
-            now = datetime.utcnow()
+            now = _utc_now()
             meta["auto"] = False
             meta["name"] = name or meta.get("name")
             meta["ttl_days"] = ttl_days
@@ -178,8 +195,8 @@ class JobStore:
 
             # Check TTL
             if meta.get("expires_at"):
-                expires = datetime.fromisoformat(meta["expires_at"])
-                if datetime.utcnow() > expires:
+                expires = _parse_utc(meta["expires_at"])
+                if _utc_now() > expires:
                     raise FileNotFoundError(
                         f"Job '{job_id}' expired on {meta['expires_at']}."
                     )
@@ -189,12 +206,12 @@ class JobStore:
     def list_jobs(self) -> List[Dict]:
         """Return metadata for all non-expired jobs, newest first."""
         with self._lock:
-            now = datetime.utcnow()
+            now = _utc_now()
             result = []
             for meta in self._index:
                 if meta.get("expires_at"):
                     try:
-                        if datetime.utcnow() > datetime.fromisoformat(meta["expires_at"]):
+                        if now > _parse_utc(meta["expires_at"]):
                             continue
                     except ValueError:
                         pass
@@ -227,13 +244,13 @@ class JobStore:
 
     def cleanup_expired(self):
         """Remove all expired jobs from disk and index."""
-        now = datetime.utcnow()
+        now = _utc_now()
         to_delete = []
         with self._lock:
             for meta in self._index:
                 if meta.get("expires_at"):
                     try:
-                        if now > datetime.fromisoformat(meta["expires_at"]):
+                        if now > _parse_utc(meta["expires_at"]):
                             to_delete.append(meta["job_id"])
                     except ValueError:
                         pass

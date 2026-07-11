@@ -15,6 +15,11 @@ max-line-length = 120
 #   F401/F541/F821/F824/F841 - unused names / undefined refs (false-positive prone)
 #   W291/W391 - trailing whitespace / blank line at end of file
 extend-ignore = E127,E128,E131,E203,E265,E272,E302,E303,E305,E306,E402,E501,E702,E721,E731,F401,F541,F821,F824,F841,W291,W391
+# E712 (== True / == False) is allowed in tests only: assertions there
+# compare pandas/numpy boolean cells, where `is True` fails on numpy
+# bool_ and a bare truthiness check would mask a dtype regression.
+per-file-ignores =
+    tests/*: E712
 # Only exclude generated, vendored, and binary trees.  Production source
 # (handlers/, scheduled_input_engine/, query_engine/, desktop_app/, tests/,
 # functionality/, validation/, *_store.py) is fully linted.

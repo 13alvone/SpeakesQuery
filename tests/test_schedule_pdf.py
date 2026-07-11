@@ -32,7 +32,9 @@ if str(PROJECT_ROOT) not in sys.path:
 weasyprint_available = True
 try:
     import weasyprint  # noqa: F401
-except ImportError:
+except (ImportError, OSError):
+    # OSError: pip package present but system pango/cairo missing - must
+    # not abort collection of the whole suite on such hosts.
     weasyprint_available = False
 
 

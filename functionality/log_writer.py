@@ -106,7 +106,7 @@ SCHEMAS: dict[str, list[str]] = {
         "input_tokens",      # actual (success) or worst-case (dry_run) input tokens
         "output_tokens",     # actual (success) or worst-case (dry_run) output tokens
         "drafter_error_class",   # only populated on status=error|skipped_*
-        "drafter_error_message", # only populated on status=error|skipped_*
+        "drafter_error_message",  # only populated on status=error|skipped_*
     ],
     "system": [
         "_epoch", "level", "component", "event", "message",

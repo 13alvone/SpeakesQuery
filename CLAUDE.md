@@ -40,7 +40,7 @@ scheduled_input_engine/   Data ingestion pipeline
   parquet_writer.py       Atomic gzip-compressed writes
   credentials.py          Fernet-encrypted credential vault
   store.py                SQLite CRUD for ingestion tasks
-script_library/       135 premade ingestion scripts (JSON metadata + code, 20 are _pro tier; 6 added 2026-04-26 with OEB Wave 1; oeb_pick_tracker_pro added 2026-04-27 with OEB Wave 2; curator_telemetry_pull added 2026-05-16 with Phase 6 / Bet 5 slice 1; curator_youtube_rss_pull added 2026-05-16 with Phase 6 / Bet 5 slice 1.5; curator_topic_search_pull_pro added 2026-05-16 with Phase 6 / Bet 5 slice 3b; curator_archive_org_pull added 2026-05-17 with Phase 6 / Bet 5 slice 7 - first non-YouTube curator source; github_trending_repos added 2026-06-23 with Slice B - scrapes github.com/trending for the hot-repos AG, first script feeding a local-model alert group; ai_papers_github_lists added 2026-06-23 with Slice C1 - tracks newly-added papers across 5 curated AI-paper GitHub lists for the AI-paper-diffs AG; ai_papers_huggingface added 2026-06-23 with Slice C2 - adds Hugging Face Daily Papers as the 6th source (cross-deduped by arxiv id via the ai_papers/*/* feeder glob))
+script_library/       135 premade ingestion scripts (JSON metadata + code, 22 are unrestricted trust tier; 6 added 2026-04-26 with OEB Wave 1; oeb_pick_tracker_pro added 2026-04-27 with OEB Wave 2; curator_telemetry_pull added 2026-05-16 with Phase 6 / Bet 5 slice 1; curator_youtube_rss_pull added 2026-05-16 with Phase 6 / Bet 5 slice 1.5; curator_topic_search_pull_pro added 2026-05-16 with Phase 6 / Bet 5 slice 3b; curator_archive_org_pull added 2026-05-17 with Phase 6 / Bet 5 slice 7 - first non-YouTube curator source; github_trending_repos added 2026-06-23 with Slice B - scrapes github.com/trending for the hot-repos AG, first script feeding a local-model alert group; ai_papers_github_lists added 2026-06-23 with Slice C1 - tracks newly-added papers across 5 curated AI-paper GitHub lists for the AI-paper-diffs AG; ai_papers_huggingface added 2026-06-23 with Slice C2 - adds Hugging Face Daily Papers as the 6th source (cross-deduped by arxiv id via the ai_papers/*/* feeder glob))
   scripts/                One JSON file per script; `_pro` suffix = unrestricted trust tier
 analyzers/            Claude API wrapper + post-processor
   claude_client.py        Single retry/timeout/cost-logging wrapper around `anthropic.messages.create` - ALL Claude calls route through `call_messages_create()` (alert groups, analyzer, settings-test button, batch submissions). `use_headroom=` selects the Anthropic `base_url` (Headroom proxy vs direct) per call and FAILS OPEN to direct on a connection/timeout/502-504 error; route recorded in `ClaudeCallResult.path` + the `headroom_path` log column
@@ -116,7 +116,7 @@ email_groups/         Email-group YAML configs (gitignored - user data)
 
 Pipe-delimited commands: `index="path" | search field="val" | stats count by category | sort -count | head 10`
 
-**Supported commands:** search, where, eval, stats, eventstats, streamstats, timechart, fields, table, rename, sort, reverse, head, limit, dedup, dedup_semantic, llm, llm_batch, nearest, rex, regex, join, append, appendpipe, switch, lookup, outputlookup, outputnew, coalesce, mvexpand, mvreverse, mvcombine, mvdedup, mvappend, mvfilter, mvcount, mvindex, mvzip, mvjoin, mvdc, mvfind, makeresults, addinfo, spath, base64, bin, multisearch, maketable, fieldsummary, fillnull, loadjob, inputlookup
+**Supported commands:** search, where, eval, stats, eventstats, streamstats, timechart, fields, table, rename, sort, reverse, head, limit, dedup, dedup_semantic, llm, llm_batch, llm_route, llm_refine, llm_ensemble, llm_until, nearest, rex, regex, join, append, appendpipe, switch, lookup, outputlookup, outputnew, coalesce, mvexpand, mvreverse, mvcombine, mvdedup, mvappend, mvfilter, mvcount, mvindex, mvzip, mvjoin, mvdc, mvfind, makeresults, addinfo, spath, base64, bin, multisearch, maketable, fieldsummary, fillnull, loadjob, inputlookup
 
 **Built-in functions:** round, floor, ceil, min, max, avg, sum, abs, sqrt, median, mode, range, random, concat, replace, upper, lower, capitalize, substr, trim, ltrim, rtrim, len, match, split, tonumber, tostring, urlencode, urldecode, defang, fang, type, base64_encode, base64_decode, isnull, isnotnull, coalesce, if_, case, randomize, now, relative_time, strftime, strptime, mvdedup, mvsort, mvcount, mvreverse, mvjoin, mvfind, mvindex, mvdc, mvappend, mvzip
 
@@ -205,7 +205,7 @@ All tests run via `pytest -vv` from the virtualenv. YAML-driven parametrized tes
 - `test_spql.py` - YAML-driven query execution (tiers 1-4)
 - `test_api.py` - REST endpoint tests (tier 5)
 - `test_ui.py` / `test_ui_crud.py` - Playwright UI tests (tier 6)
-- `test_script_library.py` - Script validation + mock execution (all 76 scripts)
+- `test_script_library.py` - Script validation + mock execution (all 135 scripts; two registries - `SCRIPT_REGISTRY` + `CREDENTIALED_SCRIPT_REGISTRY` - plus the dedicated metaculus auth-sentinel class)
 - `test_duckdb_index_call.py` - DuckDB predicate pushdown
 - `test_relative_time.py` - Time parsing with ±5s tolerance
 - `test_claude_analyzer.py` / `test_batch_api.py` / `test_analyzer_storage.py` - Analyzer unit tests
@@ -227,7 +227,7 @@ pytest tests/yaml/tier1_commands/   # Specific tier
 pytest -m smoke                     # Live API smoke tests (needs network)
 pytest -m live_integration          # Live feeder + Claude + SMTP end-to-end (needs secrets.txt)
 HEADED=1 pytest tests/test_ui_crud.py  # Visual UI debugging
-flake8 --exclude=env                # Lint
+flake8                              # Lint (.flake8 handles excludes; a CLI --exclude OVERRIDES the config and lints generated code)
 bandit -r .                         # Security scan
 ```
 
@@ -428,6 +428,7 @@ When updating, keep it concise. This file should remain under 300 lines. If a se
 
 ## Do Not
 
+- Remove, bypass, or opt new test files out of the `preserve_user_state` session guard in `tests/conftest.py`. The suite exercises real endpoints against the real stores, so on a developer/user machine a test can clobber LIVE config - caught 2026-07-11 when the UI settings-reset test wiped the operator's `global_settings.yaml` to `{}` during the post-3.14 verification pass (recovered only because the config log stream happened to capture every key's old value). The guard snapshots user-state files (settings yaml, sqlite stores, `alert_groups/` / `saved_searches/` / `lookups/` / `macros/` / `models/` / `notebooks/` / prompt dirs) before the session and restores them after, deleting test-created strays. When adding a NEW user-data file or directory, add it to `_USER_STATE_FILES` / `_USER_STATE_DIRS` in the same commit (same rule as the persistence/docker/install triple). Prefer `tmp_path`-isolated stores for new tests regardless - the guard is a safety net, not an isolation mechanism.
 - Hand-edit files in `lexers/antlr4_active/` (generated from grammar)
 - Add `openai` back to `validation/ModelValidation.py::ALLOWED_PROVIDERS` or to any router transport. SpeakesQuery does not interact with OpenAI's company or servers as a matter of principle (user direction 2026-05-08, slice 2.5). The `_call_chat_completions` HTTP transport stays - LM Studio (and any future independent self-hosted backend like vLLM, llama.cpp server) uses the same JSON wire shape, which is industry-standard among self-hosted LLM servers. But no provider entry, default template, API-key slot, code path, test, or doc reference may point at OpenAI's cloud. Pinned by `tests/test_model_store.py::TestModelValidation::test_openai_provider_is_rejected`.
 - Store secrets in config files (use credential vault or .env)

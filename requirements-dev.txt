@@ -1,5 +1,8 @@
 antlr4-python3-runtime~=4.13.1
-pandas~=2.2.3
+# Keep in lockstep with requirements.txt - 2.3.3 is the first pandas
+# release with Python 3.14 wheels; a lower dev pin makes the combined
+# `pip install -r requirements.txt -r requirements-dev.txt` unresolvable.
+pandas~=2.3.3
 pyyaml~=6.0.2
 defusedxml~=0.7
 pytest~=8.1

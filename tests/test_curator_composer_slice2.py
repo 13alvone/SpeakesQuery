@@ -1302,7 +1302,8 @@ class TestDryRunMoneyLeakCanary:
             # Also: the dispatcher's `run()` method ORs the YAML field
             # into the dry_run parameter. Verify by checking the
             # SOURCE - we read it back and confirm the conditional.
-            import inspect, re as _re
+            import inspect
+            import re as _re
             src = inspect.getsource(AlertGroupDispatcher.run)
             # Tolerant substring - covers both ``group.get("dry_run"...``
             # and ``(group or {}).get("dry_run"...`` styles. The exact

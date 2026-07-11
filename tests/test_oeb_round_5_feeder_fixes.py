@@ -243,8 +243,10 @@ class TestPppbCongressBills:
         tagged HIGH importance by the upstream classifier but aren't
         actionable for trading. Filter them out at the SPQL layer."""
         q = _query(folder, "pppb_congress_bills")
-        assert 'bill_type IN ("S","HR","SJRES","HJRES")' in q or \
-               "bill_type IN ('S','HR','SJRES','HJRES')" in q, (
+        assert (
+            'bill_type IN ("S","HR","SJRES","HJRES")' in q
+            or "bill_type IN ('S','HR','SJRES','HJRES')" in q
+        ), (
             "Must filter to substantive bill types (drops SRES/HRES "
             "ceremonial resolutions)."
         )

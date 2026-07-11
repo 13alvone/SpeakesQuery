@@ -79,7 +79,6 @@ class GeneralHandler:
             ast.Expression,
             ast.BinOp,
             ast.UnaryOp,
-            ast.Num,
             ast.Constant,
             ast.Add,
             ast.Sub,

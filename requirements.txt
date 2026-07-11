@@ -16,7 +16,10 @@ pyyaml~=6.0.2
 pyparsing~=3.2.0
 aiosmtplib~=3.0.2
 aiosqlite~=0.20.0
-apscheduler>=3,<4
+# 3.11 is the first APScheduler 3.x line built for modern interpreters
+# (3.10 and earlier misbehave on 3.13/3.14); the open >=3 floor let an
+# old resolve break silently.
+apscheduler>=3.11,<4
 # RestrictedPython 8.1+ is required on Python 3.14 (7.x declares
 # requires_python <3.14 and refuses to install there). The 8.x line
 # also fixes two sandbox-escape CVEs; its one breaking change

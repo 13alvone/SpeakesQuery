@@ -569,8 +569,6 @@ class _GenerateResultsTransformer(ast.NodeTransformer):
                         call.args[1].value, str
                     ):
                         self.output_path = call.args[1].value
-                    elif isinstance(call.args[1], ast.Str):  # Python 3.7 compat
-                        self.output_path = call.args[1].s
                     else:
                         raise ValueError(
                             "Second argument to GENERATE_RESULTS must be a string."

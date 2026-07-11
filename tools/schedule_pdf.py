@@ -1430,9 +1430,12 @@ def build_pdf_bytes(
     """
     try:
         from weasyprint import HTML
-    except ImportError as exc:
+    except (ImportError, OSError) as exc:
+        # ImportError: the pip package is missing. OSError: the package is
+        # installed but its system libraries (pango/cairo) are not - the
+        # normal state of a Linux host that ran pip but not apt.
         raise RuntimeError(
-            'WeasyPrint not installed. Install via pip (and Homebrew '
+            'WeasyPrint unavailable. Install via pip (and Homebrew '
             'pango/cairo on macOS, or apt libpango/libcairo on Linux). '
             f'Original error: {exc}'
         ) from exc

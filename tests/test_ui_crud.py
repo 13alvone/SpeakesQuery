@@ -81,7 +81,14 @@ class TestSettingsUI:
 
         page.wait_for_timeout(500)
         val = page.input_value("#set-max-total-size-gb")
-        assert val == "100", f"Expected default '100' after reset, got {val!r}"
+        # Assert against the shipped default itself - a hardcoded literal
+        # here goes stale the moment the default changes (this asserted
+        # '100' while the real default had moved to 200).
+        from global_settings import DEFAULTS
+        expected = str(DEFAULTS["max_total_size_gb"])
+        assert val == expected, (
+            f"Expected default {expected!r} after reset, got {val!r}"
+        )
 
     def test_05_test_email_validation(self, shared_page):
         """Test email button validates that username is filled."""

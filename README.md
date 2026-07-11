@@ -18,7 +18,7 @@
 <p>
   <img src="https://img.shields.io/badge/tests-5%2C600%2B%20passing-brightgreen" alt="5,600+ tests passing" />
   <img src="https://img.shields.io/badge/connectors-135%20ready--made-blueviolet" alt="135 ready-made connectors" />
-  <img src="https://img.shields.io/badge/SPQL-52%20commands-informational" alt="52 SPQL commands" />
+  <img src="https://img.shields.io/badge/SPQL-56%20commands-informational" alt="56 SPQL commands" />
   <img src="https://img.shields.io/badge/local%20LLM-%240%2Ftoken-success" alt="Local LLM $0 per token" />
 </p>
 
@@ -50,7 +50,7 @@ index="indexes/polymarket/active_markets/*" earliest=-7d
 
 | 🔒 **Yours, full stop** | 🤖 **AI on your terms** | 📦 **Batteries included** |
 |---|---|---|
-| Your data never leaves your machine. No accounts, no telemetry, no rent-seeking - the core engine is free by design, permanently. | Claude API **or** your own LM Studio / llama.cpp / Ollama box at $0/token. Every billable pipe takes `max_cost_usd=` and `dry_run=true`. | 135 tested one-click connectors (101 need no API key), 52 SPQL commands, notebooks, a visual query builder, and email briefs - out of the box. |
+| Your data never leaves your machine. No accounts, no telemetry, no rent-seeking - the core engine is free by design, permanently. | Claude API **or** your own LM Studio / llama.cpp / Ollama box at $0/token. Every billable pipe takes `max_cost_usd=` and `dry_run=true`. | 135 tested one-click connectors (101 need no API key), 56 SPQL commands, notebooks, a visual query builder, and email briefs - out of the box. |
 
 > **Project ethos** - SpeakesQuery is intentionally designed as non-rent-seeking software. It exists to be transparent, inspectable, and useful on its own merits. It survives only through correctness, clarity, and trust - not artificial restrictions or gated capability.
 

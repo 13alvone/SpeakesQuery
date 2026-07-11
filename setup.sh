@@ -264,11 +264,34 @@ if [[ -d "$VENV_DIR" && "$RECREATE_VENV" -eq 1 ]]; then
   rm -rf "$VENV_DIR"
 fi
 
+# A prior failed creation (e.g. missing ensurepip) leaves a partial venv
+# with bin/python but no pip - treat that as absent, not "already exists",
+# or every later pip call dies with a baffling "No module named pip".
+if [[ -d "$VENV_DIR" && -x "$VENV_DIR/bin/python" && ! -e "$VENV_DIR/bin/pip" && ! -e "$VENV_DIR/bin/pip3" ]]; then
+  log_warn "Existing venv at $VENV_DIR has no pip (likely a previously failed creation). Recreating it."
+  rm -rf "$VENV_DIR"
+fi
+
 if [[ -d "$VENV_DIR" && -x "$VENV_DIR/bin/python" ]]; then
   log_info "Virtual environment already exists at $VENV_DIR"
 else
+  # Preflight: Debian/Ubuntu split ensurepip into pythonX.Y-venv. Without it,
+  # `python -m venv` fails halfway and leaves a pip-less venv behind. Catch it
+  # up front with the exact remediation instead of a mid-run stack of errors.
+  if ! "$PYTHON_BIN" -c 'import ensurepip' >/dev/null 2>&1; then
+    PY_TAG="$("$PYTHON_BIN" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+    log_err "$PYTHON_BIN cannot create a virtual environment: the 'ensurepip' module is missing."
+    log_info "On Debian/Ubuntu, install the matching venv package and rerun:"
+    log_info "  sudo apt-get install -y python${PY_TAG}-venv"
+    log_info "Then rerun: ./$SCRIPT_NAME"
+    exit 1
+  fi
   log_info "Creating virtual environment at $VENV_DIR using $PYTHON_BIN"
-  "$PYTHON_BIN" -m venv "$VENV_DIR"
+  if ! "$PYTHON_BIN" -m venv "$VENV_DIR"; then
+    log_err "Virtual environment creation failed - removing partial venv at $VENV_DIR"
+    rm -rf "$VENV_DIR"
+    exit 1
+  fi
 fi
 
 # shellcheck disable=SC1091

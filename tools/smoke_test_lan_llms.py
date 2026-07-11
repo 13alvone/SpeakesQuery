@@ -142,6 +142,12 @@ def print_results(results: list[CallResult]) -> None:
 
 
 def test_endpoint_health(label: str, url: str, iterations: int) -> list[CallResult]:
+    # Endpoint strings come from user-editable model YAML; refuse anything
+    # urlopen would treat as a non-HTTP scheme (file:/, ftp:/, etc.).
+    if not url.lower().startswith(("http://", "https://")):
+        raise ValueError(
+            f"Endpoint health check requires an http(s) URL, got: {url!r}"
+        )
     out: list[CallResult] = []
     for i in range(iterations):
         start = time.perf_counter()
