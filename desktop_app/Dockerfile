@@ -20,8 +20,14 @@ RUN apt-get update \
 WORKDIR /app
 
 # ── Python deps (cached layer - only rebuilds when requirements change) ──────
+# Install CPU-only torch FIRST so the sentence-transformers dependency in
+# requirements.txt resolves against it instead of pulling the default PyPI
+# CUDA build (~4 GB of nvidia-* wheels the container can never use - compose
+# doesn't request a GPU). Semantic search runs all-MiniLM-L6-v2 on CPU.
+# Keeps the image ~4 GB smaller and first install several times faster.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r requirements.txt
 
 # ── Copy full project source ─────────────────────────────────────────────────
