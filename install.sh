@@ -380,7 +380,9 @@ mkdir -p \
   "$PROJECT_ROOT/default_notebooks" \
   "$PROJECT_ROOT/notebook_cache" \
   "$PROJECT_ROOT/jobs" \
-  "$PROJECT_ROOT/youtube_profile"
+  "$PROJECT_ROOT/youtube_profile" \
+  "$PROJECT_ROOT/scheduled_input_scripts" \
+  "$PROJECT_ROOT/executed_scheduled_searches"
 
 # File mounts - Docker bind-mounts treat a missing source as a directory,
 # which corrupts SQLite.  Touch them as empty files first so the container

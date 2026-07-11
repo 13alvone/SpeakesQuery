@@ -171,6 +171,14 @@ SpeakesQuery is designed to run via Docker. The recommended path is `./install.s
 <details>
 <summary><strong>Manual Docker usage</strong></summary>
 
+> **Run `./install.sh` at least once before using the compose file directly.**
+> The compose file bind-mounts a dozen state files (`global_settings.yaml`,
+> `*.sqlite`) and data directories from the project root. `install.sh` creates
+> them; if they don't exist when `docker compose up` runs, Docker creates each
+> missing *file* mount as a root-owned *directory*, which corrupts the SQLite
+> stores and leaves the container in a crash-restart loop. After the first
+> `./install.sh`, the manual commands below are safe for day-to-day control.
+
 ```bash
 docker compose -f desktop_app/docker-compose.yml up --build -d
 open http://localhost:5111

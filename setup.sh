@@ -104,6 +104,14 @@ install_hint_python312() {
         log_info "  sudo apt-get update"
         log_info "  sudo apt-get install -y python3.12 python3.12-venv python3.12-dev"
         log_info "  Then rerun: ./$SCRIPT_NAME --python \$(command -v python3.12)"
+        log_info ""
+        log_info "  NOTE: Ubuntu 24.10+ / Debian 13+ no longer ship python3.12 in the"
+        log_info "  main archive. Use the deadsnakes PPA (Ubuntu) or uv instead:"
+        log_info "    sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt-get update"
+        log_info "    sudo apt-get install -y python3.12 python3.12-venv python3.12-dev"
+        log_info "  or:"
+        log_info "    curl -LsSf https://astral.sh/uv/install.sh | sh"
+        log_info "    uv python install 3.12   # then: ./$SCRIPT_NAME --python \$(uv python find 3.12)"
         ;;
       rhel)
         log_info "RHEL/Fedora-family install hint:"

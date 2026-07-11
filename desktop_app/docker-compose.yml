@@ -67,6 +67,16 @@ services:
       - ../notebook_cache:/app/notebook_cache
       - ../notebook_cache.sqlite:/app/notebook_cache.sqlite
       - ../jobs:/app/jobs
+      # User-authored scheduled ingestion scripts + scheduled-search result
+      # payloads (query_engine/Database.py RESULTS_DIR). Both are persistence
+      # targets in tools/persistence.py but were previously excluded from the
+      # image (.dockerignore) AND unmounted - scheduled_input_scripts tripped
+      # the startup Persistence Audit on every fresh install, and
+      # executed_scheduled_searches was auto-created inside the container so
+      # its contents silently vanished on rebuild (fixed 2026-07-11 during
+      # the 1.0.0-rc1 fresh-install verification pass).
+      - ../scheduled_input_scripts:/app/scheduled_input_scripts
+      - ../executed_scheduled_searches:/app/executed_scheduled_searches
       # Google Takeout (YouTube) export - read-only input for the curator
       # Takeout bootstrap (Phase 6 / Bet 5 slice 1, 2026-05-16). Read once
       # by `tools.curator_takeout_import` and emitted as structured parquets
@@ -119,7 +129,12 @@ services:
       #     container resolves to /app/.speakes-query.
       - ${HOME}/.speakes-query:/app/.speakes-query
     env_file:
-      - ../.env
+      # required: false lets `docker compose up` succeed on a tree where
+      # install.sh hasn't generated .env yet (all .env content is optional;
+      # see .env.example). install.sh still creates it on the recommended
+      # path - this only removes the hard failure from the manual path.
+      - path: ../.env
+        required: false
     environment:
       PORT: "5111"
       # Bind to all interfaces inside the container so Docker's port mapping
