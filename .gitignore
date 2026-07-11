@@ -154,3 +154,6 @@ history/
 playlists/
 music (library and uploads)/
 subscriptions/
+
+# ── Private launch/marketing playbook (never ship rehearsal notes) ─
+LAUNCH/
