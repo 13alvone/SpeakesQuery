@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # ── System deps ─────────────────────────────────────────────────────────────
 # `curl` for healthcheck; the libpango/libcairo/libgdk-pixbuf/libffi/
@@ -58,7 +58,7 @@ ENV HOME=/app
 
 # ── Passwd entry for the runtime UID ────────────────────────────────────────
 # docker-compose.yml's `user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"`
-# defaults to UID 1000. python:3.12-slim's /etc/passwd does NOT include
+# defaults to UID 1000. python:3.14-slim's /etc/passwd does NOT include
 # a UID-1000 entry, so libraries that call ``pwd.getpwuid(os.getuid())``
 # directly (huggingface_hub's cache init, ``getpass.getuser()`` if USER/
 # LOGNAME env vars are absent, some BLAS/SciPy startup paths) raise

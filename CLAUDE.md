@@ -8,7 +8,7 @@ Local-first search and ingestion engine (v1.0.0-rc1 - see VERSION). Custom query
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Python 3.12 |
+| Language | Python 3.14 (3.12 - 3.14 supported for local dev; Docker image is python:3.14-slim) |
 | Query Parser | ANTLR4 (`lexers/speakesQuery.g4` -> generated `lexers/antlr4_active/`) |
 | Data | pandas, pyarrow, DuckDB (Parquet predicate/projection pushdown) |
 | Storage | Parquet (gzip-compressed) + SQLite |

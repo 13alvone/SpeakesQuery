@@ -4,13 +4,15 @@ set -euo pipefail
 # setup.sh - Bootstrap environment and initialize the application
 #
 # Goals:
-# - Enforce Python 3.12.x for the initial release (required by native/pybind components).
-# - Create ./env venv, install deps, build custom components, initialize databases.
+# - Require Python 3.12 - 3.14 (3.14 recommended; it matches the Docker image).
+#   The old exact-3.12 pin existed for native/pybind components that were
+#   replaced by DuckDB - no native builds remain.
+# - Create ./env venv, install deps, initialize databases.
 # - Be portable across major Linux families (Debian/Ubuntu, RHEL/Fedora, Arch) and macOS.
 #
 # Usage:
 #   ./setup.sh
-#   ./setup.sh --python /path/to/python3.12
+#   ./setup.sh --python /path/to/python3.14
 #   ./setup.sh --venv-dir ./env
 #   ./setup.sh --skip-dev
 #   ./setup.sh --wheel-only
@@ -33,7 +35,7 @@ Bootstraps the project by creating a Python virtual environment, installing depe
 building custom components, and initializing application databases.
 
 Options:
-  --python PATH          Use a specific Python interpreter (must be Python 3.12.x).
+  --python PATH          Use a specific Python interpreter (must be Python 3.12 - 3.14).
   --venv-dir PATH        Virtual environment directory (default: ./env).
   --env-file PATH        Env file to load/write (default: ./PROJECT_ROOT/.env).
   --skip-dev             Do not install requirements-dev.txt.
@@ -43,9 +45,9 @@ Options:
   -h, --help             Show this help message.
 
 Notes:
-  - Python 3.12.x is a hard requirement for this initial release due to native/C++ bindings.
+  - Python 3.12 - 3.14 is supported; 3.14 is recommended (matches the Docker image).
   - During setup, if SECRET_KEY is missing, this script will generate one and write it to the env file.
-  - If using Docker, pin your base image to Python 3.12.x for reproducible builds.
+  - The shipped Docker image is based on python:3.14-slim.
 EOF
 }
 
@@ -86,13 +88,13 @@ detect_linux_family() {
   echo "unknown"
 }
 
-install_hint_python312() {
+install_hint_python() {
   local os family
   os="$(detect_os)"
   if [[ "$os" == "macos" ]]; then
     log_info "macOS install hint (Homebrew):"
-    log_info "  brew install python@3.12"
-    log_info "  Then rerun: ./$SCRIPT_NAME --python \$(brew --prefix)/opt/python@3.12/bin/python3.12"
+    log_info "  brew install python@3.14"
+    log_info "  Then rerun: ./$SCRIPT_NAME --python \$(brew --prefix)/opt/python@3.14/bin/python3.14"
     return
   fi
 
@@ -102,40 +104,40 @@ install_hint_python312() {
       debian)
         log_info "Debian/Ubuntu install hint:"
         log_info "  sudo apt-get update"
-        log_info "  sudo apt-get install -y python3.12 python3.12-venv python3.12-dev"
-        log_info "  Then rerun: ./$SCRIPT_NAME --python \$(command -v python3.12)"
+        log_info "  sudo apt-get install -y python3.14 python3.14-venv python3.14-dev"
+        log_info "  Then rerun: ./$SCRIPT_NAME --python \$(command -v python3.14)"
         log_info ""
-        log_info "  NOTE: Ubuntu 24.10+ / Debian 13+ no longer ship python3.12 in the"
-        log_info "  main archive. Use the deadsnakes PPA (Ubuntu) or uv instead:"
+        log_info "  NOTE: if your release does not ship python3.14 in the main"
+        log_info "  archive, use the deadsnakes PPA (Ubuntu) or uv instead:"
         log_info "    sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt-get update"
-        log_info "    sudo apt-get install -y python3.12 python3.12-venv python3.12-dev"
+        log_info "    sudo apt-get install -y python3.14 python3.14-venv python3.14-dev"
         log_info "  or:"
         log_info "    curl -LsSf https://astral.sh/uv/install.sh | sh"
-        log_info "    uv python install 3.12   # then: ./$SCRIPT_NAME --python \$(uv python find 3.12)"
+        log_info "    uv python install 3.14   # then: ./$SCRIPT_NAME --python \$(uv python find 3.14)"
         ;;
       rhel)
         log_info "RHEL/Fedora-family install hint:"
         log_info "  # On Fedora:"
-        log_info "  sudo dnf install -y python3.12 python3.12-devel"
+        log_info "  sudo dnf install -y python3.14 python3.14-devel"
         log_info "  # On RHEL/Rocky/Alma you may need EPEL/CRB and/or AppStream modules:"
-        log_info "  sudo dnf install -y python3.12 python3.12-devel || true"
-        log_info "  Then rerun: ./$SCRIPT_NAME --python \$(command -v python3.12)"
+        log_info "  sudo dnf install -y python3.14 python3.14-devel || true"
+        log_info "  Then rerun: ./$SCRIPT_NAME --python \$(command -v python3.14)"
         ;;
       arch)
         log_info "Arch install hint:"
         log_info "  sudo pacman -Sy --noconfirm python"
-        log_info "  # If python is not 3.12.x, use pyenv or a pinned toolchain for 3.12."
+        log_info "  # If python is not 3.12 - 3.14, use pyenv or uv for a pinned toolchain."
         ;;
       *)
         log_info "Linux install hint:"
-        log_info "  Install Python 3.12.x (plus venv + dev headers) using your distro's package manager."
+        log_info "  Install Python 3.12 - 3.14 (plus venv + dev headers) using your distro's package manager."
         ;;
     esac
     return
   fi
 
   log_info "Install hint:"
-  log_info "  Install Python 3.12.x and rerun with: ./$SCRIPT_NAME --python /path/to/python3.12"
+  log_info "  Install Python 3.12 - 3.14 and rerun with: ./$SCRIPT_NAME --python /path/to/python3.14"
 }
 
 # -----------------------------
@@ -217,53 +219,42 @@ log_dbg "Env file: $ENV_FILE"
 # Resolve Python interpreter
 # -----------------------------
 if [[ -z "$PYTHON_BIN" ]]; then
-  if command -v python3.12 >/dev/null 2>&1; then
-    PYTHON_BIN="$(command -v python3.12)"
-  else
-    log_err "Could not find python3.12 in PATH."
-    install_hint_python312
+  for candidate in python3.14 python3.13 python3.12; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v "$candidate")"
+      break
+    fi
+  done
+  if [[ -z "$PYTHON_BIN" ]]; then
+    log_err "Could not find python3.14, python3.13, or python3.12 in PATH."
+    install_hint_python
     exit 1
   fi
 fi
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   log_err "Python interpreter not found or not executable: $PYTHON_BIN"
-  install_hint_python312
+  install_hint_python
   exit 1
 fi
 
 # -----------------------------
-# Enforce Python 3.12.x
+# Enforce Python 3.12 - 3.14
 # -----------------------------
 PY_FULL="$("$PYTHON_BIN" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
 PY_MAJ="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info.major)')"
 PY_MIN="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info.minor)')"
 
-if [[ "$PY_MAJ" -ne 3 || "$PY_MIN" -ne 12 ]]; then
-  log_err "Python 3.12.x is required for this release. Detected: $PY_FULL"
+if [[ "$PY_MAJ" -ne 3 || "$PY_MIN" -lt 12 || "$PY_MIN" -gt 14 ]]; then
+  log_err "Python 3.12 - 3.14 is required for this release. Detected: $PY_FULL"
   log_info "Remediation:"
-  install_hint_python312
+  install_hint_python
   log_info "Then rerun with:"
-  log_info "  ./$SCRIPT_NAME --python /path/to/python3.12"
+  log_info "  ./$SCRIPT_NAME --python /path/to/python3.14"
   exit 1
 fi
 
 log_info "Using Python: $PYTHON_BIN ($PY_FULL)"
-
-# -----------------------------
-# Tools sanity checks (non-fatal)
-# -----------------------------
-if ! command -v cmake >/dev/null 2>&1; then
-  log_warn "cmake not found in PATH. Native component builds may fail."
-  log_info "Install hint:"
-  if [[ "$(detect_os)" == "macos" ]]; then
-    log_info "  brew install cmake"
-  else
-    log_info "  Debian/Ubuntu: sudo apt-get install -y cmake"
-    log_info "  RHEL/Fedora:   sudo dnf install -y cmake"
-    log_info "  Arch:          sudo pacman -Sy --noconfirm cmake"
-  fi
-fi
 
 # -----------------------------
 # Create / recreate venv
@@ -284,12 +275,12 @@ fi
 source "$VENV_DIR/bin/activate"
 PYTHON="$VENV_DIR/bin/python"
 
-# Defensive check: ensure the venv python is also 3.12.x
+# Defensive check: ensure the venv python is also 3.12 - 3.14
 VENV_PY_FULL="$("$PYTHON" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
 VENV_PY_MAJ="$("$PYTHON" -c 'import sys; print(sys.version_info.major)')"
 VENV_PY_MIN="$("$PYTHON" -c 'import sys; print(sys.version_info.minor)')"
-if [[ "$VENV_PY_MAJ" -ne 3 || "$VENV_PY_MIN" -ne 12 ]]; then
-  log_err "Venv python is not 3.12.x (detected: $VENV_PY_FULL). Aborting."
+if [[ "$VENV_PY_MAJ" -ne 3 || "$VENV_PY_MIN" -lt 12 || "$VENV_PY_MIN" -gt 14 ]]; then
+  log_err "Venv python is not 3.12 - 3.14 (detected: $VENV_PY_FULL). Aborting."
   log_info "Try rerunning with: ./$SCRIPT_NAME --recreate-venv"
   exit 1
 fi
@@ -373,8 +364,8 @@ if [[ "$_verify_failed" -eq 1 ]]; then
   if [[ "$(detect_os)" == "macos" ]]; then
     log_info "       xcode-select --install"
   else
-    log_info "       Debian/Ubuntu: sudo apt-get install -y build-essential python3.12-dev libxml2-dev libxslt1-dev"
-    log_info "       RHEL/Fedora:   sudo dnf install -y gcc python3.12-devel libxml2-devel libxslt-devel"
+    log_info "       Debian/Ubuntu: sudo apt-get install -y build-essential python3.14-dev libxml2-dev libxslt1-dev"
+    log_info "       RHEL/Fedora:   sudo dnf install -y gcc python3.14-devel libxml2-devel libxslt-devel"
   fi
   log_info "  3. Rerun: ./$SCRIPT_NAME --recreate-venv"
   exit 1

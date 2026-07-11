@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/version-1.0.0--rc1-blue" alt="Version 1.0.0-rc1" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="Apache 2.0" />
   <img src="https://img.shields.io/badge/status-RELEASE%20CANDIDATE-orange" alt="Release Candidate" />
-  <img src="https://img.shields.io/badge/python-3.12-blue" alt="Python 3.12" />
+  <img src="https://img.shields.io/badge/python-3.14-blue" alt="Python 3.14" />
 </p>
 <p>
   <img src="https://img.shields.io/badge/tests-5%2C600%2B%20passing-brightgreen" alt="5,600+ tests passing" />
@@ -96,7 +96,7 @@ pull → stop → rm → rebuild cycle in one invocation.
 
 For contributors or advanced users who prefer a local Python environment:
 
-**Prerequisites:** Python 3.12.x and a C/C++ toolchain (`cmake`, compiler).
+**Prerequisites:** Python 3.12 - 3.14 (3.14 recommended; it matches the Docker image).
 
 ```bash
 ./setup.sh --recreate-venv
@@ -104,7 +104,7 @@ source env/bin/activate
 python desktop_app/main.py
 ```
 
-`setup.sh` creates a virtual environment, installs all dependencies, builds C++ components, and generates a `.env` file. See `./setup.sh --help` for all options.
+`setup.sh` creates a virtual environment, installs all dependencies, and generates a `.env` file. See `./setup.sh --help` for all options.
 
 To launch all services (server, query engine, ingestion engine):
 
@@ -213,7 +213,7 @@ desktop_app/
   main.py             Native pywebview desktop application
   server.py           Flask server for headless/containerized use
   ui.html             Single-page interface (includes Brython-based Python linter)
-  Dockerfile          Container image (Python 3.12-slim)
+  Dockerfile          Container image (Python 3.14-slim)
   docker-compose.yml  Compose config (context: project root)
 
 query_engine/

@@ -1,24 +1,33 @@
-pandas~=2.2.3
-pyarrow~=17.0.0
+# pandas stays on the 2.x line deliberately - pandas 3.0 changes core
+# behavior (copy-on-write default, string dtype) and needs its own
+# migration pass before adoption. 2.3.3 is the first release with
+# Python 3.14 wheels.
+pandas~=2.3.3
+pyarrow~=25.0
 requests~=2.32.3
 antlr4-python3-runtime~=4.13.1
 defusedxml~=0.7
 flask~=3.1.0
 werkzeug~=3.1.3
 croniter~=6.0.0
-numpy~=2.2.1
+numpy>=2.3.3,<3
 # The 'yaml' package does not exist on PyPI; PyYAML provides YAML support.
 pyyaml~=6.0.2
 pyparsing~=3.2.0
 aiosmtplib~=3.0.2
 aiosqlite~=0.20.0
 apscheduler>=3,<4
-restrictedpython~=7.4
+# RestrictedPython 8.1+ is required on Python 3.14 (7.x declares
+# requires_python <3.14 and refuses to install there). The 8.x line
+# also fixes two sandbox-escape CVEs; its one breaking change
+# (disallowing try/except* per CVE-2025-22153) touches nothing in
+# this codebase or the script library.
+restrictedpython~=8.4
 python-dotenv~=1.1
 faker~=37.4.0
-cryptography~=42.0
+cryptography~=49.0
 beautifulsoup4~=4.12
-lxml~=5.2
+lxml~=6.1
 # CA certificate bundle - required for SMTP TLS on macOS where Python's
 # default cafile is often missing.
 certifi>=2024.0
@@ -48,7 +57,7 @@ anthropic>=0.91,<1.0
 # rebuilt yet; once torch is resident, embedding adds ~250 MB RSS and
 # 5–20 ms per row on M-series CPU. Default model `all-MiniLM-L6-v2`
 # (384 dims, ~80 MB, MIT license) downloads on first call.
-sentence-transformers>=3.0,<5.0
+sentence-transformers>=3.0,<6.0
 # ── Phase 3 / Bet 4 slice 5 (2026-05-09): notebook markdown cells ──
 # Server-side markdown → HTML rendering for the notebook `markdown`
 # cell type. Tiny dep (~150KB on disk). The engine has a graceful

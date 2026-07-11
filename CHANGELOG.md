@@ -6,6 +6,24 @@
 
 ---
 
+## 2026-07-11 05:24:06 UTC - Docker base image upgraded to Python 3.14
+
+### TL;DR (human)
+
+The container now builds on **python:3.14-slim** (Debian trixie) instead of python:3.12-slim. The original 3.12 pin existed for the native/pybind C++ index loader, which was replaced by DuckDB long ago - no native builds remain anywhere in the project. Local dev via setup.sh now accepts Python 3.12 - 3.14 (3.14 preferred, resolved in that order from PATH), so existing 3.12 venvs keep working.
+
+* **Dependency bumps required for cp314 wheels** - pandas ~=2.2.3 → ~=2.3.3 (deliberately staying on the 2.x line; pandas 3.0 needs its own migration pass), pyarrow ~=17.0.0 → ~=25.0, numpy ~=2.2.1 → >=2.3.3,<3, lxml ~=5.2 → ~=6.1, cryptography ~=42.0 → ~=49.0, sentence-transformers cap raised <5.0 → <6.0. duckdb/pyyaml pins already floated to cp314-capable releases; torch resolves to 2.13.0+cpu from the PyTorch CPU index.
+* **RestrictedPython ~=7.4 → ~=8.4** - 7.x declares requires_python <3.14 and refuses to install on 3.14. The 8.x line also fixes two sandbox-escape CVEs (CVE-2025-22153 try/except*, positional-only underscore params). Its one breaking change (disallowing try/except*) touches zero library scripts and zero production code (grepped all 135 scripts). All sandbox execution tests pass on 8.4.
+* **One real 3.14 code fix** - `alert_groups/dispatcher.py::_json_loads_lenient`: Python 3.14 changed the json trailing-comma error to "Illegal trailing comma before end of object/array" with pos AT the comma (3.13 and earlier report a generic expectation failure with pos AFTER the comma). Added a branch handling the new message; the old branch is kept so the helper behaves identically on 3.12 - 3.14 (verified on both interpreters, including the multi-defect repair case).
+* **Vestige removal** - dropped the unused `pybind11` dep and the "C++ extension build deps" section from desktop_app/requirements.txt; removed the cmake check from setup.sh; README no longer lists a C/C++ toolchain prerequisite.
+* **Defense in depth** - added `secrets.txt` to .dockerignore (was gitignored but not dockerignored; no leak occurred, the file simply must never bake into an image).
+
+### Verification
+
+Full non-live pytest sweep on a Python 3.14.4 venv with the new pins: 5,574 passed, 0 failed. Same sweep INSIDE the freshly built 3.14.6 container (tests/ bind-mounted): 5,597 passed, 10 failed - all 10 are container-environment artifacts unrelated to 3.14 (.gitignore and docker CLI absent from the image by design; HOME=/app breaks the tilde-redaction test's assumption), including the previously host-blocked WeasyPrint PDF tests which pass in-container. Image builds clean at 1.96 GB (unchanged from the 3.12 CPU-only baseline); healthcheck goes healthy; end-to-end SPQL query through /api/query (ANTLR parse → DuckDB load → stats → job store) returns correct results. The trailing-comma repair helper was additionally exercised standalone on stock 3.12.13 and 3.14.4 interpreters with identical outputs.
+
+---
+
 ## 2026-07-10 15:35:01 UTC - Project renamed to speakesQuery
 
 ### TL;DR (human)

@@ -2795,10 +2795,16 @@ class AlertGroupDispatcher:
         for repairs in range(1, max_repairs + 1):
             if "Expecting ',' delimiter" in last.msg:
                 fixed = repaired[:last.pos] + "," + repaired[last.pos:]
+            elif last.msg.startswith("Illegal trailing comma"):
+                # Python 3.14+ names the trailing comma directly and
+                # reports ``pos`` AT the comma - drop that character.
+                fixed = repaired[:last.pos] + repaired[last.pos + 1:]
             elif last.msg.startswith(
                 ("Expecting value", "Expecting property name"),
             ) and repaired[:last.pos].rstrip().endswith(","):
-                # Trailing comma before ``}`` / ``]`` - drop the comma.
+                # Python <= 3.13 reports a trailing comma as a generic
+                # expectation failure with ``pos`` AFTER the comma
+                # (pointing at ``}`` / ``]``) - drop the comma.
                 cut = len(repaired[:last.pos].rstrip()) - 1
                 fixed = repaired[:cut] + repaired[cut + 1:]
             else:
