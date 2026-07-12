@@ -46,6 +46,8 @@ EXPECTED_COMMANDS = {
     "llm_ensemble",
     # Phase 4 / Bet 3 slice 4 (2026-05-09): | llm_until convergence loop
     "llm_until",
+    # W14 (2026-07-12): | sql DuckDB passthrough pipe
+    "sql",
     # initial-clause
     "inputlookup", "loadjob",
 }
