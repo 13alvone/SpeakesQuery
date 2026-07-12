@@ -216,6 +216,27 @@ def ui_server():
     yield f"http://{host}:{UI_PORT}"
 
 
+def pytest_collection_modifyitems(config, items):
+    """Auto-mark browser-tier tests.
+
+    Any test whose fixture closure includes the Playwright
+    ``browser_instance`` fixture (directly or via ``page`` /
+    ``shared_page``) gets ``@pytest.mark.browser``. CI splits on this
+    marker: the fast per-push tests job runs with ``not browser`` (no
+    Chromium installed there); the nightly ui-tests job runs
+    ``-m browser`` after ``playwright install chromium``.
+
+    The marker is derived from fixture usage instead of hand-applied so
+    a new browser-tier test can never silently land in the fast job -
+    caught 2026-07-12 when test_redesign_2026_04_26.py (outside the two
+    file-level ignores the first CI iteration used) errored at browser
+    launch on the very first CI run.
+    """
+    for item in items:
+        if "browser_instance" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.browser)
+
+
 @pytest.fixture(scope="session")
 def browser_instance():
     """Create a single Playwright browser instance for the session.

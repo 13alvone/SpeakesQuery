@@ -226,6 +226,7 @@ pytest tests/test_spql.py -vv       # Query tests only
 pytest tests/yaml/tier1_commands/   # Specific tier
 pytest -m smoke                     # Live API smoke tests (needs network)
 pytest -m live_integration          # Live feeder + Claude + SMTP end-to-end (needs secrets.txt)
+pytest -m browser                   # Playwright browser tier only (auto-marked from the browser_instance fixture; needs: playwright install chromium)
 HEADED=1 pytest tests/test_ui_crud.py  # Visual UI debugging
 flake8                              # Lint (.flake8 handles excludes; a CLI --exclude OVERRIDES the config and lints generated code)
 bandit -r .                         # Security scan

@@ -40,9 +40,15 @@ jobs:
       - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -r requirements.txt
       - run: pip install pytest playwright
-      # Default markers already exclude smoke + live_integration
-      # (network/secrets tiers). Browser tests run in the nightly job.
-      - run: pytest -q --ignore=tests/test_ui.py --ignore=tests/test_ui_crud.py
+      # Explicit -m OVERRIDES the pytest.ini addopts marker expression,
+      # so smoke + live_integration (network/secrets tiers) must be
+      # re-excluded here. "not browser" keeps every Playwright-fixture
+      # test out of this job (conftest auto-applies the marker from
+      # fixture usage; no Chromium is installed here). The first CI run
+      # proved a file-level ignore list rots: browser tests outside
+      # tests/test_ui*.py (test_redesign_2026_04_26.py) errored at
+      # browser launch on 2026-07-12.
+      - run: pytest -q -m "not smoke and not live_integration and not browser"
 
   ui-tests:
     # Playwright tier: nightly + on-demand only, to keep push feedback fast.
@@ -59,4 +65,6 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install pytest playwright
       - run: playwright install chromium --with-deps
-      - run: pytest -q tests/test_ui.py tests/test_ui_crud.py
+      # Marker-selected, not file-selected: picks up every test whose
+      # fixture closure includes browser_instance, wherever it lives.
+      - run: pytest -q -m browser
