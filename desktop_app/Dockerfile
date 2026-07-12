@@ -41,7 +41,8 @@ RUN mkdir -p indexes lookups frontend/static/temp
 # entrypoint script (only when the target file doesn't already exist).
 RUN mkdir -p _default_indexes \
     && cp -a indexes/default_test _default_indexes/default_test 2>/dev/null || true \
-    && cp -a indexes/archive _default_indexes/archive 2>/dev/null || true
+    && cp -a indexes/archive _default_indexes/archive 2>/dev/null || true \
+    && cp -a indexes/sample _default_indexes/sample 2>/dev/null || true
 
 # ── Permissions ──────────────────────────────────────────────────────────────
 # Make /app world-writable so the container works regardless of which UID

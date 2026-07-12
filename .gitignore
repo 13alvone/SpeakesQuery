@@ -72,6 +72,9 @@ secrets.txt
 /indexes/**/.compacting
 
 # ── Tracked test/default fixtures (deterministic, required by tests) ─
+# indexes/sample: the bundled first-run dataset (W12, 2026-07-12) -
+# regenerate deterministically via `python -m tools.generate_sample_data`.
+!/indexes/sample/**/*.parquet
 !/indexes/default_test/**/*.parquet
 !/indexes/archive/system_logs/system4.parquet
 !/indexes/archive/system_logs/error_tracking/

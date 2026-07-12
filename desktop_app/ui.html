@@ -4503,6 +4503,27 @@
           <div id="spinner"><div class="spin-ring"></div> Running query&hellip;</div>
         </div>
 
+        <!-- First-run sample queries card (W12, 2026-07-12). Every install
+             ships 30 days of sample app logs at indexes/sample/app_logs/ so
+             a brand-new user has data to query in the first minute. Chips
+             load a curated query into the console. Dismissible; state in
+             localStorage (speakesquery_sample_card). -->
+        <div class="box" id="sample-queries-card" style="margin-bottom:1rem; display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <p style="font-weight:600; margin:0 0 .2rem;">&#9889; Try it now - sample data included</p>
+              <p style="font-size:.85rem; color:var(--secondary); margin:0 0 .6rem;">
+                Every install ships 30 days of sample app logs at
+                <code>indexes/sample/app_logs/</code>. Click a query to load it,
+                then hit <strong>Run Query</strong>.
+              </p>
+            </div>
+            <button id="sample-queries-dismiss" type="button" class="button is-light"
+              style="font-size:.7rem; padding:2px 8px;" title="Hide this card (re-enable from Settings anytime)">Dismiss</button>
+          </div>
+          <div id="sample-query-chips" style="display:flex; flex-direction:column; gap:5px;"></div>
+        </div>
+
         <!-- Results box -->
         <div class="box">
           <div id="row-count"></div>
@@ -12587,6 +12608,67 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
     // Show the overlay
     backdrop.style.display = 'block';
     panel.style.display    = 'block';
+  })();
+
+  // ── First-Run Sample Queries Card (W12, 2026-07-12) ─────────────
+  // The app ships indexes/sample/app_logs/ so a fresh install has
+  // data to query in the first minute. Five curated chips, each
+  // guaranteed offline-safe (no API keys, no LLM calls, no network).
+  (function initSampleQueriesCard() {
+    const LS_KEY = 'speakesquery_sample_card';
+    const card    = document.getElementById('sample-queries-card');
+    const chips   = document.getElementById('sample-query-chips');
+    const dismiss = document.getElementById('sample-queries-dismiss');
+    const queryBox = document.getElementById('query');
+    if (!card || !chips || !dismiss || !queryBox) return;
+
+    const SAMPLE_QUERIES = [
+      {
+        label: '1. Peek at raw events',
+        query: 'index="indexes/sample/app_logs/*"\n| head 20',
+      },
+      {
+        label: '2. Which services error the most?',
+        query: 'index="indexes/sample/app_logs/*"\n| search level="ERROR"\n| stats count by service\n| sort -count',
+      },
+      {
+        label: '3. Errors over time (30-day trend)',
+        query: 'index="indexes/sample/app_logs/*"\n| rename timestamp as _time\n| timechart span=1day count by level',
+      },
+      {
+        label: '4. Fast vs slow requests',
+        query: 'index="indexes/sample/app_logs/*"\n| eval speed=if_(response_ms > 750, "slow", "fast")\n| stats count, avg(response_ms) by speed',
+      },
+      {
+        label: '5. Extract users with regex, rank by activity',
+        query: 'index="indexes/sample/app_logs/*"\n| rex field=message "user (?<user>\\w+)"\n| search user!=""\n| stats count by user\n| sort -count\n| head 10',
+      },
+    ];
+
+    SAMPLE_QUERIES.forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'button is-light sample-query-chip';
+      btn.style.cssText = 'font-size:.78rem; justify-content:flex-start; text-align:left; font-family:inherit;';
+      btn.textContent = item.label;
+      btn.title = item.query;
+      btn.addEventListener('click', () => {
+        queryBox.value = item.query;
+        queryBox.dispatchEvent(new Event('input', { bubbles: true }));
+        queryBox.focus();
+        queryBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      chips.appendChild(btn);
+    });
+
+    dismiss.addEventListener('click', () => {
+      try { localStorage.setItem(LS_KEY, 'dismissed'); } catch (_) {}
+      card.style.display = 'none';
+    });
+
+    let dismissed = false;
+    try { dismissed = localStorage.getItem(LS_KEY) === 'dismissed'; } catch (_) {}
+    if (!dismissed) card.style.display = 'block';
   })();
 
   // ── First-Run Email Setup Prompt ────────────────────────────────
