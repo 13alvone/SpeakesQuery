@@ -107,6 +107,21 @@ class TestCiWorkflowSelection:
             "keep every job in lockstep."
         )
 
+    def test_requirements_pytest_pin_matches_ci_pin(self):
+        ci_src = _read(CI_YML)
+        req_src = _read(os.path.join(PROJECT_ROOT, "requirements.txt"))
+        ci_pins = set(re.findall(r"run: pip install pytest==(\S+)", ci_src))
+        req_pins = re.findall(r"^pytest==(\S+)", req_src, re.MULTILINE)
+        assert len(req_pins) == 1, (
+            "requirements.txt must contain exactly one exact-pinned "
+            "pytest line so local venvs and Docker builds match CI."
+        )
+        assert ci_pins == set(req_pins), (
+            f"pytest pin drift: requirements.txt has {req_pins[0]} but "
+            f"ci.yml pins {sorted(ci_pins)}. Bump both together after "
+            "a full-suite run."
+        )
+
 
 class TestAutoMarkBehavior:
     """Real collect-only runs proving the marker actually selects."""

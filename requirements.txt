@@ -80,3 +80,10 @@ markdown>=3.5,<4.0
 # foundation for slice 3c+ multi-platform support (PeerTube,
 # Archive.org, podcast RSS, Vimeo, etc. - all yt-dlp extractors).
 yt-dlp>=2024.0
+# ── Test runner (2026-07-12) ──
+# Exact-pinned so local venvs, Docker builds, and CI all run the same
+# pytest. MUST match the "pip install pytest==" pins in
+# .github/workflows/ci.yml - the drift guard in
+# tests/test_ci_browser_tier_split.py enforces the match. Bump
+# deliberately: run the full suite, then update both places together.
+pytest==9.1.1
