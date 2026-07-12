@@ -39,7 +39,13 @@ jobs:
       # the multi-GB CUDA build (same trick as the Docker image).
       - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -r requirements.txt
-      - run: pip install pytest playwright
+      # pytest pinned so CI cannot silently jump a major version ahead
+      # of local dev (bare "pip install pytest" resolved 9.1.1 while
+      # local venvs ran 8.4.2 - the suite passes on both today, but an
+      # unpinned resolve makes every future pytest release a surprise
+      # variable in CI triage). Bump deliberately, run the suite, then
+      # update this pin and the local venv together.
+      - run: pip install pytest==9.1.1 playwright
       # Explicit -m OVERRIDES the pytest.ini addopts marker expression,
       # so smoke + live_integration (network/secrets tiers) must be
       # re-excluded here. "not browser" keeps every Playwright-fixture
@@ -63,7 +69,8 @@ jobs:
           cache: pip
       - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -r requirements.txt
-      - run: pip install pytest playwright
+      # Same pin as the tests job above - keep the two in lockstep.
+      - run: pip install pytest==9.1.1 playwright
       - run: playwright install chromium --with-deps
       # Marker-selected, not file-selected: picks up every test whose
       # fixture closure includes browser_instance, wherever it lives.

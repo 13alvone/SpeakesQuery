@@ -91,6 +91,22 @@ class TestCiWorkflowSelection:
             "up browser tests wherever they live."
         )
 
+    def test_pytest_is_pinned_in_every_ci_job(self):
+        src = _read(CI_YML)
+        installs = re.findall(r"run: pip install pytest\S*", src)
+        assert installs, "CI must install pytest explicitly."
+        for line in installs:
+            assert re.match(r"run: pip install pytest==\d+\.\d+\.\d+$", line), (
+                f"Unpinned pytest install in ci.yml: '{line}'. Bare "
+                "'pip install pytest' silently jumps major versions "
+                "ahead of local dev (9.1.1 vs local 8.4.2 on "
+                "2026-07-12) - pin exactly, bump deliberately."
+            )
+        assert len(set(installs)) == 1, (
+            f"CI jobs pin different pytest versions: {installs} - "
+            "keep every job in lockstep."
+        )
+
 
 class TestAutoMarkBehavior:
     """Real collect-only runs proving the marker actually selects."""
