@@ -586,4 +586,12 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    exit_code = main()
+    # Hard-exit instead of sys.exit: --run imports the query engine,
+    # which starts non-daemon background threads (scheduler wiring)
+    # that keep the interpreter alive after main() returns - the first
+    # 1 GB run on 2026-07-12 printed its full report and then hung for
+    # an hour. This is a one-shot CLI; flush and exit bluntly.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(exit_code)
