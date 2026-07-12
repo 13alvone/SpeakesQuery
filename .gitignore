@@ -160,3 +160,6 @@ subscriptions/
 
 # ── Private launch/marketing playbook (never ship rehearsal notes) ─
 LAUNCH/
+
+# ── Synthetic benchmark corpus (regenerate via tools/benchmark_corpus.py) ─
+benchmark_corpus/
