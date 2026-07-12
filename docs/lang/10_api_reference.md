@@ -1,8 +1,16 @@
 # API Reference
 
-SpeakesQuery exposes a REST API on `http://<host>:<port>/api/` for headless, programmatic interaction. Every endpoint accepts and returns JSON. The default bind address is `0.0.0.0:5111` - configurable via `HOST` and `PORT` environment variables.
+SpeakesQuery exposes a REST API on `http://<host>:<port>/api/` for headless, programmatic interaction. Every endpoint accepts and returns JSON. The default bind address is `127.0.0.1:5111` (bare metal) - configurable via `HOST` and `PORT` environment variables. Docker binds `0.0.0.0` inside the container while the host-side port mapping stays on `127.0.0.1` unless `BIND_ADDR` is set.
 
-> **Security note:** The API has no built-in authentication. For LAN or production deployments, place SpeakesQuery behind a reverse proxy (nginx, Caddy) with TLS termination and access controls. Bind to `127.0.0.1` via `HOST=127.0.0.1` in your `.env` to restrict to localhost only.
+> **Authentication (access-token gate, 2026-07-12):** whenever the server binds beyond loopback (every Docker install; any `HOST` override) or `SPEAKESQUERY_AUTH=on`, all endpoints except `GET /healthz` require the access token generated at install (`~/.speakes-query/access_token`). Present it one of three ways:
+>
+> ```bash
+> curl -H "X-SpeakesQuery-Token: <token>" http://localhost:5111/api/tree
+> curl -H "Authorization: Bearer <token>"  http://localhost:5111/api/tree
+> curl "http://localhost:5111/api/tree?token=<token>"
+> ```
+>
+> Browsers authenticate once via the `?token=` URL install.sh prints; the server promotes it to an HttpOnly session cookie. Requests without a valid token get `401 {"status": "error", "message": "access token required"}`. `SPEAKESQUERY_AUTH=off` disables the gate for deployments behind a reverse proxy that enforces its own auth. This is a single-operator gate, not a multi-user permission model - see the security discussion in [06_application_guide.md](06_application_guide.md#network-exposure-and-lan-access).
 
 ---
 
@@ -31,7 +39,7 @@ Every response includes a `status` field:
 | Parameter | Default | Range / Notes |
 |-----------|---------|---------------|
 | Server port | `5111` | Set via `PORT` env var |
-| Server host | `0.0.0.0` | Set via `HOST` env var; use `127.0.0.1` for localhost-only |
+| Server host | `127.0.0.1` | Set via `HOST` env var; non-loopback binds activate the access-token gate |
 | Lookup upload limit | 200 MB | Hard ceiling per file |
 | Index import limit | 200 MB | Hard ceiling per file (CSV, Parquet, SQLite) |
 | Lookup preview rows | 200 | Override with `?limit=N`, max 5000 |
@@ -42,6 +50,16 @@ Every response includes a `status` field:
 ---
 
 ## Core Endpoints
+
+### Liveness
+
+#### `GET /healthz`
+
+Liveness probe. Always exempt from the access-token gate (it leaks nothing but liveness). Used by the Docker `HEALTHCHECK` and the install.sh readiness loop.
+
+```json
+{"status": "ok"}
+```
 
 ### Query Execution
 

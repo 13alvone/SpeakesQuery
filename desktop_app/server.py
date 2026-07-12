@@ -170,6 +170,17 @@ def _curator_opt_bool(v) -> bool:
 
 app = Flask(__name__, static_folder=None)
 
+# Access-token gate (weakness audit W11b, 2026-07-12). Active only when
+# the bind address is non-loopback (Docker, deliberate LAN binds) or
+# SPEAKESQUERY_AUTH=on; a loopback dev install and the PyWebView desktop
+# app stay frictionless. Registers before_request/after_request hooks
+# plus the exempt /healthz liveness route. See desktop_app/access_gate.py.
+try:
+    from access_gate import install_gate
+except ImportError:  # imported as a package (tests, tools)
+    from desktop_app.access_gate import install_gate
+install_gate(app)
+
 # Mutable state - which directory the file browser is pointing at.
 # Resolved lazily on first access via _get_browse_dir() so that
 # global_settings (imported later) can provide the configured path.

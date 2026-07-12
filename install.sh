@@ -407,6 +407,21 @@ touch \
 mkdir -p "$HOME/.speakes-query"
 chmod 700 "$HOME/.speakes-query" 2>/dev/null || true
 
+# Access token (weakness audit W11b, 2026-07-12 - the Jupyter model).
+# The Docker container binds 0.0.0.0 internally, which activates the
+# server-side token gate; generate the token here (if absent) so we can
+# print the ready-to-open URL below. The server reads the same file via
+# the ~/.speakes-query bind mount, so the two always agree.
+TOKEN_FILE="$HOME/.speakes-query/access_token"
+if [[ ! -s "$TOKEN_FILE" ]]; then
+  umask 077
+  head -c 32 /dev/urandom | base64 | tr -d '/+=\n' > "$TOKEN_FILE"
+  umask 022
+  detail "Generated access token at $TOKEN_FILE"
+fi
+chmod 600 "$TOKEN_FILE" 2>/dev/null || true
+ACCESS_TOKEN="$(cat "$TOKEN_FILE")"
+
 info "Data directories + state files ready."
 
 # ── Export host UID/GID for Docker volume permissions ─────────────────────
@@ -465,7 +480,8 @@ step "Waiting for SpeakesQuery to be ready..."
 MAX_WAIT=30
 WAITED=0
 while [[ "$WAITED" -lt "$MAX_WAIT" ]]; do
-  if curl -s -o /dev/null -w '%{http_code}' "http://localhost:${PORT}/" 2>/dev/null | grep -qE '^(200|302)'; then
+  # /healthz is exempt from the access-token gate - probing / would 401.
+  if curl -s -o /dev/null -w '%{http_code}' "http://localhost:${PORT}/healthz" 2>/dev/null | grep -qE '^(200|302)'; then
     break
   fi
   sleep 1
@@ -480,7 +496,9 @@ else
 fi
 
 # ── Open browser ──────────────────────────────────────────────────────────
-URL="http://localhost:${PORT}"
+# The ?token= form authenticates the browser session once (the server
+# promotes it to a cookie); plain http://localhost:PORT works afterwards.
+URL="http://localhost:${PORT}/?token=${ACCESS_TOKEN}"
 
 case "$OS" in
   macos)   open "$URL" 2>/dev/null || true ;;
@@ -494,14 +512,18 @@ echo -e "${BOLD}┌────────────────────�
 echo -e "${BOLD}│                                                         │${NC}"
 echo -e "${BOLD}│   ${GREEN}SpeakesQuery is running!${NC}${BOLD}                                │${NC}"
 echo -e "${BOLD}│                                                         │${NC}"
-echo -e "${BOLD}│   ${CYAN}Open:${NC}     ${URL}$(printf '%*s' $((31 - ${#URL})) '')${BOLD}│${NC}"
-echo -e "${BOLD}│                                                         │${NC}"
 echo -e "${BOLD}│   ${CYAN}Stop:${NC}     ./install.sh --stop                          ${BOLD}│${NC}"
 echo -e "${BOLD}│   ${CYAN}Status:${NC}   ./install.sh --status                        ${BOLD}│${NC}"
 echo -e "${BOLD}│   ${CYAN}Rebuild:${NC}  ./install.sh --rebuild                       ${BOLD}│${NC}"
 echo -e "${BOLD}│   ${CYAN}Logs:${NC}     docker logs speakesquery-desktop -f            ${BOLD}│${NC}"
 echo -e "${BOLD}│                                                         │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────┘${NC}"
+echo ""
+echo -e "${CYAN}Open (first visit authenticates your browser; plain localhost works after):${NC}"
+echo "    ${URL}"
+echo ""
+echo -e "${CYAN}Access token${NC} (kept at ~/.speakes-query/access_token, never in the repo):"
+echo "    ${ACCESS_TOKEN}"
 echo ""
 echo -e "${CYAN}Optional next step - local LLM dispatch (Phase 2 / Bet 3):${NC}"
 echo "    python -m tools.ollama_bootstrap"

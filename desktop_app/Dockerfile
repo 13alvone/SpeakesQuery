@@ -89,7 +89,10 @@ RUN chmod +x /app/desktop_app/entrypoint.sh
 ENTRYPOINT ["/app/desktop_app/entrypoint.sh"]
 
 # ── Healthcheck - lets Docker and install.sh know when the server is ready ───
+# Probes /healthz (exempt from the W11b access-token gate by design) so
+# the container reports healthy even when the gate is active. Probing /
+# would 401 forever and mark a perfectly healthy container unhealthy.
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:5111/ || exit 1
+    CMD curl -f http://localhost:5111/healthz || exit 1
 
 CMD ["python", "desktop_app/server.py"]

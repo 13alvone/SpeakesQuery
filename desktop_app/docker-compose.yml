@@ -19,7 +19,14 @@ services:
     # without this the container's built-in user may not match.
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     ports:
-      - "${PORT:-5111}:5111"
+      # Host-side mapping binds to loopback BY DEFAULT (hardened 2026-07-12,
+      # weakness audit W11): a default install must never expose an
+      # unauthenticated app - one that includes a credential vault and an
+      # unrestricted script tier - to the LAN. LAN exposure is an explicit
+      # opt-in: set BIND_ADDR=0.0.0.0 (or a specific interface IP) in .env
+      # or the environment, and read the "Exposing beyond localhost" section
+      # of docs/lang/06_application_guide.md first.
+      - "${BIND_ADDR:-127.0.0.1}:${PORT:-5111}:5111"
     volumes:
       # ── User-editable data + config (bind-mounted to project tree) ──
       # All YAML config dirs and the indexes/lookups data dirs live in
@@ -137,11 +144,11 @@ services:
         required: false
     environment:
       PORT: "5111"
-      # Bind to all interfaces inside the container so Docker's port mapping
-      # can reach the Flask server.  The bare-metal default is 127.0.0.1
-      # (set in desktop_app/server.py) precisely so an ungated dev install
-      # never accidentally exposes the API on the LAN - Docker is the
-      # explicit opt-in for that.
+      # Bind to all interfaces INSIDE the container so Docker's port mapping
+      # can reach the Flask server. This does NOT expose the app to the LAN:
+      # the host-side mapping above binds to 127.0.0.1 by default, and the
+      # bare-metal default is 127.0.0.1 (set in desktop_app/server.py) for
+      # the same reason. LAN exposure requires the explicit BIND_ADDR opt-in.
       HOST: "0.0.0.0"
       # ── ML library / username resolution (2026-05-17 hotfix) ─────────
       # USER + LOGNAME let `getpass.getuser()` resolve without touching

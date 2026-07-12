@@ -41,6 +41,7 @@ The Query tab is where you write and run SpeakesQuery queries against your inges
 | **Expand Macros** button | Expand backtick macro calls in the query box with inline annotation comments. |
 | **Depth** input | Controls how many nesting levels the Expand Macros button resolves (0 = all). |
 | **File browser** (sidebar) | Browse indexes on disk. Click a file or folder to insert its `index="…"` path into the query. |
+| **Sample queries card** | Shown under the query box on new installs. Five one-click starter queries against the bundled sample dataset (`indexes/sample/app_logs/` - 30 days of app logs, present on every install). Click a chip to load the query, then Run. Dismissible; regenerate the dataset with `python -m tools.generate_sample_data`. |
 
 ### How to use it
 
@@ -872,3 +873,31 @@ Full reference - parser contract, form/raw lossless guarantee, template catalog:
 4. Set the **Analyzer Prompt** field to the prompt name you created.
 5. Optionally enable the **Filter Gate** and enter a boolean yes/no question to control whether alerts are sent.
 6. Click **Save**. The next time the search fires, Claude will analyse the results.
+
+## Network Exposure and LAN Access
+
+SpeakesQuery is a single-operator, desktop-class application. Out of the box it is reachable only from the machine it runs on, and any bind beyond loopback is token-gated:
+
+- **Bare metal:** the Flask server binds to `127.0.0.1` by default (`HOST` in the environment overrides it).
+- **Docker:** the container's internal server binds to `0.0.0.0` so Docker's port mapping works, but the HOST-side mapping binds to `127.0.0.1` by default (`BIND_ADDR` in `.env` or the environment overrides it). A default `./install.sh` run is not reachable from other devices.
+- **Access-token gate (the Jupyter model):** whenever the server binds beyond loopback - which includes every Docker install - all requests must carry the access token generated at install. `install.sh` prints the ready-to-open `?token=` URL; your browser authenticates once and gets a session cookie. The token lives at `~/.speakes-query/access_token` (0600, outside the repo). Scripts use the `X-SpeakesQuery-Token` or `Authorization: Bearer` header - see [10_api_reference.md](10_api_reference.md). `GET /healthz` is the single ungated path (liveness only).
+
+### Exposing beyond localhost
+
+Read this before setting `BIND_ADDR=0.0.0.0` (or a LAN interface IP):
+
+1. **Understand what you are exposing.** The app includes a credential vault UI, a settings page, and an ingestion system with an opt-in unrestricted script tier that executes arbitrary Python. Anyone who can reach the port AND presents the access token can use all of it. The token gate keeps drive-by LAN traffic out, but there is no multi-user permission model: one token, full control. Never disable the gate (`SPEAKESQUERY_AUTH=off`) on an exposed bind unless a reverse proxy in front enforces its own authentication.
+2. **Never expose it to the public internet.** Not directly, not via port forwarding. If you need remote access, use a VPN (WireGuard, Tailscale) so the app itself stays on a private network.
+3. **Prefer a reverse proxy with its own auth** (basic auth, forward auth) if you must share it on a trusted LAN, and terminate TLS at the proxy. Traffic between the app and browsers is plain HTTP.
+4. **Set the opt-in explicitly:**
+
+```bash
+# .env (or the shell environment used by docker compose)
+BIND_ADDR=0.0.0.0        # or a specific interface, e.g. 192.168.1.10
+```
+
+Then restart: `docker compose -f desktop_app/docker-compose.yml up -d`.
+
+### Container health
+
+The Docker image ships a `HEALTHCHECK` (an HTTP probe against the app root every 5 seconds). `docker ps` shows the container as `healthy`/`unhealthy`, `install.sh` uses it to detect readiness, and `restart: unless-stopped` in compose revives the container after a crash or host reboot. Note that stock Docker does not auto-restart a running-but-unhealthy container; if you want that behavior, pair the healthcheck with a watchdog such as `willfarrell/autoheal`.

@@ -75,7 +75,14 @@ def main() -> None:
         logger.error("[x] Failed to start scheduled input engine: %s", exc)
 
     url = f"http://{host}:{port}"
-    logger.info("[i] Server ready at %s", url)
+    # The desktop app binds loopback, so the W11b access-token gate is
+    # normally inactive. If the operator forced it on (SPEAKESQUERY_AUTH=on),
+    # inject the token so the embedded window authenticates transparently.
+    if flask_app.config.get("SPQ_AUTH_REQUIRED"):
+        token = flask_app.config.get("SPQ_ACCESS_TOKEN") or ""
+        if token:
+            url = f"{url}/?token={token}"
+    logger.info("[i] Server ready at %s", url.split("?")[0])
 
     window = webview.create_window(
         title="SpeakesQuery",
