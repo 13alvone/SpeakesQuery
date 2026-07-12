@@ -196,10 +196,14 @@ class TestHtmlExport:
             json={"run_first": False},
         ).get_data(as_text=True)
         # Chart cells render via Vega-Lite at view time. The export
-        # embeds the spec in a data-spec attribute + bootstraps Vega
-        # from CDN.
+        # embeds the spec in a data-spec attribute and inlines the
+        # vendored renderer bundles so the standalone file renders
+        # charts with zero network access (W10, 2026-07-12).
         assert "nbx-chart" in body
-        assert "vega-embed" in body  # the CDN bootstrap script
+        assert "window.vegaEmbed" in body  # the mount script
+        assert "cdn.jsdelivr.net" not in body  # exports never touch a CDN
+        if "chart" in body:  # chart cells present -> renderer inlined
+            assert "vegaEmbed" in body
 
     def test_export_missing_notebook_returns_404(self, client):
         resp = client.post(

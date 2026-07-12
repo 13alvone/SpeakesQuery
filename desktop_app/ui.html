@@ -3837,19 +3837,25 @@
     }
   </style>
 
-  <!-- Markdown renderer for Documentation tab -->
-  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <!-- All third-party assets are vendored (desktop_app/vendor/, served at
+       /vendor/) - never loaded from a CDN. Weakness audit W10, 2026-07-12:
+       page load must make ZERO external requests so the app works fully
+       offline and "zero cloud dependency" stays grep-proof. Pinned
+       versions + hashes: desktop_app/vendor/MANIFEST.md. -->
 
-  <!-- CodeMirror 5 - Python editor for ingestion scripts -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/lib/codemirror.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/hint/show-hint.css" />
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/lib/codemirror.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/mode/python/python.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/hint/show-hint.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/edit/matchbrackets.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/edit/closebrackets.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/comment/comment.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/selection/active-line.min.js"></script>
+  <!-- Markdown renderer for Documentation tab (marked 12.0.2) -->
+  <script src="/vendor/marked/marked.min.js"></script>
+
+  <!-- CodeMirror 5.65.18 - Python editor for ingestion scripts -->
+  <link rel="stylesheet" href="/vendor/codemirror/lib/codemirror.min.css" />
+  <link rel="stylesheet" href="/vendor/codemirror/addon/hint/show-hint.css" />
+  <script src="/vendor/codemirror/lib/codemirror.min.js"></script>
+  <script src="/vendor/codemirror/mode/python/python.min.js"></script>
+  <script src="/vendor/codemirror/addon/hint/show-hint.min.js"></script>
+  <script src="/vendor/codemirror/addon/edit/matchbrackets.min.js"></script>
+  <script src="/vendor/codemirror/addon/edit/closebrackets.min.js"></script>
+  <script src="/vendor/codemirror/addon/comment/comment.min.js"></script>
+  <script src="/vendor/codemirror/addon/selection/active-line.min.js"></script>
 </head>
 
 <body>
@@ -17955,13 +17961,14 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <script>
 (function() {
-  // ── Monaco lazy-load (CDN) with textarea fallback ──────────────
-  // Monaco is ~5MB; we lazy-load on first cell-editor mount. If the
-  // CDN is unreachable (offline, blocked egress), the cell falls
-  // back to a plain <textarea>. The page is still functional - the
-  // operator just loses syntax highlighting.
-  const MONACO_VERSION = '0.45.0';
-  const MONACO_BASE = 'https://cdn.jsdelivr.net/npm/monaco-editor@' + MONACO_VERSION + '/min/vs';
+  // ── Monaco lazy-load (vendored) with textarea fallback ─────────
+  // Monaco is ~5MB; we lazy-load on first cell-editor mount. Served
+  // from the vendored tree (desktop_app/vendor/monaco-editor, W10
+  // 2026-07-12) - no CDN. The textarea fallback stays as pure
+  // defense in depth: if the asset route ever failed, the cell
+  // degrades to a plain <textarea> and the page is still functional.
+  // Vendored version: 0.45.0 (see vendor/MANIFEST.md).
+  const MONACO_BASE = '/vendor/monaco-editor/min/vs';
   let _monacoLoadPromise = null;
 
   function ensureMonaco() {
@@ -17972,7 +17979,7 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
       loader.src = MONACO_BASE + '/loader.js';
       loader.onerror = () => {
         _monacoLoadPromise = null;
-        reject(new Error('monaco-loader-cdn-unreachable'));
+        reject(new Error('monaco-loader-unreachable'));
       };
       loader.onload = () => {
         try {
@@ -18334,26 +18341,25 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
     );
   }
 
-  // ── Slice 7: Vega-Lite lazy-load (CDN) + chart renderer ────────
-  // Vega-Lite ships a JSON spec → SVG/canvas chart. ~700KB minified
+  // ── Slice 7: Vega-Lite lazy-load (vendored) + chart renderer ───
+  // Vega-Lite ships a JSON spec → SVG/canvas chart. ~800KB minified
   // (Vega + Vega-Lite + vega-embed). Lazy-loaded on first chart-cell
-  // render. CDN-loaded with a structured-source fallback (the JSON
-  // spec rendered as a <pre> block) when the CDN is unreachable -
-  // same pattern as the slice-4 Monaco loader.
+  // render from the vendored tree (desktop_app/vendor/vega, W10
+  // 2026-07-12: vega 5.33.1 / vega-lite 5.23.0 / vega-embed 6.29.0,
+  // see vendor/MANIFEST.md) - no CDN. The structured-source fallback
+  // (the JSON spec rendered as a <pre> block) stays as defense in
+  // depth, same pattern as the slice-4 Monaco loader.
   //
   // Dual-audience: the chart's source IS the structured form (a
   // Vega-Lite spec is itself JSON; AI agents read it directly). The
-  // CDN-loaded renderer turns the spec into pixels for human eyes.
-  // If the CDN is down, the human still sees the spec text - just
-  // not the visualisation.
-  const VEGA_VERSION = '5';
-  const VEGA_LITE_VERSION = '5';
-  const VEGA_EMBED_VERSION = '6';
-  const VEGA_BASE = 'https://cdn.jsdelivr.net/npm';
+  // renderer turns the spec into pixels for human eyes. If loading
+  // ever fails, the human still sees the spec text - just not the
+  // visualisation.
+  const VEGA_BASE = '/vendor/vega';
   const VEGA_SCRIPTS = [
-    VEGA_BASE + '/vega@' + VEGA_VERSION,
-    VEGA_BASE + '/vega-lite@' + VEGA_LITE_VERSION,
-    VEGA_BASE + '/vega-embed@' + VEGA_EMBED_VERSION,
+    VEGA_BASE + '/vega.min.js',
+    VEGA_BASE + '/vega-lite.min.js',
+    VEGA_BASE + '/vega-embed.min.js',
   ];
   let _vegaLoadPromise = null;
 
@@ -18368,7 +18374,7 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
         script.onload = () => resolve();
         script.onerror = () => {
           _vegaLoadPromise = null;
-          reject(new Error('vega-cdn-unreachable: ' + url));
+          reject(new Error('vega-asset-unreachable: ' + url));
         };
         document.head.appendChild(script);
       }));

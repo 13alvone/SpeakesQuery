@@ -196,11 +196,12 @@ class TestUIDriftGuards:
 
     def test_vega_loader_present(self):
         ui = self._ui()
-        # CDN-load pattern + the three vega scripts
+        # Lazy-load pattern + the three vendored vega scripts (W10
+        # 2026-07-12: served from /vendor/vega, never a CDN).
         assert "ensureVega" in ui
-        assert "vega-embed@" in ui
-        assert "vega-lite@" in ui
-        assert "vega@" in ui
+        assert "vega-embed.min.js" in ui
+        assert "vega-lite.min.js" in ui
+        assert "/vendor/vega" in ui
 
     def test_vega_loader_is_lazy(self):
         # Vega is heavy (~700KB); it must NOT load on page open.

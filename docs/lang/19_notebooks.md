@@ -36,7 +36,7 @@ content-hash cache makes re-iteration free, and a single
 | `pipe` | SPQL with `\| llm` / `\| llm_batch` | DataFrame | UI surfaces a model-picker affordance |
 | `python` | Full Python | Last-expression value (Jupyter style) | **Not** RestrictedPython - admin tool |
 | `markdown` | Markdown | Rendered HTML | Cell-id NOT exposed in namespace |
-| `chart` | Vega-Lite JSON spec | Rendered chart | Lazy-loads vega-embed from CDN |
+| `chart` | Vega-Lite JSON spec | Rendered chart | Lazy-loads the vendored vega-embed bundle (no CDN; HTML exports inline the renderer so they work offline) |
 | `param` | YAML param spec | The `default` value bound to the cell id | Bypasses cache (runtime overrides) |
 | `promote_to_alert_group` | YAML AG-config | Structured deploy preview | **Slice 9 - the headliner** |
 

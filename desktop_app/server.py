@@ -292,6 +292,24 @@ def index():
     return send_from_directory(DESKTOP_DIR, "ui.html")
 
 
+@app.route("/vendor/<path:filename>")
+def vendor_asset(filename):
+    """Serve vendored third-party frontend assets (marked, CodeMirror,
+    Monaco, Vega) from desktop_app/vendor/.
+
+    Committed to the repo instead of loaded from a third-party CDN
+    (weakness audit W10, 2026-07-12) so the app works fully offline and
+    the zero-cloud-dependency claim holds at page load. Pinned versions
+    + hashes live in desktop_app/vendor/MANIFEST.md.
+    send_from_directory rejects path traversal.
+    """
+    response = send_from_directory(os.path.join(DESKTOP_DIR, "vendor"), filename)
+    # Immutable-style caching is safe: upgrades change the file path's
+    # content, and the SPA is re-fetched fresh each load anyway.
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
 @app.route("/api/query", methods=["POST"])
 def run_query():
     """Execute a SpeakesQuery DSL string and return the result rows as JSON."""
@@ -4802,8 +4820,13 @@ def _build_notebook_export_html(
     that ingest the .html file read the JSON sidecar without HTML
     scraping; humans see the rendered notebook in any browser.
 
-    Vega-Lite chart cells embed their JSON spec + a CDN script tag -
-    charts render in any browser with internet access. PDF export
+    Vega-Lite chart cells embed their JSON spec, and the vendored
+    renderer bundles (vega + vega-lite + vega-embed, see
+    desktop_app/vendor/MANIFEST.md) are inlined verbatim into the
+    export when the notebook has chart cells - so the export renders
+    charts with zero network access, forever (file://, air-gapped,
+    shared with someone who has no SpeakesQuery install). Weakness
+    audit W10, 2026-07-12: no export may point at a CDN. PDF export
     (which can't run JS) sees the spec as static text.
     """
     import html
@@ -4907,40 +4930,64 @@ def _build_notebook_export_html(
         "run_result": run_result_dict,
     }, default=str)
 
-    # Vega-Lite mount script. Loads from CDN once; iterates over every
-    # ``[id^="nbx-chart-"]`` element and renders its data-spec.
+    # Chart renderer for the standalone export (W10, 2026-07-12). The
+    # export must render with ZERO network access, so when the notebook
+    # has chart cells the three vendored bundles are inlined verbatim
+    # (~830KB - the price of offline-forever; chartless exports pay
+    # nothing). If a vendored file is unreadable, the export still
+    # ships: the mount script's vegaEmbed-missing branch shows the spec
+    # as text, same graceful degradation as before.
+    has_chart_cells = any(
+        (c.get("type") or "") == "chart" and (c.get("source") or "").strip()
+        for c in cells
+    )
+    vega_inline = ""
+    if has_chart_cells:
+        vendor_vega_dir = os.path.join(DESKTOP_DIR, "vendor", "vega")
+        bundle_parts: list[str] = []
+        for bundle_name in ("vega.min.js", "vega-lite.min.js", "vega-embed.min.js"):
+            try:
+                with open(
+                    os.path.join(vendor_vega_dir, bundle_name), encoding="utf-8"
+                ) as bundle_fh:
+                    # "</script" inside a JS string literal would close our
+                    # inline tag early; the standard escape is inert to JS.
+                    bundle_parts.append(
+                        bundle_fh.read().replace("</script", "<\\/script")
+                    )
+            except OSError as exc:
+                logging.warning(
+                    "[!] Notebook export: vendored %s unreadable (%s) - "
+                    "export will show chart specs as text",
+                    bundle_name, exc,
+                )
+                bundle_parts = []
+                break
+        if bundle_parts:
+            vega_inline = "\n".join(
+                f"<script>{part}</script>" for part in bundle_parts
+            )
+
+    # Mount script: iterates over every ``[id^="nbx-chart-"]`` element
+    # and renders its data-spec with the inlined renderer.
     vega_mount = """
 <script>
 (function() {
   var chartHosts = document.querySelectorAll('[id^="nbx-chart-"]');
   if (!chartHosts.length) return;
-  function loadScript(src) {
-    return new Promise(function(resolve, reject) {
-      var s = document.createElement('script');
-      s.src = src; s.onload = resolve; s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-  Promise.resolve()
-    .then(function() { return loadScript('https://cdn.jsdelivr.net/npm/vega@5'); })
-    .then(function() { return loadScript('https://cdn.jsdelivr.net/npm/vega-lite@5'); })
-    .then(function() { return loadScript('https://cdn.jsdelivr.net/npm/vega-embed@6'); })
-    .then(function() {
-      chartHosts.forEach(function(host) {
-        try {
-          var spec = JSON.parse(host.getAttribute('data-spec'));
-          window.vegaEmbed(host, spec, {actions: false});
-        } catch (e) {
-          host.innerHTML = '<pre>' + (host.getAttribute('data-spec') || '') + '</pre>';
-        }
-      });
-    })
-    .catch(function() {
-      chartHosts.forEach(function(host) {
-        host.innerHTML = '<pre>(chart renderer unavailable; spec: ' +
-          (host.getAttribute('data-spec') || '') + ')</pre>';
-      });
-    });
+  chartHosts.forEach(function(host) {
+    var specText = host.getAttribute('data-spec') || '';
+    if (!window.vegaEmbed) {
+      host.innerHTML = '<pre>(chart renderer unavailable; spec: ' + specText + ')</pre>';
+      return;
+    }
+    try {
+      var spec = JSON.parse(specText);
+      window.vegaEmbed(host, spec, {actions: false});
+    } catch (e) {
+      host.innerHTML = '<pre>' + specText + '</pre>';
+    }
+  });
 })();
 </script>
 """.strip()
@@ -4990,7 +5037,8 @@ h1 { margin: 0 0 .25em; }
         f'<div class="nbx-description">{description}</div>\n'
         + "\n".join(cell_html_blocks) + "\n"
         f'<script type="application/json" id="notebook-data">{html.escape(sidecar)}</script>\n'
-        f"{vega_mount}\n"
+        + (f"{vega_inline}\n" if vega_inline else "")
+        + f"{vega_mount}\n"
         "</body>\n"
         "</html>\n"
     )
