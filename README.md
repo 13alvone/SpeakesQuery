@@ -16,9 +16,10 @@
   <img src="https://img.shields.io/badge/python-3.14-blue" alt="Python 3.14" />
 </p>
 <p>
-  <img src="https://img.shields.io/badge/tests-5%2C600%2B%20passing-brightgreen" alt="5,600+ tests passing" />
-  <img src="https://img.shields.io/badge/connectors-135%20ready--made-blueviolet" alt="135 ready-made connectors" />
-  <img src="https://img.shields.io/badge/SPQL-56%20commands-informational" alt="56 SPQL commands" />
+  <a href="https://github.com/13alvone/SpeakesQuery/actions/workflows/ci.yml"><img src="https://github.com/13alvone/SpeakesQuery/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
+  <img src="https://img.shields.io/badge/tests-5%2C600%2B-brightgreen" alt="5,600+ tests" />
+  <img src="https://img.shields.io/badge/connectors-135%20(130%20core)-blueviolet" alt="135 connectors (130 core)" />
+  <img src="https://img.shields.io/badge/SPQL-57%20commands-informational" alt="57 SPQL commands" />
   <img src="https://img.shields.io/badge/local%20LLM-%240%2Ftoken-success" alt="Local LLM $0 per token" />
 </p>
 
@@ -50,7 +51,7 @@ index="indexes/polymarket/active_markets/*" earliest=-7d
 
 | 🔒 **Yours, full stop** | 🤖 **AI on your terms** | 📦 **Batteries included** |
 |---|---|---|
-| Your data never leaves your machine. No accounts, no telemetry, no rent-seeking - the core engine is free by design, permanently. | Claude API **or** your own LM Studio / llama.cpp / Ollama box at $0/token. Every billable pipe takes `max_cost_usd=` and `dry_run=true`. | 135 tested one-click connectors (101 need no API key), 56 SPQL commands, notebooks, a visual query builder, and email briefs - out of the box. |
+| Your data never leaves your machine. No accounts, no telemetry, no rent-seeking - the core engine is free by design, permanently. | Claude API **or** your own LM Studio / llama.cpp / Ollama box at $0/token. Every billable pipe takes `max_cost_usd=` and `dry_run=true`. | 135 connectors (130 core - maintained on documented APIs; 5 badged as use-at-your-own-risk examples), 101 needing no API key, 57 SPQL commands (plain-SQL passthrough included), notebooks, a visual query builder, and email briefs - out of the box. |
 
 > **Project ethos** - SpeakesQuery is intentionally designed as non-rent-seeking software. It exists to be transparent, inspectable, and useful on its own merits. It survives only through correctness, clarity, and trust - not artificial restrictions or gated capability.
 
@@ -64,7 +65,9 @@ cd speakesquery
 ./install.sh
 ```
 
-**One command.** `install.sh` verifies Docker, generates a `.env` with secure defaults, builds the image (all Python deps, C++ components, system libraries), starts the container, and opens SpeakesQuery in your browser. Your data persists across rebuilds in `indexes/` and `lookups/`.
+**One command.** `install.sh` verifies Docker, generates a `.env` with secure defaults, builds the image (all Python deps, C++ components, system libraries), starts the container, and opens SpeakesQuery in your browser (it prints the tokenized URL that authenticates your session). Your data persists across rebuilds in `indexes/` and `lookups/`.
+
+**Query something in your first minute.** Every install ships 30 days of sample app logs at `indexes/sample/app_logs/` - the Query page shows five one-click starter queries (raw events, error rates by service, a 30-day timechart, latency buckets, and a regex field extraction). No connectors, API keys, or waiting for schedules required.
 
 ```bash
 ./install.sh --stop      # Stop SpeakesQuery
@@ -168,6 +171,8 @@ To launch all services (server, query engine, ingestion engine):
 
 SpeakesQuery is designed to run via Docker. The recommended path is `./install.sh` (see [Quick Start](#-quick-start)), which wraps Docker Compose with preflight checks and environment setup. Volumes persist `indexes/` and `lookups/` across rebuilds; the port is configurable via the `PORT` environment variable (default: `5111`).
 
+> **Localhost-only by default, token-gated beyond it.** The container's host port mapping binds to `127.0.0.1`: a fresh install is reachable only from the machine it runs on. On top of that, every Docker install is protected by a generated access token (the Jupyter model) - `install.sh` prints the ready-to-open `?token=` URL, and requests without the token get a 401. SpeakesQuery is a single-operator app (one token, full control - no multi-user roles), so exposing it on a network is an explicit opt-in (`BIND_ADDR=0.0.0.0` in `.env`). Read [Network Exposure and LAN Access](docs/lang/06_application_guide.md#network-exposure-and-lan-access) first, and never expose it to the public internet.
+
 <details>
 <summary><strong>Manual Docker usage</strong></summary>
 
@@ -188,18 +193,32 @@ Or without Compose:
 
 ```bash
 docker build -f desktop_app/Dockerfile -t speakesquery .
-docker run -d --name speakesquery-desktop -p 5111:5111 \
+docker run -d --name speakesquery-desktop -p 127.0.0.1:5111:5111 \
   --env-file .env --restart unless-stopped speakesquery
 ```
 
 </details>
 
+## 🔐 Security & Threat Model
+
+SpeakesQuery is a single-operator, local-first tool and its threat model says so out loud: RestrictedPython is treated as a hardening layer, not a security boundary; the opt-in `_pro` script tier is arbitrary code execution by design (an honest trust label instead of a pretend sandbox); and the credential vault's encryption key lives on the same machine as the app, so script provenance - not containment - is the load-bearing control. Defaults are hardened accordingly: loopback-only binds, an auto-activating access-token gate on any non-loopback bind, an outbound domain allowlist for sandboxed scripts, and secret redaction on every LLM call recorded to history. Read the full layer-by-layer analysis, including what each defense explicitly does not stop, in [docs/lang/24_threat_model.md](docs/lang/24_threat_model.md).
+
+## 🖥 Supported Platforms
+
+| Platform | Status |
+|---|---|
+| **Linux x86_64 (Docker)** | Fully supported - the reference deployment. `./install.sh` handles everything. |
+| **macOS (Docker Desktop)** | Supported - `install.sh` detects macOS (preflight checks, browser open). Apple Silicon runs the x86_64 image under emulation; a native arm64 image has not been built or tested yet. |
+| **Windows (Docker Desktop + WSL2)** | Supported via WSL2: clone the repo inside your WSL2 distro and run `./install.sh` there (`install.sh` is a bash script). Native PowerShell installs are not supported. |
+| **Linux/macOS bare metal** | For development: Python 3.12 - 3.14 in a venv (see Quick Start "Local development"). The PyWebView desktop window requires a GUI session. |
+| **ARM / Raspberry Pi / NAS** | Untested. The base image (`python:3.14-slim`) is multi-arch, but the CPU-only torch pin and the C++ components have not been validated on arm64. If you try it, an issue report either way is genuinely useful. |
+
 ## 🏗 Architecture
 
 ```mermaid
 flowchart LR
-    A["🌐 APIs · feeds · scrapes<br/><i>135 ready-made connectors</i>"] -->|"sandboxed ingestion<br/>(RestrictedPython)"| B[("🗄 Parquet + SQLite<br/><code>indexes/</code>")]
-    B --> C{{"⚙️ SPQL engine<br/><i>52 commands · DuckDB pushdown</i>"}}
+    A["🌐 APIs · feeds · scrapes<br/><i>135 connectors (130 core)</i>"] -->|"sandboxed ingestion<br/>(RestrictedPython)"| B[("🗄 Parquet + SQLite<br/><code>indexes/</code>")]
+    B --> C{{"⚙️ SPQL engine<br/><i>57 commands · DuckDB pushdown</i>"}}
     C --> D["🖥 Desktop UI<br/>notebooks · visual builder"]
     C --> E["⏰ Scheduled searches<br/>email alerts"]
     C --> F["🤖 Alert groups<br/>Claude or local-LLM briefs"]
@@ -241,6 +260,33 @@ global_settings.py    Thread-safe YAML-backed settings singleton
 ```
 
 </details>
+
+## 🚀 Performance
+
+Measured on an Intel i7-8809G (8 logical cores, 30 GB RAM, Python 3.14.4, Linux) against a synthetic 1 GB corpus of realistic application-log data: **5,704,248 rows across 17 gzip Parquet files (103 MB on disk)**. Every pipeline runs end-to-end through the real SPQL engine (ANTLR parse, handler chain, DuckDB predicate pushdown); 3 runs each, median reported.
+
+| Pipeline | Median | Rows returned |
+|---|---:|---:|
+| Full scan + `head 100` | 12.8 s | 100 |
+| `search level="ERROR"` + `stats count by service` + sort | 13.3 s | 6 |
+| Time-bounded scan (`earliest`/`latest`, 1/9th of the window) + `stats count` | **2.6 s** | 1 |
+| Daily `timechart` by level (90 days x 5 levels) | 20.0 s | 450 |
+| `rex` regex extraction + top-10 aggregation | 833 s | 10 |
+| `dedup client_ip` | 13.2 s | 1,265 |
+
+Honest readings, good and bad:
+
+- **Time bounds are the fast path.** The 2.6 s time-bounded scan vs the 12.8 s full scan is DuckDB predicate pushdown doing its job - always constrain `earliest=`/`latest=` when you can. Most real usage (scheduled searches, alert feeders) is time-bounded by construction.
+- **`rex` over millions of rows is the known slow spot.** Regex extraction runs row-wise in pandas, so ~5.7M rows costs minutes, not seconds. Filter first (`search`, `where`, time bounds) so `rex` sees thousands of rows instead of millions - or use `| sql` with DuckDB's vectorized `regexp_extract` for large-corpus extraction. This number is published rather than hidden because surfacing it is the point of the harness.
+- Designed scale: one person's accumulated data streams on one machine. There is no distributed story and no pretense of one.
+
+Reproduce on your own hardware with one command (generates the deterministic corpus, runs the benchmark, prints this table, removes the corpus):
+
+```bash
+python -m tools.benchmark_corpus --generate --size-gb 1 --run --cleanup
+```
+
+The corpus is seeded and epoch-fixed, so two machines running the same command benchmark identical data. Pass `--json results.json` to keep the full machine-context report.
 
 ## ⚙️ Configuration
 

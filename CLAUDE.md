@@ -25,6 +25,8 @@ Local-first search and ingestion engine (v1.0.0-rc1 - see VERSION). Custom query
 
 ```
 desktop_app/          Flask server (server.py) + SPA (ui.html) + PyWebView (main.py)
+  vendor/                 Vendored third-party frontend assets (marked, CodeMirror, Monaco, Vega) served at /vendor/ - NEVER load a frontend lib from a CDN (W10 2026-07-12; pinned versions + SHA-256 in vendor/MANIFEST.md; drift-guarded by tests/test_vendored_assets.py; notebook HTML exports inline the Vega bundles so standalone files render offline)
+  access_gate.py          W11b access-token gate (2026-07-12, the Jupyter model). Auto-active when the bind is non-loopback (= every Docker install since compose sets HOST=0.0.0.0); SPEAKESQUERY_AUTH=on/off overrides. Token at ~/.speakes-query/access_token (0600); install.sh generates it and prints the ?token= URL. GET /healthz is the ONLY exempt path (Dockerfile HEALTHCHECK + install.sh readiness probe target it - probing / would 401). Tests: tests/test_access_gate.py
 query_engine/         Scheduled search execution, alerts, history
   CmdExecutionBackend.py   Query parser + ANTLR4 listener (entry point)
   QueryEngine.py           APScheduler cron executor
@@ -116,7 +118,7 @@ email_groups/         Email-group YAML configs (gitignored - user data)
 
 Pipe-delimited commands: `index="path" | search field="val" | stats count by category | sort -count | head 10`
 
-**Supported commands:** search, where, eval, stats, eventstats, streamstats, timechart, fields, table, rename, sort, reverse, head, limit, dedup, dedup_semantic, llm, llm_batch, llm_route, llm_refine, llm_ensemble, llm_until, nearest, rex, regex, join, append, appendpipe, switch, lookup, outputlookup, outputnew, coalesce, mvexpand, mvreverse, mvcombine, mvdedup, mvappend, mvfilter, mvcount, mvindex, mvzip, mvjoin, mvdc, mvfind, makeresults, addinfo, spath, base64, bin, multisearch, maketable, fieldsummary, fillnull, loadjob, inputlookup
+**Supported commands:** search, where, eval, stats, eventstats, streamstats, timechart, fields, table, rename, sort, reverse, head, limit, dedup, dedup_semantic, llm, llm_batch, llm_route, llm_refine, llm_ensemble, llm_until, nearest, rex, regex, sql, join, append, appendpipe, switch, lookup, outputlookup, outputnew, coalesce, mvexpand, mvreverse, mvcombine, mvdedup, mvappend, mvfilter, mvcount, mvindex, mvzip, mvjoin, mvdc, mvfind, makeresults, addinfo, spath, base64, bin, multisearch, maketable, fieldsummary, fillnull, loadjob, inputlookup
 
 **Built-in functions:** round, floor, ceil, min, max, avg, sum, abs, sqrt, median, mode, range, random, concat, replace, upper, lower, capitalize, substr, trim, ltrim, rtrim, len, match, split, tonumber, tostring, urlencode, urldecode, defang, fang, type, base64_encode, base64_decode, isnull, isnotnull, coalesce, if_, case, randomize, now, relative_time, strftime, strptime, mvdedup, mvsort, mvcount, mvreverse, mvjoin, mvfind, mvindex, mvdc, mvappend, mvzip
 
@@ -138,10 +140,15 @@ Each script is a JSON file in `script_library/scripts/` with this schema:
   "suggested_subdirectory": "category/subcategory",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": ["free", "no-auth", "category"],
   "code": "import pandas as pd\nimport requests\n..."
 }
 ```
+
+**Support tiers** (the `support_tier` field - REQUIRED explicit on every script; loader fail-safes a missing value to `example`):
+- `core` - documented stable API, maintained with the project (130 of 135)
+- `example` - unofficial/fragile endpoint (HTML scrape, undocumented API), use-at-your-own-risk badge in UI. The classification is FROZEN in `tests/test_support_tier.py::EXPECTED_EXAMPLE_TIER` - tier moves update that set + the README "(N core)" count in the same commit. See docs/lang/09_ingestion_etiquette.md "Support Tiers".
 
 **Credential kinds** (optional `credential_kinds` field, maps credential name → kind):
 - `api_key` - secret API key (default if field omitted, for back-compat)
@@ -268,7 +275,7 @@ Every feature touches code, tests, and documentation. All three are required - a
 ### New SPQL Command
 
 1. Add grammar rule to `lexers/speakesQuery.g4`
-2. Regenerate parser: `cd lexers && antlr4 -Dlanguage=Python3 speakesQuery.g4 -o antlr4_active`
+2. Regenerate parser: `cd lexers && antlr4 -v 4.13.2 -Dlanguage=Python3 speakesQuery.g4 -o antlr4_active` (antlr4-tools is in requirements-dev.txt; the `-v` pin must match the antlr4-python3-runtime version)
 3. Add handler method to appropriate file in `handlers/`
 4. Register in `speakesQueryListener._command_map`
 5. Add YAML tests in appropriate tier (`tier1_commands/` or `tier2_functions/`)
