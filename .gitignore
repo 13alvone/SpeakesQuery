@@ -103,15 +103,6 @@ secrets.txt
 # ── Input repos (git-cloned ingestion scripts) ───────────────────
 /input_repos/
 
-# ── speaktube / Curator: Google Takeout YouTube export ───────────
-# User-supplied Takeout data - history, subscriptions, playlists,
-# watch-later, etc. Read once by ``tools/curator_takeout_import.py``
-# and emitted as structured parquets under
-# ``indexes/IMMUTABLE/curator_takeout/`` (which IS backed up). The
-# raw Takeout export is the user's own external file; SpeakesQuery
-# does not need to track it.
-/youtube_profile/
-
 # ── Test artifacts ───────────────────────────────────────────────
 /tests/**/*.parquet
 /tests/temp/
@@ -151,12 +142,6 @@ venv/
 
 # ── OS metadata (Windows) ────────────────────────────────────────
 Thumbs.db
-
-# ── Personal Google Takeout data (never ship user data) ─────────
-history/
-playlists/
-music (library and uploads)/
-subscriptions/
 
 # ── Private launch/marketing playbook (never ship rehearsal notes) ─
 LAUNCH/

@@ -1852,38 +1852,3 @@ Return the LLM model registry (`models/<id>.yaml` via `model_store`). Used by th
   ]
 }
 ```
-
----
-
-## Curator / Speaktube (`/api/playlist/today`, `/api/dignity/today`, …)
-
-Endpoints consumed by the speaktube player and Discover surface. The response shapes are an external API contract - see the [Curator ↔ Speaktube Guide](21_curator_speaktube.md) before changing anything here.
-
-### `GET /api/playlist/today`
-Return the most-recent composed playlist in the speaktube JSON shape (rows for the latest `run_date` in `indexes/IMMUTABLE/curator_playlist/`, sorted by `position`). Returns **404** when no composition has happened yet (or the latest run_date is older than today) - the renderer distinguishes "no curator wired up" from "quiet day". Optional `?date=YYYY-MM-DD` returns a specific date's playlist.
-
-### `GET /api/dignity/today`
-Return today's algorithmic-dignity score: the share of today's playback events whose `chosen_by` indicates an intentional pick (`curator` / `user_manual` / `playlist`) vs passive recommendation. Always returns **200** per the contract - when no plays have happened yet, `dignity_pct` is `null` and counts are zero. Optional `?date=YYYY-MM-DD` overrides the date.
-
-### `POST /api/reflections`
-Record a free-text user reflection. Body: `{"date": "YYYY-MM-DD", "kind": "eod" | "per_video", "content": "..."}` plus optional `video_external_id` when `kind="per_video"`. Writes one row to `indexes/IMMUTABLE/curator_reflections/` and returns **201** with the synthesized id.
-
-### `POST /api/growth_dial`
-Persist a new value for the exploration knob. Body: `{"value": -0.4, "set_at": "..."}`. Validates `-1.0 <= value <= 1.0` (bipolar: `-1.0` = max familiarity, `0.0` = balanced, `+1.0` = max exploration). Stored in `global_settings.yaml` as `curator_growth_dial`; the next playlist composition reads it at run time. `set_at` is accepted but only logged.
-
-### `POST /api/preferences/keywords`
-Accept a batch of keywords to seed the next composer fire. Body: `{"keywords": ["rare earth magnets", "public-domain noir"]}`. Each keyword writes one row to `indexes/IMMUTABLE/curator_keyword_prefs/`; case-insensitive duplicates against the active pool are silently skipped. Returns `{status, added, skipped, pool_size}`.
-
-### `GET /api/preferences/keywords`
-Return the currently-active keyword pool (keywords POSTed since the most-recent composition, or a trailing fallback window when no composition exists yet). Always 200; `{keywords: []}` when empty.
-
-### `GET /api/search`
-Ad-hoc keyword search across the already-ingested candidate pool (deterministic, no LLM call). Query params:
-
-| Param | Required | Description |
-|-------|----------|-------------|
-| `q` | Yes | Whitespace-separated tokens, urlencoded. Tokens are OR'd against candidate titles (case-insensitive substring). Empty/missing → 400. |
-| `sources` | No | Comma-separated `source` values (e.g. `youtube_rss,archive_org`). Default: all. |
-| `limit` | No | Soft cap on returned items. Default 100, max 1000. |
-
-Returns the same JSON shape as `/api/playlist/today` so the speaktube renderer reuses the playlist code path.

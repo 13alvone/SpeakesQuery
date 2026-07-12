@@ -23,7 +23,7 @@ description: |
   derived (eventstats/eval) column. A `where` on a derived column makes the
   engine log a spurious "Error while applying Pandas query" on its first
   pass (the result is still correct, but it pollutes the logs every run);
-  the curator feeders avoid it the same way. Keep it base-column-only.
+  other feeders avoid it the same way. Keep it base-column-only.
 query: |-
   index="indexes/github/trending/*.parquet"
   | where _epoch >= relative_time("-30d")

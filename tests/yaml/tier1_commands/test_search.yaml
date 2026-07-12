@@ -107,8 +107,8 @@ tests:
   # handle function calls as operands - it parsed ``relative_time``
   # as a bare column identifier and the orphan ``("-7d")`` tokens
   # crashed downstream, caught by run_search's catch-all which
-  # returned an empty DataFrame. Caught while prototyping curator
-  # slice 2 scoring SPQL. Fix: parse_operand detects identifier+`(`
+  # returned an empty DataFrame. Caught while prototyping live
+  # scoring SPQL. Fix: parse_operand detects identifier+`(`
   # and delegates to EvalHandler.safe_eval to evaluate at parse
   # time, substituting the scalar result as a LITERAL operand.
 

@@ -241,7 +241,7 @@ Return the largest integer less than or equal to *value* (i.e. round toward `-âˆ
 
 **MV-aware**: works element-wise on lists.
 
-Added 2026-05-16 after the curator-slice live-API validation surfaced that `floor` was a documented expectation but missing from the eval allowlist. The fix landed alongside the [SPQL function drift-guard test](../../tests/test_spql_function_drift_guard.py).
+Added 2026-05-16 after a live-API validation pass surfaced that `floor` was a documented expectation but missing from the eval allowlist. The fix landed alongside the [SPQL function drift-guard test](../../tests/test_spql_function_drift_guard.py).
 
 ### ceil(value)
 

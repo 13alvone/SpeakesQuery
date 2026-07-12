@@ -5423,136 +5423,6 @@ GENERATE_RESULTS(df)
           </div>
         </div>
 
-        <!-- Curator / speaktube (Phase 6 / Bet 5 slice 1) -->
-        <div class="settings-section">
-          <div class="settings-section-title">Curator / speaktube</div>
-          <div class="settings-section-help">
-            The user-facing values that drive the curator ↔ speaktube
-            contract. The growth dial is also written by the speaktube
-            player itself via <code>POST /api/growth_dial</code>; editing
-            it here is equivalent. See
-            <code>docs/lang/21_curator_speaktube.md</code>.
-          </div>
-
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="BIPOLAR exploration knob (slice 8, 2026-05-17). -1.0 = stay strictly within your known interests (max comfort). 0.0 = balanced. +1.0 = maximum exploration / never-watched channels. Speaktube renders this as a -1..+1 slider on the Today view.">
-              <label class="label">Growth Dial</label>
-              <input id="set-curator-growth-dial" type="number" class="ss-input" min="-1" max="1" step="0.01" />
-              <div class="ss-hint">Default: -0.7 (mostly familiar). Range -1.0 &ndash; +1.0 (bipolar, slice 8).</div>
-            </div>
-            <div class="ss-field" data-eli5="Base URL of the speaktube sidecar. The hourly telemetry pull HTTP-fetches NDJSON from <base>/api/telemetry/<date>.jsonl. Empty disables the pull.">
-              <label class="label">Speaktube Base URL</label>
-              <input id="set-curator-speaktube-base-url" type="text" class="ss-input" placeholder="http://localhost:8080" />
-              <div class="ss-hint">Default: empty (pull disabled). Must start with <code>http://</code> or <code>https://</code>.</div>
-            </div>
-          </div>
-
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="How many days of telemetry to back-fill on each ingestion run. 1 = today only; 3 = today + 2 prior days (paranoid catch-up).">
-              <label class="label">Telemetry Lookback (days)</label>
-              <input id="set-curator-telemetry-lookback-days" type="number" class="ss-input" min="1" max="30" step="1" />
-              <div class="ss-hint">Default: 3. Range 1 &ndash; 30 days.</div>
-            </div>
-            <div class="ss-field" data-eli5="Target playlist size for hybrid expansion. LLM composes the top 10-20 with rationale + slot kind; dispatcher appends scored candidates (bulk-fill, empty rationale) up to this count. Set to 20 to disable expansion. The LLM never sees this number - no extra LLM cost from raising it.">
-              <label class="label">Playlist Target Count</label>
-              <input id="set-curator-playlist-target-count" type="number" class="ss-input" min="20" max="5000" step="10" />
-              <div class="ss-hint">Default: 500. Range 20 &ndash; 5000. Set to 20 to disable bulk expansion.</div>
-            </div>
-          </div>
-
-          <!-- Curator channel cooldown (Phase 6 / Bet 5 slice 9, 2026-05-17 - speaktube req #5) -->
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="Per-channel cap as a fraction of total playlist size. For a 500-item playlist, 0.10 caps each channel at 50 items. Bulk-fill items from over-cap channels are dropped (LLM picks count toward the cap but are never dropped). Set to 1.0 to disable.">
-              <label class="label">Channel Cap (% of playlist)</label>
-              <input id="set-curator-channel-cap-percent" type="number" class="ss-input" min="0.01" max="1" step="0.01" />
-              <div class="ss-hint">Default: 0.10 (10%). Range 0.01 &ndash; 1.0. Set to 1.0 to disable.</div>
-            </div>
-            <div class="ss-field" data-eli5="Rolling-window same-channel limit. Within any 10 consecutive positions, no channel exceeds this many items. Applied only to bulk-fill placement; LLM-curated order is preserved. Set to 10 to disable.">
-              <label class="label">Max Same-Channel in 10-Position Window</label>
-              <input id="set-curator-channel-max-in-window" type="number" class="ss-input" min="1" max="10" step="1" />
-              <div class="ss-hint">Default: 3. Range 1 &ndash; 10. Set to 10 to disable the window rule.</div>
-            </div>
-          </div>
-
-          <!-- Curator thin-history aggressive discovery (Phase 6 / Bet 5 slice 10, 2026-05-17 - speaktube req #12) -->
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="When the user's watched seconds in the last 30 days falls below the threshold, the composer's effective growth_dial is auto-boosted by the bias. Helps thin-history accounts get more exploratory playlists.">
-              <label class="label">Thin-History Detection</label>
-              <input id="set-curator-thin-history-enabled" type="checkbox" />
-              <div class="ss-hint">Default: ON. Disable to use the dial value verbatim regardless of telemetry.</div>
-            </div>
-            <div class="ss-field" data-eli5="Below this many watched seconds in the last 30 days, thin-history activates. Default 18000s = 5 hours. Set to 0 to always be thin; set to 30 days max to never be thin.">
-              <label class="label">Thin-History Threshold (seconds)</label>
-              <input id="set-curator-thin-history-threshold-seconds" type="number" class="ss-input" min="0" max="2592000" step="3600" />
-              <div class="ss-hint">Default: 18000 (5 hours). Range 0 &ndash; 2,592,000 (30 days).</div>
-            </div>
-            <div class="ss-field" data-eli5="When thin-history activates, the composer's effective growth_dial gets this added (then clamped to +1.0). 0.5 shifts -0.7 to -0.2; 2.0 maxes out exploration.">
-              <label class="label">Thin-History Dial Bias</label>
-              <input id="set-curator-thin-history-dial-bias" type="number" class="ss-input" min="0" max="2" step="0.05" />
-              <div class="ss-hint">Default: 0.5. Range 0.0 &ndash; 2.0.</div>
-            </div>
-          </div>
-
-          <!-- Curator keyword preferences (Phase 6 / Bet 5 slice 11, 2026-05-17 - speaktube req #10) -->
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="Speaktube's Discover view POSTs keywords here to bias the next composer fire. The dispatcher boosts interest_score on candidates whose title contains an active-pool keyword. Disable to ignore POSTed keywords entirely.">
-              <label class="label">Keyword Boost</label>
-              <input id="set-curator-keyword-boost-enabled" type="checkbox" />
-              <div class="ss-hint">Default: ON. Disable to ignore /api/preferences/keywords entirely.</div>
-            </div>
-            <div class="ss-field" data-eli5="Additive boost on interest_score per keyword match (case-insensitive substring against title). 0.0 disables; 0.2 means matching items rank roughly one tier higher in the LLM's mental model.">
-              <label class="label">Keyword Boost Amount</label>
-              <input id="set-curator-keyword-boost-amount" type="number" class="ss-input" min="0" max="1" step="0.05" />
-              <div class="ss-hint">Default: 0.2. Range 0.0 &ndash; 1.0.</div>
-            </div>
-            <div class="ss-field" data-eli5="Fallback lookback when no curator_playlist composition exists yet. After the first composition, the dispatcher uses since-last-composed instead.">
-              <label class="label">Keyword Pool Fallback (seconds)</label>
-              <input id="set-curator-keyword-pool-fallback-seconds" type="number" class="ss-input" min="3600" max="604800" step="3600" />
-              <div class="ss-hint">Default: 86400 (24 hours). Range 3600 (1h) &ndash; 604800 (7 days).</div>
-            </div>
-          </div>
-
-          <!-- Curator topic vectors (Phase 6 / Bet 5 slice 3, 2026-05-16) -->
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="Turn the background topic-snapshot job ON to score candidates by what you've actually been watching (topical similarity) instead of raw channel watch counts. Off = composer uses bootstrap-locked scoring; the | nearest pipe and the CLI tool still work.">
-              <label class="label">Topic Snapshot Refresh (engine-scheduled)</label>
-              <input id="set-curator-topic-snapshot-refresh-enabled" type="checkbox" />
-              <div class="ss-hint">Bootstrap a snapshot with <code>python -m tools.curator_topic_snapshot_refresh</code>; the engine job keeps it fresh. Default OFF.</div>
-            </div>
-            <div class="ss-field" data-eli5="How often the engine recomputes the topic snapshot. Default 168 hours = once a week. Topic style is slow-evolving - daily is overkill.">
-              <label class="label">Refresh Interval (hours)</label>
-              <input id="set-curator-topic-snapshot-refresh-interval-hours" type="number" class="ss-input" min="1" max="720" step="1" />
-              <div class="ss-hint">Default: 168 (weekly). Range 1 &ndash; 720 hours.</div>
-            </div>
-          </div>
-
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="KMeans cluster count. 8–12 is the sweet spot for personal histories of 1k–10k watches. Fewer = topics collapse; more = near-duplicates.">
-              <label class="label">Topic Clusters (K)</label>
-              <input id="set-curator-topic-n-clusters" type="number" class="ss-input" min="2" max="100" step="1" />
-              <div class="ss-hint">Default: 10. Capped at history length at compute time.</div>
-            </div>
-            <div class="ss-field" data-eli5="Recency decay half-life in days. With 180 (≈6 months), a watch from a year ago counts ~0.25× a watch from yesterday in cluster definition. Higher = older watches matter more; lower = aggressive recency bias.">
-              <label class="label">Decay Half-Life (days)</label>
-              <input id="set-curator-topic-decay-lambda-days" type="number" class="ss-input" min="1" max="3650" step="1" />
-              <div class="ss-hint">Default: 180. Range 1 &ndash; 3650 days.</div>
-            </div>
-          </div>
-
-          <div class="ss-row">
-            <div class="ss-field" data-eli5="Registry id of the LLM that labels clusters (cluster_id → 3-5-word human label). Default targets a self-hosted Qwen3 32B on llama.cpp ($0). Swap for claude-haiku-4-5-20251001 for a faster but $-costing fallback.">
-              <label class="label">Topic Label Model</label>
-              <input id="set-curator-topic-label-model-id" type="text" class="ss-input" placeholder="llamacpp-qwen3-32b-q4km" />
-              <div class="ss-hint">Default: <code>llamacpp-qwen3-32b-q4km</code> (LAN llama.cpp).</div>
-            </div>
-            <div class="ss-field" data-eli5="Hard ceiling on cumulative labeling cost per snapshot refresh. Belt-and-suspenders: with the local default the cost is $0 anyway. Bump this when using a cloud labeling model.">
-              <label class="label">Label Max Cost (USD)</label>
-              <input id="set-curator-topic-label-max-cost-usd" type="number" class="ss-input" min="0" step="0.01" />
-              <div class="ss-hint">Default: 0.05. 0.0 = unlimited.</div>
-            </div>
-          </div>
-        </div>
-
         <!-- Subdirectory -->
         <div class="settings-section">
           <div class="settings-section-title">Subdirectory</div>
@@ -7166,18 +7036,17 @@ GENERATE_RESULTS(df)
           </span>
         </div>
 
-        <!-- Output Kind (Phase 6 / Bet 5 slice 2, 2026-05-16). Read-only
-             display for now - operators don't change this from the UI;
-             it's set by the AG's authoring slice (e.g. curator_playlist
-             composer ships with output_kind=playlist baked in). Shown
-             here so the operator can SEE which write target this AG
-             routes to. Future slices can make this editable if a new
-             output_kind needs operator selection. -->
+        <!-- Output Kind (2026-05-16). Read-only display for now -
+             operators don't change this from the UI; it's set by the
+             AG's authoring slice. Shown here so the operator can SEE
+             which write target this AG routes to. Future slices can
+             make this editable if a new output_kind needs operator
+             selection. -->
         <div class="ss-field" id="ag-output-kind-row" style="display:none;">
           <label class="ss-label">Output Kind</label>
           <input id="ag-output-kind" class="ss-input" type="text" readonly style="background:var(--bg-muted);" />
           <span style="font-size:11px; color:var(--text-muted);">
-            Discriminates which IMMUTABLE journal this AG writes to. <code>picks</code> (or empty) &rarr; <code>indexes/IMMUTABLE/ag_picks/</code>. <code>playlist</code> &rarr; <code>indexes/IMMUTABLE/curator_playlist/</code>. Read-only here - set by the AG's authoring slice. AGs with <em>output_kind</em> set don't require an email recipient (their output goes to a structured journal, not an inbox).
+            Discriminates which IMMUTABLE journal this AG writes to. <code>picks</code> (or empty) &rarr; <code>indexes/IMMUTABLE/ag_picks/</code>. Read-only here - set by the AG's authoring slice. AGs with <em>output_kind</em> set don't require an email recipient (their output goes to a structured journal, not an inbox).
           </span>
         </div>
 
@@ -13615,29 +13484,6 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
     'patch_drafter_model':                  { el: () => document.getElementById('set-patch-drafter-model'),                   type: 'text' },
     'patch_drafter_max_cost_usd':           { el: () => document.getElementById('set-patch-drafter-max-cost-usd'),            type: 'float' },
     'patch_drafter_timeout_seconds':        { el: () => document.getElementById('set-patch-drafter-timeout-seconds'),         type: 'int' },
-    // Curator / speaktube (Phase 6 / Bet 5 slice 1, 2026-05-16)
-    'curator_growth_dial':                  { el: () => document.getElementById('set-curator-growth-dial'),                   type: 'float' },
-    'curator_speaktube_base_url':           { el: () => document.getElementById('set-curator-speaktube-base-url'),            type: 'text' },
-    'curator_telemetry_lookback_days':      { el: () => document.getElementById('set-curator-telemetry-lookback-days'),       type: 'int' },
-    'curator_playlist_target_count':        { el: () => document.getElementById('set-curator-playlist-target-count'),         type: 'int' },
-    // Curator channel cooldown (Phase 6 / Bet 5 slice 9, 2026-05-17)
-    'curator_channel_cap_percent':          { el: () => document.getElementById('set-curator-channel-cap-percent'),           type: 'float' },
-    'curator_channel_max_in_window':        { el: () => document.getElementById('set-curator-channel-max-in-window'),         type: 'int' },
-    // Curator thin-history aggressive discovery (Phase 6 / Bet 5 slice 10, 2026-05-17)
-    'curator_thin_history_enabled':         { el: () => document.getElementById('set-curator-thin-history-enabled'),          type: 'bool' },
-    'curator_thin_history_threshold_seconds': { el: () => document.getElementById('set-curator-thin-history-threshold-seconds'), type: 'int' },
-    'curator_thin_history_dial_bias':       { el: () => document.getElementById('set-curator-thin-history-dial-bias'),        type: 'float' },
-    // Curator keyword preferences (Phase 6 / Bet 5 slice 11, 2026-05-17)
-    'curator_keyword_boost_enabled':        { el: () => document.getElementById('set-curator-keyword-boost-enabled'),         type: 'bool' },
-    'curator_keyword_boost_amount':         { el: () => document.getElementById('set-curator-keyword-boost-amount'),          type: 'float' },
-    'curator_keyword_pool_fallback_seconds': { el: () => document.getElementById('set-curator-keyword-pool-fallback-seconds'), type: 'int' },
-    // Curator topic vectors (Phase 6 / Bet 5 slice 3, 2026-05-16)
-    'curator_topic_snapshot_refresh_enabled':         { el: () => document.getElementById('set-curator-topic-snapshot-refresh-enabled'),         type: 'bool' },
-    'curator_topic_snapshot_refresh_interval_hours':  { el: () => document.getElementById('set-curator-topic-snapshot-refresh-interval-hours'),  type: 'int' },
-    'curator_topic_n_clusters':                       { el: () => document.getElementById('set-curator-topic-n-clusters'),                       type: 'int' },
-    'curator_topic_decay_lambda_days':                { el: () => document.getElementById('set-curator-topic-decay-lambda-days'),                type: 'int' },
-    'curator_topic_label_model_id':                   { el: () => document.getElementById('set-curator-topic-label-model-id'),                   type: 'text' },
-    'curator_topic_label_max_cost_usd':               { el: () => document.getElementById('set-curator-topic-label-max-cost-usd'),               type: 'float' },
   };
 
   const $settingsMsg = document.getElementById('settings-message');
@@ -16306,7 +16152,7 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
     const dry_run = !!document.getElementById('ag-dry-run')?.checked;
     const output_kind = (document.getElementById('ag-output-kind')?.value || '').trim();
 
-    // AGs with output_kind set (e.g. curator_playlist_composer → playlist)
+    // AGs with output_kind set write to a structured journal, NOT an
     // write to a structured journal, NOT an email recipient. Email is
     // optional for these. The original "Email address is required" check
     // was correct for the OEB-pattern AGs (Claude brief → email) but

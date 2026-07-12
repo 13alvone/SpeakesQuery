@@ -478,23 +478,13 @@ class AlertGroupStore:
             "admin_error_email",
             # 2026-04-27: per-AG opt-out for failure-alert emails. Bool.
             "error_email_disabled",
-            # Phase 6 / Bet 5 slice 2 (2026-05-16): dry-run gate + output
-            # routing discriminator. Without these in the updatable
-            # allowlist, the AG edit form (or API PUT) silently drops
-            # toggle attempts - caught when the curator AG's first
-            # `dry_run: true → false` flip via PUT returned status=success
-            # but the field never changed.
+            # 2026-05-16: dry-run gate + output routing discriminator.
+            # Without these in the updatable allowlist, the AG edit form
+            # (or API PUT) silently drops toggle attempts - caught when an
+            # AG's first `dry_run: true → false` flip via PUT returned
+            # status=success but the field never changed.
             "dry_run",
             "output_kind",
-            # Phase 6 / Bet 5 slice 3 (2026-05-16): per-AG opt-in for the
-            # dispatcher's post-feeder topic-scoring hook. When True, the
-            # feeder DataFrame gets topic-similarity columns appended
-            # from the latest curator_topic_snapshot before serialisation.
-            # See alert_groups/dispatcher.py::_maybe_apply_topic_scoring.
-            # Optional companion: ``topic_scoring_title_col`` overrides
-            # the title column name for non-default schemas.
-            "apply_topic_scoring",
-            "topic_scoring_title_col",
             # Slice A (2026-06-23): route this AG through the LLM router to
             # a local/registry model instead of Claude. See
             # AlertGroupValidation.validate_model_id.

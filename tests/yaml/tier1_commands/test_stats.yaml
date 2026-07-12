@@ -103,7 +103,7 @@ tests:
       columns_include: ["values(region)"]
 
   # ── No-parens shorthand alias regression (2026-05-16) ──────────
-  # Bug surfaced while building curator slice 2: ``stats count as A
+  # Bug surfaced during live prototyping: ``stats count as A
   # by X`` silently dropped the alias because the regex's ``\s*``
   # after (\w+) consumed the whitespace the alias group's ``\s+``
   # needed to anchor. Fix: move the ``\s*`` inside the optional

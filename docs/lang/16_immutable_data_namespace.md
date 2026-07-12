@@ -20,24 +20,17 @@ The IMMUTABLE namespace gives those data streams a permanent home.
 indexes/IMMUTABLE/<subdir>/*.parquet
 ```
 
-Wave 2 shipped the first three subdirectories; the Phase 6 curator work
-(2026-05-16 → 2026-05-17) added five more:
+Wave 2 shipped the first three subdirectories:
 
 | Subdirectory | Schema (in `log_writer.SCHEMAS`) | Writer |
 |------|-----|-----|
 | `ag_picks/` | `ag_picks` | `log_ag_pick(...)` (alert-group dispatcher) |
 | `ag_picks_closures/` | `ag_picks_closures` | `log_ag_pick_closure(...)` (`oeb_pick_tracker_pro` script) |
 | `ag_picks_review_observations/` | `ag_picks_review_observations` | `log_ag_review_observation(...)` (alert-group dispatcher, weekly review only) |
-| `curator_telemetry/` | `curator_telemetry` | `curator_telemetry_pull` ingestion (hourly speaktube watch events) |
-| `curator_reflections/` | `curator_reflections` | `POST /api/reflections` |
-| `curator_playlist/` | `curator_playlist` | alert-group dispatcher (`output_kind: playlist` composer) |
-| `curator_keyword_prefs/` | `curator_keyword_prefs` | `POST /api/preferences/keywords` |
-| `curator_topic_snapshots/` | `curator_topic_snapshots` | topic-snapshot refresh (engine job / `tools/curator_topic_snapshot_refresh.py`) |
 
-Ingestion-script outputs also live here without a `log_writer` schema -
-`curator_candidates/` (the multi-source video candidate pool) and
-`curator_takeout/` (the one-shot Google Takeout bootstrap import).
-Future ingestion scripts can claim a new subdir at any time by writing to `indexes/IMMUTABLE/<their_name>/`.
+Ingestion-script outputs can also live here without a `log_writer`
+schema - future ingestion scripts can claim a new subdir at any time by
+writing to `indexes/IMMUTABLE/<their_name>/`.
 
 ## How the protection works
 

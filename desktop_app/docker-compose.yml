@@ -84,19 +84,11 @@ services:
       # the 1.0.0-rc1 fresh-install verification pass).
       - ../scheduled_input_scripts:/app/scheduled_input_scripts
       - ../executed_scheduled_searches:/app/executed_scheduled_searches
-      # Google Takeout (YouTube) export - read-only input for the curator
-      # Takeout bootstrap (Phase 6 / Bet 5 slice 1, 2026-05-16). Read once
-      # by `tools.curator_takeout_import` and emitted as structured parquets
-      # under indexes/IMMUTABLE/curator_takeout/ (which IS mounted). RW
-      # would be wrong: SpeakesQuery never modifies the user's Takeout
-      # export. Mounted from the project root so the import can run via
-      # `docker exec speakesquery-desktop python -m tools.curator_takeout_import`.
-      - ../youtube_profile:/app/youtube_profile:ro
       # Operator CLI tools (tools/*.py). Mounted live so a `git pull` of
       # a CLI fix doesn't require a Docker image rebuild - only a
       # container restart (to clear the engine's cached `from tools.X
       # import main` imports). Caught 2026-05-17 mid-slice-3a bootstrap:
-      # the snapshot-refresh CLI hotfix `8669421` updated tools/curator_topic_snapshot_refresh.py
+      # a CLI hotfix `8669421` updated a tools/ module
       # on the host but the running container kept the old code from
       # `dae167f`. Bind-mount eliminates that class of bug for every
       # future tools/* iteration. Read-write because some CLIs

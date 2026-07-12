@@ -23,11 +23,6 @@ the logs budget, never garbage-collected.
 | `ag_picks` | `indexes/IMMUTABLE/ag_picks/` | One row per opportunity surfaced by an alert group dispatch (e.g. each of the Daily Opportunity Brief's 5 picks). Captures `idea_id`, instrument type/id, direction, conviction, entry/take-profit/stop prices, suggested buy+sell epochs, hold hours, thesis, and source-signal feeders. **Wave 3 (2026-04-25)** added `source` (`"claude"` for live-dispatch picks, `"manual"` for operator pastes via the Upload Brief modal) and `model_used` (model id string) for cross-LLM performance comparison. Populated by the dispatcher from the mandatory fenced JSON tail in Claude's response, OR by `POST /api/alert-groups/<name>/manual-return` when the operator pastes an external-LLM brief. Used both for historical backtesting and for the next dispatch's "reserved picks" dedup feeder. See [Alert Groups - Pick Capture](12_alert_groups.md#pick-capture-backtesting). |
 | `ag_picks_closures` | `indexes/IMMUTABLE/ag_picks_closures/` | One row per pick closure graded deterministically by `oeb_pick_tracker_pro` (marker/examiner separation): outcome, trigger rule, entry/exit prices, P&L, days held, closure quality, account-fit flags. |
 | `ag_picks_review_observations` | `indexes/IMMUTABLE/ag_picks_review_observations/` | Aggregated observations from the OEB performance-review AG: review period, hit rates (overall vs account-fit), best/worst signal class, rule-tweak recommendations, calibration status. |
-| `curator_telemetry` | `indexes/IMMUTABLE/curator_telemetry/` | Speaktube player events (plays, watch progress, ratings, searches) pulled by the `curator_telemetry_pull` ingestion - the user's viewing telemetry. |
-| `curator_reflections` | `indexes/IMMUTABLE/curator_reflections/` | The user's written reflections (end-of-day or per-video), posted via `POST /api/reflections`. |
-| `curator_playlist` | `indexes/IMMUTABLE/curator_playlist/` | One row per item in each composed daily playlist - the historical record of what the curator suggested, with per-item scores and rationale. `GET /api/playlist/today` reconstructs the latest run from these rows. |
-| `curator_keyword_prefs` | `indexes/IMMUTABLE/curator_keyword_prefs/` | One row per keyword posted via `POST /api/preferences/keywords`; the active pool boosts title-matching candidates' `interest_score` at compose time. |
-| `curator_topic_snapshots` | `indexes/IMMUTABLE/curator_topic_snapshots/` | One row per cluster per topic snapshot (centroid vector, weight, exemplar titles, label) - the topic-evolution timeline of the user's interests. |
 
 ## Budget and retention
 
@@ -100,11 +95,6 @@ Every row starts with `_epoch` (Unix seconds). Additional columns:
 - **system**: `level`, `component`, `event`, `message`
 - **ag_picks_closures**: `event_timestamp`, `alert_group`, `idea_id`, `instrument_type`, `instrument_id`, `outcome`, `trigger_rule`, `entry_price`, `exit_price`, `exit_epoch`, `pnl_per_contract_usd`, `pnl_pct_vs_max_loss`, `days_held`, `leg_prices_at_close_json`, `closure_quality`, `account_size_floor_usd`, `fits_account_at_entry`, `current_account_size_usd_at_close`, `fits_account_at_close`
 - **ag_picks_review_observations**: `event_timestamp`, `alert_group`, `run_request_id`, `review_period_start`, `review_period_end`, `review_period_days`, `n_picks_overall`, `n_picks_account_fit`, `hit_rate_overall`, `hit_rate_account_fit`, `best_signal_class`, `worst_signal_class`, `observation_text`, `observation_evidence`, `observation_actionable`, `rule_tweak_recommendation_text`, `rule_tweak_rationale`, `rule_tweak_expected_impact`, `row_kind`, `calibration_status`, `calibration_n_closures`
-- **curator_telemetry**: `event_ts_iso`, `event_date`, `event_type`, `video_external_id`, `chosen_by`, `run_date`, `position`, `slot_kind`, `watched_seconds`, `total_seconds`, `rating`, `reason`, `kind`, `content`, `query`, `raw_json`
-- **curator_reflections**: `event_ts_iso`, `date`, `kind`, `content`, `video_external_id`, `source`
-- **curator_keyword_prefs**: `event_ts_iso`, `keyword`, `source`, `raw_request`
-- **curator_playlist**: `run_date`, `composed_at_iso`, `growth_dial`, `theme`, `position`, `slot_kind`, `rationale`, `external_id`, `url`, `title`, `channel_name`, `thumbnail_url`, `published_at`, `duration_seconds`, `interest_score`, `growth_score`, `slop_score`, `score_reasoning`, `thin_history_active`
-- **curator_topic_snapshots**: `snapshot_epoch`, `snapshot_id`, `model_name`, `dim`, `n_clusters`, `n_history_rows`, `decay_lambda_days`, `cluster_id`, `centroid_json`, `weight`, `n_members`, `exemplar_titles_json`, `label`
 
 (The `ag_picks` column set is large and options-aware - see the frozen
 snapshot in `functionality/log_writer.py::SCHEMAS` and

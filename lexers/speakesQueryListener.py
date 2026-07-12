@@ -1552,7 +1552,7 @@ class speakesQueryListener(ParseTreeListener):
         # which sub-runs against a copy of the OUTER main_df instead of
         # loading the index. Result: subsearch returns empty rows, join
         # returns "No data returned" silently. Caught 2026-05-16 while
-        # prototyping curator slice 2 against real Takeout data. Pinned
+        # prototyping a join against real ingested data. Pinned
         # by the test in tests/test_subsearch_index_call.py.
         has_index_clause = any(
             isinstance(t, str) and t.lower().startswith("index=")

@@ -380,7 +380,6 @@ mkdir -p \
   "$PROJECT_ROOT/default_notebooks" \
   "$PROJECT_ROOT/notebook_cache" \
   "$PROJECT_ROOT/jobs" \
-  "$PROJECT_ROOT/youtube_profile" \
   "$PROJECT_ROOT/scheduled_input_scripts" \
   "$PROJECT_ROOT/executed_scheduled_searches"
 

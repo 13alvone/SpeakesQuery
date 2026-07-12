@@ -130,16 +130,6 @@ DIR_TARGETS_SUMMARIZED: tuple[str, ...] = (
     # be expensive. Bind-mounted in docker-compose so container
     # rebuilds preserve it; install.sh creates the dir up-front.
     "notebook_cache",
-    # Phase 6 / Bet 5 slice 1 (2026-05-16): Google Takeout (YouTube)
-    # export. User-supplied INPUT - read once by
-    # `tools.curator_takeout_import` and emitted as structured parquets
-    # under indexes/IMMUTABLE/curator_takeout/ (which is in
-    # DIR_TARGETS_HASHED and IS bit-perfect backed up). The raw
-    # Takeout HTML is recoverable from Google directly, so we record
-    # only aggregate stats here for diagnostic purposes - bundling the
-    # bytes would bloat default backups without adding recoverability
-    # the user doesn't already have via google.com/takeout.
-    "youtube_profile",
 )
 
 # Single-file targets at project root. Each is a YAML config or SQLite

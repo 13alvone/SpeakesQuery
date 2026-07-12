@@ -1,7 +1,7 @@
 """SPQL built-in function drift guard.
 
-Phase 6 / Bet 5 follow-up (2026-05-16). Caught when the curator slice
-1.5's live-API validation tripped on ``floor`` - the function was
+Follow-up from 2026-05-16. Caught when a live-API validation pass
+tripped on ``floor`` - the function was
 documented as a built-in but missing from ``EvalHandler``'s
 ``env_template``. The audit found 7+ peer functions (random / sum /
 median / mode / range / ceil / floor) in the same broken state.

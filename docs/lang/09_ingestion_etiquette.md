@@ -307,7 +307,7 @@ Trust tiers (below) describe how a script is *executed*. Support tiers describe 
 
 | Tier | Meaning |
 |---|---|
-| `core` | Uses a documented, stable public API. Maintained with the project: CI-validated against mock responses, fixed when the upstream changes. 130 of the 135 shipped scripts. |
+| `core` | Uses a documented, stable public API. Maintained with the project: CI-validated against mock responses, fixed when the upstream changes. 126 of the 131 shipped scripts. |
 | `example` | An author-provided working reference on an unofficial or fragile endpoint - an HTML scrape or an undocumented API that can change without notice (the ESPN payload drift of early 2026 is the canonical precedent). Provided use-at-your-own-risk; breakage may not be fixed promptly, or at all. |
 
 The Script Library page badges `example` scripts and carries the disclaimer inline. Two honest rules of thumb regardless of tier:

@@ -382,7 +382,7 @@ class SearchDirective:
                     raise ValueError(f"[x] Invalid identifier: '{tok.value}'")
 
                 # Function call form: ``identifier(args)``. Caught
-                # 2026-05-16 while prototyping curator slice 2 - ``where
+                # 2026-05-16 during live prototyping - ``where
                 # _epoch >= relative_time("-7d")`` silently returned 0
                 # rows because the parser treated ``relative_time`` as a
                 # bare column identifier and the orphan ``("-2d")``

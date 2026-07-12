@@ -14,8 +14,8 @@ Coverage
   still returns ``[]`` without raising (the pre-existing contract in
   test_alert_group_manual_return.py::test_parse_picks_block_tolerates_
   malformed_json is unchanged).
-* All three fenced-block consumers get the repair: picks, playlist
-  composer, review observations.
+* Both fenced-block consumers get the repair: picks and review
+  observations.
 * Repaired picks still pass through ``_validate_and_normalize_pick`` -
   the repair widens the parse, never the validation.
 """
@@ -173,23 +173,6 @@ class TestPicksParserRepairIntegration:
             group_name="repair_test",
         )
         assert picks == []
-
-
-class TestPlaylistParserRepairIntegration:
-    def test_playlist_object_with_trailing_comma_parses(self):
-        body = (
-            '{\n'
-            '  "run_date": "2026-07-10",\n'
-            '  "growth_dial": 0.3,\n'
-            '  "theme": "test theme",\n'
-            '  "items": [],\n'
-            '}'
-        )
-        result = AlertGroupDispatcher._parse_playlist_block(
-            response_text=_fenced(body), group_name="repair_test",
-        )
-        assert result is not None
-        assert result["run_date"] == "2026-07-10"
 
 
 class TestReviewParserRepairIntegration:

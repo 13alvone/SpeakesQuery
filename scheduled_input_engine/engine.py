@@ -43,7 +43,6 @@ INPUT_REPOS_ROOT = (Path(__file__).parent.parent / "input_repos").resolve()
 MAX_RETRIES = 3
 MAINTENANCE_JOB_ID = "maintenance_job"
 EMBEDDING_SWEEPER_JOB_ID = "embedding_sweeper_job"
-CURATOR_TOPIC_SNAPSHOT_JOB_ID = "curator_topic_snapshot_refresh_job"
 
 
 def _emit_ingestion_log(
@@ -286,7 +285,6 @@ class ScheduledInputEngine:
         self._load_all_jobs()
         self._schedule_maintenance()
         self._schedule_embedding_sweep()
-        self._schedule_topic_snapshot_refresh()
         self._scheduler.start()
         job_count = len(self._scheduler.get_jobs())
         logger.info("[i] Scheduler started with %d jobs", job_count)
@@ -437,79 +435,6 @@ class ScheduledInputEngine:
             # (unimported deps, misconfigured paths, etc.) so the
             # APScheduler thread doesn't die.
             logger.error("[x] Embedding sweep failed: %s", exc)
-
-    def _schedule_topic_snapshot_refresh(self):
-        """Schedule the curator topic-snapshot refresh job (Phase 6 / Bet 5 slice 3).
-
-        Gated by ``curator_topic_snapshot_refresh_enabled``. Opt-in default
-        OFF because the first refresh on a populated history takes ~30-60s
-        of CPU (embedder load + KMeans + per-cluster LLM call). Operators
-        enable it once they've imported a Takeout corpus or accumulated
-        live telemetry rows.
-
-        Default cadence is weekly (``curator_topic_snapshot_refresh_interval_hours``
-        = 168). Topic snapshots are slow-evolving - your "style" doesn't
-        change hour-to-hour. The CLI tool
-        (``tools/curator_topic_snapshot_refresh``) provides the
-        bootstrap / tuning path; this job keeps it fresh.
-        """
-        enabled = bool(
-            self._setting("curator_topic_snapshot_refresh_enabled", False)
-        )
-        if not enabled:
-            try:
-                if self._scheduler.get_job(CURATOR_TOPIC_SNAPSHOT_JOB_ID):
-                    self._scheduler.remove_job(CURATOR_TOPIC_SNAPSHOT_JOB_ID)
-                    logger.info(
-                        "[i] curator_topic_snapshot_refresh_enabled=False; "
-                        "removed prior refresh job"
-                    )
-            except Exception:
-                pass
-            return
-
-        interval_hours = int(
-            self._setting("curator_topic_snapshot_refresh_interval_hours", 168)
-        )
-        interval_hours = max(1, min(interval_hours, 24 * 30))
-
-        self._scheduler.add_job(
-            self._run_topic_snapshot_refresh,
-            IntervalTrigger(hours=interval_hours),
-            id=CURATOR_TOPIC_SNAPSHOT_JOB_ID,
-            name="curator_topic_snapshot_refresh",
-            replace_existing=True,
-        )
-        logger.info(
-            "[i] Curator topic snapshot refresh scheduled every %d hours",
-            interval_hours,
-        )
-
-    def _run_topic_snapshot_refresh(self) -> None:
-        """Execute one snapshot refresh; never raises back to the scheduler.
-
-        Reuses :mod:`tools.curator_topic_snapshot_refresh`'s ``main()``
-        directly so the engine path and the CLI path stay bit-identical.
-        Any failure (history missing, embedder load fail, LLM
-        unreachable) is logged but the APScheduler thread stays up for
-        the next tick.
-        """
-        try:
-            from tools.curator_topic_snapshot_refresh import main as cli_main
-            argv: list[str] = []
-            # Respect the same labeling setting the CLI would consult by
-            # default - no flags passed means "use settings".
-            exit_code = cli_main(argv)
-            if exit_code != 0:
-                logger.warning(
-                    "[!] Curator topic snapshot refresh returned exit "
-                    "code %d (likely empty history or label-pass error)",
-                    exit_code,
-                )
-        except Exception as exc:
-            logger.error(
-                "[x] Curator topic snapshot refresh raised: %s", exc,
-            )
 
     # ------------------------------------------------------------------
     # Task execution (runs in thread pool)

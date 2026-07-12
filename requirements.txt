@@ -70,16 +70,6 @@ sentence-transformers>=3.0,<6.0
 # after the next ./update.sh reinstalls. Used in
 # notebook_engine.py::_render_markdown_html.
 markdown>=3.5,<4.0
-# ── Phase 6 / Bet 5 slice 3b (2026-05-16): yt-dlp topic-search ──
-# Used by the curator_topic_search_pull_pro _pro-tier ingestion script
-# to discover candidates OUTSIDE the user's existing YouTube
-# subscriptions, breaking the bootstrap-locked channel monoculture
-# from slice 1.5. The script reads the latest topic snapshot, runs
-# `ytsearch{N}:<cluster_label>` for the top clusters, and lands rows
-# in the same canonical curator_candidates schema. yt-dlp is also the
-# foundation for slice 3c+ multi-platform support (PeerTube,
-# Archive.org, podcast RSS, Vimeo, etc. - all yt-dlp extractors).
-yt-dlp>=2024.0
 # ── Test runner (2026-07-12) ──
 # Exact-pinned so local venvs, Docker builds, and CI all run the same
 # pytest. MUST match the "pip install pytest==" pins in

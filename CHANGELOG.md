@@ -6,6 +6,22 @@
 
 ---
 
+## 2026-07-12 18:30:00 UTC - Extract the curator companion feature into its own project
+
+### TL;DR (human)
+
+The media-curator companion (playlist composition, viewing telemetry, reflections, topic vectors, and the external-renderer API contract) was always a personal-stack feature riding inside the engine. It now moves to its own project; SpeakesQuery ships as the general-purpose engine only. 23 files deleted, 33 edited; no generic capability lost.
+
+* **Removed end-to-end:** the four curator REST endpoints + settings UI section, the alert-group playlist-composer routing branch and topic-scoring/keyword-boost hooks (the picks path is byte-identical), five curator Parquet log schemas + helpers, curator settings keys, the weekly topic-snapshot scheduler job, two operator CLIs, four library connectors, one default alert group + feeder + boilerplate prompt, three companion docs, and ten curator test files (~229 tests).
+* **Counts after extraction:** 131 connectors (126 core, 97 no-auth); README badges, feature table, and docs all updated in lockstep (the support-tier drift guard computes truth dynamically and stays green).
+* **Kept deliberately:** the generic infrastructure the feature exercised - output_kind journal routing, the IMMUTABLE data namespace, embedding sidecars/semantic search, and the union_by_name + per-call-DuckDB-connection lessons in CLAUDE.md (reworded to generic examples; the incidents that taught them remain true).
+* Local operator data (gitignored) untouched by design.
+
+### Verification
+
+Full CI-equivalent sweep post-extraction: 5,543 passed, 103 skipped, 6 xfailed, 0 failed. flake8 exit 0. Tracked-file keyword sweep clean (CHANGELOG history preserved per append-only policy). Drift guards (support-tier counts, persistence triple, nav contract, script-library registries) all green.
+
+---
 ## 2026-07-12 04:20:00 UTC - Launch-readiness overhaul: the weakness-ledger implementation pass (W1/W2/W5/W9-W15)
 
 ### TL;DR (human)

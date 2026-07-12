@@ -14,7 +14,7 @@ machine) can pick up where you left off.
 |---|---|---|
 | `~/.speakes-query/master.key` | Fernet master key for the credential vault | Without this key, every encrypted credential in `credentials.sqlite` becomes unreadable. **Back this up first.** Created 0600 on first run. |
 | `credentials.sqlite` | Encrypted API keys, secrets, and credentials per ingestion script | Worthless without `master.key`, but together they are how the engine talks to authenticated APIs. |
-| `indexes/IMMUTABLE/` | The protected forever-data tree: OEB pick journal (`ag_picks*`), curator telemetry / reflections / playlists / topic snapshots | The decade-horizon trading and viewing record. Never garbage-collected at runtime, and included in the **default** backup set (per-file hashed in `DIR_TARGETS_HASHED`) even though its parent `indexes/` is summary-only. |
+| `indexes/IMMUTABLE/` | The protected forever-data tree: OEB pick journal (`ag_picks*`) | The decade-horizon trading record. Never garbage-collected at runtime, and included in the **default** backup set (per-file hashed in `DIR_TARGETS_HASHED`) even though its parent `indexes/` is summary-only. |
 
 ### Important - represents user work
 
@@ -99,7 +99,7 @@ virtualenv activation required.
 
 `indexes/IMMUTABLE/` is in the **default** backup set (per-file hashed
 via `DIR_TARGETS_HASHED` in `tools/persistence.py`) - you do NOT need
-`--include-indexes` to capture the decade-horizon trading + curator
+`--include-indexes` to capture the decade-horizon trading
 record, even though the rest of `indexes/` is opt-in. When
 `--include-indexes` is also passed, the tool de-dups so IMMUTABLE isn't
 bundled twice.

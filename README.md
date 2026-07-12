@@ -18,7 +18,7 @@
 <p>
   <a href="https://github.com/13alvone/SpeakesQuery/actions/workflows/ci.yml"><img src="https://github.com/13alvone/SpeakesQuery/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
   <img src="https://img.shields.io/badge/tests-5%2C600%2B-brightgreen" alt="5,600+ tests" />
-  <img src="https://img.shields.io/badge/connectors-135%20(130%20core)-blueviolet" alt="135 connectors (130 core)" />
+  <img src="https://img.shields.io/badge/connectors-131%20(126%20core)-blueviolet" alt="131 connectors (126 core)" />
   <img src="https://img.shields.io/badge/SPQL-57%20commands-informational" alt="57 SPQL commands" />
   <img src="https://img.shields.io/badge/local%20LLM-%240%2Ftoken-success" alt="Local LLM $0 per token" />
 </p>
@@ -51,7 +51,7 @@ index="indexes/polymarket/active_markets/*" earliest=-7d
 
 | 🔒 **Yours, full stop** | 🤖 **AI on your terms** | 📦 **Batteries included** |
 |---|---|---|
-| Your data never leaves your machine. No accounts, no telemetry, no rent-seeking - the core engine is free by design, permanently. | Claude API **or** your own LM Studio / llama.cpp / Ollama box at $0/token. Every billable pipe takes `max_cost_usd=` and `dry_run=true`. | 135 connectors (130 core - maintained on documented APIs; 5 badged as use-at-your-own-risk examples), 101 needing no API key, 57 SPQL commands (plain-SQL passthrough included), notebooks, a visual query builder, and email briefs - out of the box. |
+| Your data never leaves your machine. No accounts, no telemetry, no rent-seeking - the core engine is free by design, permanently. | Claude API **or** your own LM Studio / llama.cpp / Ollama box at $0/token. Every billable pipe takes `max_cost_usd=` and `dry_run=true`. | 131 connectors (126 core - maintained on documented APIs; 5 badged as use-at-your-own-risk examples), 97 needing no API key, 57 SPQL commands (plain-SQL passthrough included), notebooks, a visual query builder, and email briefs - out of the box. |
 
 > **Project ethos** - SpeakesQuery is intentionally designed as non-rent-seeking software. It exists to be transparent, inspectable, and useful on its own merits. It survives only through correctness, clarity, and trust - not artificial restrictions or gated capability.
 
@@ -133,7 +133,7 @@ To launch all services (server, query engine, ingestion engine):
 
 ### 📥 Ingest everything
 
-**Script Library** - A curated, tested collection of **135 premade ingestion scripts (101 need no API key at all)** spanning markets (Polymarket, Kalshi, Manifold, Metaculus), economics (FRED, BLS, Treasury yields), securities (SEC EDGAR, options chains), crypto (CoinGecko), news/events (federal register, GDELT, Hacker News), and more. Each script is preview-able from the UI and deployable with one click; trust-tier `_pro` variants opt into scipy / scikit-learn / rapidfuzz for heavier statistical analysis. The Massive.com options suite (IV rank, term structure, skew, earnings-implied move, unusual activity) anchors the **Options Edge Brief**.
+**Script Library** - A curated, tested collection of **131 premade ingestion scripts (97 need no API key at all)** spanning markets (Polymarket, Kalshi, Manifold, Metaculus), economics (FRED, BLS, Treasury yields), securities (SEC EDGAR, options chains), crypto (CoinGecko), news/events (federal register, GDELT, Hacker News), and more. Each script is preview-able from the UI and deployable with one click; trust-tier `_pro` variants opt into scipy / scikit-learn / rapidfuzz for heavier statistical analysis. The Massive.com options suite (IV rank, term structure, skew, earnings-implied move, unusual activity) anchors the **Options Edge Brief**.
 
 **Data Ingestion** - Create, test, and schedule Python3 ingestion scripts from the UI. Scripts run in a RestrictedPython sandbox with a curated module allowlist (`json`, `re`, `hashlib`, `base64`, `collections`, `io`, `bs4`, `lxml`). Output is written atomically (`.tmp` → `rename`) to gzip-compressed Parquet files. A periodic maintenance job compacts small files and enforces disk limits. Per-execution resource budgets (max rows, max bytes, timeout) scale with the schedule interval - shorter intervals get tighter limits, longer intervals get more headroom.
 
@@ -217,7 +217,7 @@ SpeakesQuery is a single-operator, local-first tool and its threat model says so
 
 ```mermaid
 flowchart LR
-    A["🌐 APIs · feeds · scrapes<br/><i>135 connectors (130 core)</i>"] -->|"sandboxed ingestion<br/>(RestrictedPython)"| B[("🗄 Parquet + SQLite<br/><code>indexes/</code>")]
+    A["🌐 APIs · feeds · scrapes<br/><i>131 connectors (126 core)</i>"] -->|"sandboxed ingestion<br/>(RestrictedPython)"| B[("🗄 Parquet + SQLite<br/><code>indexes/</code>")]
     B --> C{{"⚙️ SPQL engine<br/><i>57 commands · DuckDB pushdown</i>"}}
     C --> D["🖥 Desktop UI<br/>notebooks · visual builder"]
     C --> E["⏰ Scheduled searches<br/>email alerts"]
@@ -354,8 +354,6 @@ The current version is stored in the `VERSION` file at the project root and serv
 | 4 | **Visual pipeline builder** - drag-drop canvas, lossless SPQL round-trip ([docs](docs/lang/20_visual_builder.md)) | ✅ shipped |
 | 5 | **Trading dogfood** - backtesting, broker read-integration (Tradier/IBKR), conviction-weighted sizing, calibration dashboards | 🔜 next up |
 | 6 | **Auth foundation + multi-channel + mobile** - TLS + session auth + audit log; Slack/Discord/Telegram dispatchers; read-only mobile companion | 🗓 planned |
-
-A parallel work stream ("Bet 5") shipped the **Media Curator** - a personal video-curation pipeline with its own player frontend - as an optional overlay on the same infrastructure. See [Curator ↔ speaktube](docs/lang/21_curator_speaktube.md).
 
 ## 🖋 Philosophy and Authorship
 

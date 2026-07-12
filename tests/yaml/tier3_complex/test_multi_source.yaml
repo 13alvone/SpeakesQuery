@@ -57,7 +57,7 @@ tests:
   # ``search`` is in _command_map and the subsearch dispatch routed
   # to the "transforming command" branch. Result: subsearch returned
   # empty, join silently returned "No data returned". Caught during
-  # curator slice 2 scoring-SPQL prototyping on real Takeout data.
+  # live scoring-SPQL prototyping on real ingested data.
   # Fix: detect ``search`` + ``index=`` and route to process_index_calls.
 
   - id: multi_006_join_search_index_subsearch

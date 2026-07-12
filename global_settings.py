@@ -120,25 +120,6 @@ DEFAULTS: dict = {
         r"^www\.metaculus\.com$",
         r"^export\.arxiv\.org$",
         r"^api\.reporter\.nih\.gov$",
-        # Curator / speaktube (Phase 6 / Bet 5 slice 1, 2026-05-16) -
-        # the host running the speaktube player + its telemetry-fetch
-        # HTTP endpoint. Defaults to same-machine; if speaktube runs on
-        # a different LAN host, add that hostname here via
-        # global_settings.yaml.
-        r"^localhost$",
-        # Curator / candidate ingestion (Phase 6 / Bet 5 slice 1.5,
-        # 2026-05-16) - YouTube channel RSS feeds. Each subscribed
-        # channel exposes its 15 most-recent uploads at
-        # https://www.youtube.com/feeds/videos.xml?channel_id=<UC...>.
-        # Unauthenticated, free, public.
-        r"^www\.youtube\.com$",
-        # Curator multi-source - Archive.org (Phase 6 / Bet 5 slice 7,
-        # 2026-05-17). Public-domain films, lectures, music, archival
-        # video - best-fit for the algorithmic-dignity ethos, no auth,
-        # no rate-limit. Used by curator_archive_org_pull for the
-        # advancedsearch.php endpoint; yt-dlp resolves the
-        # archive.org/details/<id> URLs natively at playback time.
-        r"^archive\.org$",
         # Hot-repos alert group (Slice B, 2026-06-23). github.com is
         # scraped for the daily trending list - GitHub has never offered an
         # official trending API. api.github.com (Search API fallback) is
@@ -283,135 +264,6 @@ DEFAULTS: dict = {
     "patch_drafter_model": "claude-haiku-4-5-20251001",
     "patch_drafter_max_cost_usd": 0.10,
     "patch_drafter_timeout_seconds": 60,
-    # ── Curator / speaktube integration (Phase 6 / Bet 5 slice 1, 2026-05-16) ─
-    # The "growth dial" is a BIPOLAR float in [-1.0, +1.0] controlling
-    # the playlist composer's exploration vs. familiarity balance
-    # (slice 8 bipolar update, 2026-05-17 - was [0.0, 1.0]).
-    # -1.0 = stay strictly within the user's known interests (max comfort).
-    #  0.0 = balanced - mostly familiar with a few exploratory slots.
-    # +1.0 = maximum exploration / never-watched channels (max expansion).
-    # The value is set by the speaktube player via
-    # ``POST /api/growth_dial`` and read by the playlist-composition
-    # alert group at run time. Default -0.7 = "mostly familiar" - the
-    # bipolar equivalent of the old 0.15 default's intent. Operators
-    # who explicitly set a [0.0, 1.0] value before slice 8 will see it
-    # re-interpreted in bipolar terms (positive = exploration-side);
-    # re-set via the speaktube slider to restore the old behaviour.
-    "curator_growth_dial": -0.7,
-    # Base URL of the speaktube sidecar's telemetry endpoint. The
-    # hourly ``curator_telemetry_pull`` ingestion script HTTP-fetches
-    # NDJSON event lines from ``<base>/api/telemetry/<YYYY-MM-DD>.jsonl``.
-    # Empty string disables the pull (default - opt-in until speaktube
-    # ships the endpoint).
-    "curator_speaktube_base_url": "",
-    # How many days of telemetry to back-fill on each ingestion run.
-    # 1 = today only; 3 = today + 2 prior days (paranoid catch-up).
-    "curator_telemetry_lookback_days": 3,
-    # Target playlist size (items) when hybrid expansion fills beyond
-    # the LLM's curated picks (slice 6, 2026-05-17). The LLM still
-    # composes the top 10-20 items (with rationale + slot_kind); the
-    # dispatcher then appends additional items from the scored
-    # candidate pool - same external_id dedup, sequential positions -
-    # up to this target. Appended items get empty rationale (they're
-    # bulk-fill, not LLM-curated) and inherit interest/growth/slop
-    # scores from the feeder. Set to 20 to disable expansion entirely
-    # (LLM-only output, no appending). Range 20-5000. Composer's
-    # max_output_tokens is independent - the LLM never sees this
-    # number, so raising it costs nothing extra in LLM tokens.
-    "curator_playlist_target_count": 500,
-    # Channel diversity cap (slice 9, 2026-05-17 - speaktube req #5).
-    # Per-channel ceiling as a fraction of total playlist size; bulk-fill
-    # items from over-cap channels are dropped (LLM-curated items count
-    # toward the cap but are never dropped - operator can audit via the
-    # prompt's 10% rule). For a 500-item playlist, 0.10 caps each
-    # channel at 50 items (≈the speaktube spec). Range 0.01-1.0; set
-    # to 1.0 to effectively disable the cap.
-    "curator_channel_cap_percent": 0.10,
-    # Rolling-window same-channel limit (slice 9, 2026-05-17).
-    # Within any 10 consecutive positions, no channel may exceed this
-    # many items. Default 3 matches the speaktube spec's "no more than
-    # 3 items from the same channel within any window of 10
-    # positions". Applied only to bulk-fill placement (LLM-curated
-    # order is preserved). Range 1-10; set to 10 to effectively
-    # disable the window rule.
-    "curator_channel_max_in_window": 3,
-    # ── Thin-history aggressive discovery (slice 10, 2026-05-17 - speaktube req #12)
-    # When the user has watched fewer than `threshold_seconds` of video
-    # in the trailing 30 days, the composer's effective growth_dial is
-    # boosted by `dial_bias` (clamped to +1.0). This shifts the playlist
-    # toward exploration for accounts with thin history - the dial fix
-    # alone isn't enough when there's no baseline to bias against.
-    # Detection runs at AG-fire time against
-    # ``indexes/IMMUTABLE/curator_telemetry/*.parquet``. Speaktube's
-    # `thin_history_active` field in the /api/playlist/today response
-    # surfaces the state to the renderer.
-    "curator_thin_history_enabled": True,
-    # 5 hours = 18000s. Below this, thin-history activates. Range
-    # 0 - 30 days in seconds. Set to 0 to effectively disable
-    # (always thin) or to a very large value to disable (never thin).
-    "curator_thin_history_threshold_seconds": 18000,
-    # Additive bias on growth_dial when thin-history is active.
-    # Default 0.5 shifts -0.7 (mostly familiar) up to -0.2 (slight
-    # familiarity bias) - a gentler push than +1.0 max exploration.
-    # Range 0.0 - 2.0; the result is clamped to the dial's [-1, +1] range.
-    "curator_thin_history_dial_bias": 0.5,
-    # ── Keyword preferences (slice 11, 2026-05-17 - speaktube req #10)
-    # speaktube's Discover view POSTs keywords here to seed the next
-    # composer fire. Storage is IMMUTABLE (forever); the dispatcher's
-    # _maybe_apply_keyword_boost reads the "active pool" (rows since
-    # the most-recent curator_playlist composition OR a fallback
-    # window) and boosts ``interest_score`` on title-matching
-    # candidates. "Expires after next composer fire" is functional -
-    # the pool resets, the history doesn't.
-    "curator_keyword_boost_enabled": True,
-    # Additive boost applied to ``interest_score`` for each candidate
-    # whose ``title`` contains an active-pool keyword (case-insensitive
-    # substring). Applied AFTER topic-scoring so it's an additive
-    # overlay. Range 0.0 - 1.0; result is clamped to interest_score's
-    # [0, 1] range. 0.0 disables; 0.2 means "matching items rank
-    # roughly one tier higher in the LLM's mental model".
-    "curator_keyword_boost_amount": 0.2,
-    # Fallback lookback when no curator_playlist composition exists
-    # yet (fresh install or operator hasn't fired the composer).
-    # Default 86400s = 24h. Range 3600s (1h) to 604800s (1 week).
-    # Once a composition exists, the dispatcher reads "keywords since
-    # the most-recent composed_at_iso" instead.
-    "curator_keyword_pool_fallback_seconds": 86400,
-    # ── Curator topic vectors (Phase 6 / Bet 5 slice 3, 2026-05-16) ──
-    # Master switch for the engine-scheduled topic-snapshot refresh job.
-    # Default OFF (opt-in) for the same reason ``embeddings_enabled`` is:
-    # the first refresh on a populated history takes ~30-60s of CPU
-    # (embedder load + KMeans + per-cluster LLM call), and the snapshot
-    # output is only meaningful once a watch_history corpus exists.
-    # Operators enable this AFTER importing a Takeout corpus or
-    # accumulating live telemetry rows. The CLI tool
-    # (``tools/curator_topic_snapshot_refresh``) is always available
-    # regardless of this setting.
-    "curator_topic_snapshot_refresh_enabled": False,
-    # How often the refresh job runs (hours). Default weekly (168h).
-    # Topic snapshots are slow-evolving - your "style" doesn't change
-    # hour-to-hour. Ceiling 30 days; floor 1 hour for power users.
-    "curator_topic_snapshot_refresh_interval_hours": 168,
-    # KMeans target cluster count. Empirically 8-12 is the sweet spot
-    # for personal histories of 1k-10k watches - fewer collapses
-    # distinct topics, more produces near-duplicates. Capped at
-    # len(history) at compute time so a sparse bootstrap never crashes.
-    "curator_topic_n_clusters": 10,
-    # Recency decay half-life in days. With default 180 (≈6-month
-    # half-life), a watch from a year ago counts ~0.25× a watch from
-    # yesterday in cluster definition. Higher = older watches matter
-    # more (slower drift); lower = aggressive recency bias.
-    "curator_topic_decay_lambda_days": 180,
-    # Registry id for the LLM that labels clusters (cluster_id →
-    # 3-5-word human label). Default targets a self-hosted llama.cpp
-    # server (Qwen3.5-122B-A10B, endpoint from the model registry).
-    # $0 calls when available; falls back to placeholder labels when
-    # unreachable.
-    "curator_topic_label_model_id": "llamacpp-qwen35-122b-a10b",
-    # Per-refresh hard ceiling on labeling cost. The default model is
-    # $0 so this is belt-and-suspenders; operators using a cloud
-    # labeling model (e.g. claude-haiku-4-5-20251001) want this set.
-    "curator_topic_label_max_cost_usd": 0.05,
 }
 
 # ── Validators ────────────────────────────────────────────────────
@@ -451,22 +303,6 @@ _INT_VALIDATORS: dict = {
     "max_embeddings_size_gb":          (1, 1000),
     "embedding_batch_size":            (1, 1024),
     "embedding_sweep_interval_minutes": (1, 1440),
-    # Curator / speaktube
-    "curator_telemetry_lookback_days": (1, 30),
-    # Curator topic vectors (slice 3)
-    "curator_topic_snapshot_refresh_interval_hours": (1, 24 * 30),
-    "curator_topic_n_clusters":                       (2, 100),
-    "curator_topic_decay_lambda_days":                (1, 3650),
-    # Curator playlist hybrid expansion (slice 6, 2026-05-17)
-    "curator_playlist_target_count":                  (20, 5000),
-    # Curator channel cooldown (slice 9, 2026-05-17 - speaktube req #5)
-    "curator_channel_max_in_window":                  (1, 10),
-    # Curator thin-history threshold (slice 10, 2026-05-17 - speaktube req #12)
-    # 0 to 30 days expressed in seconds (30 * 86400 = 2,592,000)
-    "curator_thin_history_threshold_seconds":         (0, 2_592_000),
-    # Curator keyword-prefs fallback lookback (slice 11, 2026-05-17 - speaktube req #10)
-    # 1 hour to 1 week expressed in seconds
-    "curator_keyword_pool_fallback_seconds":          (3_600, 604_800),
 }
 
 
@@ -476,12 +312,6 @@ _INT_VALIDATORS: dict = {
 # the (lo, hi) shape - keeps the per-key custom branches focused on
 # settings with cross-field rules.
 _FLOAT_VALIDATORS: dict = {
-    # Slice 9 - see DEFAULTS comment above
-    "curator_channel_cap_percent": (0.01, 1.0),
-    # Slice 10 - see DEFAULTS comment above
-    "curator_thin_history_dial_bias": (0.0, 2.0),
-    # Slice 11 - see DEFAULTS comment above
-    "curator_keyword_boost_amount": (0.0, 1.0),
 }
 
 
@@ -611,8 +441,6 @@ def _validate_key(key: str, value, all_settings: dict) -> str | None:
                   "alert_group_circuit_breaker_auto_disable",
                   "embeddings_enabled",
                   "notebook_cache_enabled",
-                  "curator_thin_history_enabled",   # slice 10 2026-05-17
-                  "curator_keyword_boost_enabled",   # slice 11 2026-05-17
                   "global_use_headroom_default"):    # headroom 2026-06-23
         if not isinstance(value, bool):
             return f"{key}: must be true or false"
@@ -692,28 +520,6 @@ def _validate_key(key: str, value, all_settings: dict) -> str | None:
             return f"{key}: minimum is 5 seconds, got {value}"
         if value > 600:
             return f"{key}: maximum is 600 seconds, got {value}"
-
-    elif key == "curator_growth_dial":
-        # Phase 6 / Bet 5 slice 1 (original 0..1) + slice 8 (bipolar
-        # -1..+1, 2026-05-17) - exploration knob. -1.0 = max
-        # familiarity ("only channels the user watches a lot"); 0.0 =
-        # balanced; +1.0 = max exploration ("only never-watched
-        # channels"). Written by speaktube via POST /api/growth_dial;
-        # read by playlist composer. Bool rejected explicitly so a
-        # "yes/no" doesn't silently turn into 0.0/1.0 and surprise
-        # the composer.
-        if isinstance(value, bool):
-            return f"{key}: must be a number"
-        if not isinstance(value, (int, float)):
-            return f"{key}: must be a number"
-        if value < -1.0 or value > 1.0:
-            return f"{key}: must be in [-1.0, +1.0], got {value}"
-
-    elif key == "curator_speaktube_base_url":
-        if not isinstance(value, str):
-            return f"{key}: must be a string"
-        if value.strip() and not (value.startswith("http://") or value.startswith("https://")):
-            return f"{key}: must start with http:// or https:// (or be empty to disable pull)"
 
     elif key == "headroom_proxy_url":
         # Headroom compression proxy base URL. Empty falls back to the

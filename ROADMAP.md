@@ -574,9 +574,9 @@ Ten atomic slices on `claude/peaceful-austin-605861` (and prior session branches
 
 Shipped substantially ahead of the Q2 2027 target. All four pipes-maturity primitives (`llm_route`, `llm_refine`, `llm_ensemble`, `llm_until`) are in the grammar and documented in `docs/lang/18_llm_pipes.md`; the self-healing patch drafter ships as `analyzers/patch_drafter` + the `patch_suggestions` log stream (slice 8a, 2026-05-09); the visual builder shipped with round-trip serialization and starter templates (`docs/lang/20_visual_builder.md`). Prompt-from-outcome learning remains open - it depends on Phase 5's fill/outcome data and moves with it.
 
-#### Parallel work stream - Bet 5: Media Curator (2026-05-14 → 2026-06-23)
+#### Parallel work stream - Bet 5: Media companion (2026-05-14 → 2026-06-23)
 
-Not part of the original four bets. A personal video-curation pipeline ("Phase 6 / Bet 5" in commit history - numbered before this document's Phase 6 was scheduled, and unrelated to it) built as a thin overlay on the existing primitives: multi-source candidate ingestion (YouTube RSS, topic search, Archive.org), an LLM playlist composer (the first `output_kind != "picks"` alert group), topic-vector scoring from viewing telemetry, and a separate LAN player frontend (**speaktube**) consuming four REST endpoints. Contract + handoff docs: `docs/lang/21_curator_speaktube.md`, `22_speaktube_handoff.md`, `23_speaktube_post_launch_deltas.md`. Validated the "new product = new feeders + new AG + thin API, zero engine forks" thesis. Operationally mothballed 2026-07-01 (player host offline; all IMMUTABLE data retained; one-hour revive path documented).
+Not part of the original four bets. A personal video-curation pipeline ("Phase 6 / Bet 5" in commit history - numbered before this document's Phase 6 was scheduled, and unrelated to it) built as a thin overlay on the existing primitives: multi-source candidate ingestion, an LLM playlist composer (the first `output_kind != "picks"` alert group), topic-vector scoring from viewing telemetry, and a separate LAN player frontend consuming a small REST contract. Validated the "new product = new feeders + new AG + thin API, zero engine forks" thesis. Extracted into its own standalone project in 2026-07; all engine-side code for it was removed from this repo (the operator's IMMUTABLE data was retained on the host).
 
 ---
 

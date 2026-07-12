@@ -129,27 +129,6 @@ def test_immutable_categories_match_intended_set():
         "ag_picks",
         "ag_picks_closures",
         "ag_picks_review_observations",
-        # Phase 6 / Bet 5 slice 1 (2026-05-16): curator ↔ speaktube
-        # contract endpoints. All three are explicitly forever-data -
-        # the user's viewing telemetry, their written reflections, and
-        # the historical record of what the curator suggested. See
-        # docs/lang/21_curator_speaktube.md.
-        "curator_telemetry",
-        "curator_reflections",
-        "curator_playlist",
-        # Phase 6 / Bet 5 slice 3 (2026-05-16): topic-evolution snapshots -
-        # one row per cluster per snapshot, ties the curator's "what is the
-        # user into 6 months ago vs today?" timeline. Added to
-        # IMMUTABLE_CATEGORIES in slice 3 but this enumeration drifted
-        # until slice 4 (2026-05-17) caught it.
-        "curator_topic_snapshots",
-        # Phase 6 / Bet 5 slice 11 (2026-05-17 - speaktube req #10):
-        # operator-supplied keyword preferences. Each POST to
-        # /api/preferences/keywords writes one row. Forever-data so the
-        # operator's "what was I curious about last spring?" trail is
-        # recoverable; the "active pool" semantic ("expires after the
-        # next composer fire") is functional-only.
-        "curator_keyword_prefs",
     })
 
 
