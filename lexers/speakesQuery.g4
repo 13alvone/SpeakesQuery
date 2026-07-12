@@ -122,6 +122,7 @@ directive
     | SORT (PLUS | MINUS) NUMBER? (variableName COMMA?)+
     | REX FIELD EQUALS variableName (MODE EQUALS SED)? (MAX_MATCH EQUALS NUMBER)? DOUBLE_QUOTED_STRING
     | REGEX variableName (EQUALS | NOT_EQUALS) (variableName | DOUBLE_QUOTED_STRING)
+    | SQL DOUBLE_QUOTED_STRING
     | BASE64 (ENCODE | DECODE) (variableName | DOUBLE_QUOTED_STRING) (COMMA? (variableName | DOUBLE_QUOTED_STRING))*
     | BACKTICK macro BACKTICK
     | FILLNULL VALUE EQUALS (DOUBLE_QUOTED_STRING | NUMBER | variableName) (variableName COMMA?)*
@@ -432,6 +433,12 @@ HEAD                    : 'head' ;
 LIMIT                   : ('limit' | 'LIMIT') ;
 REX                     : 'rex' ;
 REGEX                   : 'regex' ;
+// | sql passthrough pipe (W14, 2026-07-12). The escape hatch out of
+// SPQL: run one DuckDB SQL statement against the current pipeline
+// DataFrame (registered as the view ``pipeline``). Executed on a
+// per-call connection with enable_external_access=false so user SQL
+// can never read_parquet()/read_csv() arbitrary filesystem paths.
+SQL                     : ('sql' | 'SQL') ;
 LOADJOB                 : 'loadjob' ;
 MAKERESULTS             : 'makeresults' ;
 ADDINFO                 : 'addinfo' ;

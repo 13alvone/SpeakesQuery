@@ -128,6 +128,7 @@ class speakesQueryListener(ParseTreeListener):
             "reverse": self._cmd_reverse,
             "rex": self._cmd_rex,
             "regex": self._cmd_regex,
+            "sql": self._cmd_sql,
             "fields": self._cmd_fields,
             "rename": self._cmd_rename,
             "fieldsummary": self._cmd_fieldsummary,
@@ -535,6 +536,17 @@ class speakesQueryListener(ParseTreeListener):
         """
         field, regex = seg_tokens[1].split("=", 1)
         return self.general_handler.filter_df_by_regex(self.main_df, field, regex)
+
+    def _cmd_sql(self, seg_tokens, _):
+        """Run one DuckDB SQL statement against the pipeline DataFrame
+        (registered as the view ``pipeline``). seg_tokens like
+        ["sql", "SELECT * FROM pipeline"] - shlex has already dequoted
+        the statement. Sandboxed per-call connection with
+        enable_external_access=false; see handlers/SqlHandler.py.
+        """
+        from handlers.SqlHandler import SqlHandler
+        sql_text = " ".join(seg_tokens[1:])
+        return SqlHandler().execute_sql(self.main_df, sql_text)
 
     def _cmd_fields(self, seg_tokens, _):
         """Select or drop columns. seg_tokens like ["fields", "-foo", "bar"].

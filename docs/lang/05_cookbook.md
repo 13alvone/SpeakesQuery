@@ -1125,3 +1125,29 @@ index="indexes/IMMUTABLE/ag_picks_closures/*.parquet"
 ```
 
 > **Reading the metric:** P&L is journaled per 1 contract (price math, not position math), so the unit stays stable as the account scales. Multiply by your actual position size at query time to get dollar P&L.
+
+## Dropping into plain SQL mid-pipeline
+
+Prefer SQL for a step? `| sql` hands the current pipeline to DuckDB as the view `pipeline` and the statement's result becomes the new pipeline. Filesystem access is disabled inside the statement (see [02_commands.md](02_commands.md#sql)) - data enters through `index=` only.
+
+Keep the whole statement on one line (SPQL string literals do not span lines); chain multiple `| sql` pipes for multi-step SQL.
+
+**Window functions (no SPQL equivalent):**
+
+```spl
+index="indexes/sample/app_logs/*"
+| sql "SELECT service, path, response_ms, rank() OVER (PARTITION BY service ORDER BY response_ms DESC) AS slowest_rank FROM pipeline"
+| where slowest_rank <= 3
+| sort service, slowest_rank
+```
+
+**A whole analysis in one statement, SPQL for the trimmings:**
+
+```spl
+index="indexes/sample/app_logs/*"
+| sql "SELECT service, count(*) AS requests, round(avg(response_ms), 1) AS avg_ms, round(quantile_cont(response_ms, 0.95), 1) AS p95_ms, sum(CASE WHEN level = 'ERROR' THEN 1 ELSE 0 END) AS errors FROM pipeline GROUP BY service"
+| eval error_rate=round(errors / requests * 100, 2)
+| sort -p95_ms
+```
+
+**Remember:** your indexes are plain gzip Parquet on disk - DuckDB, pandas, or any Parquet reader can also query them entirely outside SpeakesQuery. Your data is never captive to SPQL.

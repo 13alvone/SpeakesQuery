@@ -1,0 +1,41 @@
+tests:
+  # ── | sql negative cases (W14, 2026-07-12) ────────────────────
+  # The security posture pins: user SQL runs on a per-call
+  # connection with enable_external_access=false + locked
+  # configuration. See handlers/SqlHandler.py and
+  # tests/test_sql_pipe.py for the unit-level pins.
+
+  - id: sql_neg_001
+    title: "sql - read_parquet of arbitrary path is blocked"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT * FROM read_parquet('indexes/default_test/output_parquets/test0.parquet')"
+    expect_error: true
+
+  - id: sql_neg_002
+    title: "sql - read_csv of arbitrary path is blocked"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT * FROM read_csv('/etc/passwd')"
+    expect_error: true
+
+  - id: sql_neg_003
+    title: "sql - re-enabling external access is blocked"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SET enable_external_access=true"
+    expect_error: true
+
+  - id: sql_neg_004
+    title: "sql - invalid SQL surfaces an error, not silence"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELEKT nope FROM pipeline"
+    expect_error: true
+
+  - id: sql_neg_005
+    title: "sql - unknown table name errors cleanly"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT * FROM not_the_pipeline"
+    expect_error: true

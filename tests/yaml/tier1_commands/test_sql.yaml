@@ -1,0 +1,78 @@
+tests:
+  # ── | sql - DuckDB passthrough pipe (W14, 2026-07-12) ─────────
+  # The pipeline DataFrame is registered as the view `pipeline`;
+  # the statement's result becomes the new pipeline DataFrame.
+  # Security pins (external access blocked) live in
+  # tests/test_sql_pipe.py and tier4_negative/test_sql_negative.yaml.
+
+  - id: sql_001
+    title: "sql - select all passthrough preserves rows"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT * FROM pipeline"
+    expect:
+      row_count: 5
+
+  - id: sql_002
+    title: "sql - aggregation with alias"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT level, count(*) AS n FROM pipeline GROUP BY level ORDER BY level"
+    expect:
+      row_count: 5
+      columns: [level, n]
+      values:
+        - row: 0
+          column: level
+          value: CRITICAL
+
+  - id: sql_003
+    title: "sql - where filter"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT level, message FROM pipeline WHERE level = 'ERROR'"
+    expect:
+      row_count: 1
+      columns: [level, message]
+
+  - id: sql_004
+    title: "sql - composes with downstream SPQL pipes"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT level FROM pipeline"
+      | stats count by level
+      | sort -count
+    expect:
+      row_count: 5
+      columns: [level, count]
+
+  - id: sql_005
+    title: "sql - composes with upstream SPQL pipes"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | search level="ERROR"
+      | sql "SELECT upper(level) AS shouty FROM pipeline"
+    expect:
+      row_count: 1
+      columns: [shouty]
+      values:
+        - row: 0
+          column: shouty
+          value: ERROR
+
+  - id: sql_006
+    title: "sql - string literal containing a pipe survives splitting"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT level FROM pipeline WHERE level SIMILAR TO 'ERROR|CRITICAL' ORDER BY level"
+    expect:
+      row_count: 2
+
+  - id: sql_007
+    title: "sql - duckdb expression surface (no SPQL equivalent needed)"
+    query: |
+      index="indexes/default_test/output_parquets/test0.parquet"
+      | sql "SELECT level, row_number() OVER (ORDER BY level) AS rn FROM pipeline"
+    expect:
+      row_count: 5
+      columns: [level, rn]

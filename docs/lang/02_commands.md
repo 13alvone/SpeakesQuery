@@ -948,6 +948,47 @@ index="logs/app.parquet" | rex field=message max_match=5 "ip=(?<ip>\d+\.\d+\.\d+
 - Rex is MV-aware: if the source field contains a list, it searches across all elements.
 - Regex matching is case-insensitive by default.
 
+### sql
+
+Run one DuckDB SQL statement against the current pipeline. The escape hatch out of SPQL: if you would rather express a step (or an entire analysis) in plain SQL, you can - the result becomes the new pipeline DataFrame, and everything upstream and downstream still composes.
+
+**Syntax**:
+```
+| sql "<duckdb_sql_statement>"
+```
+
+The current pipeline DataFrame is available as the view **`pipeline`**.
+
+**Examples**:
+```spl
+# Aggregate in SQL instead of stats
+index="indexes/sample/app_logs/*"
+| sql "SELECT service, count(*) AS n FROM pipeline GROUP BY service ORDER BY n DESC"
+
+# Window functions - something SPQL has no direct equivalent for
+index="indexes/sample/app_logs/*"
+| sql "SELECT *, row_number() OVER (PARTITION BY service ORDER BY response_ms DESC) AS rank_in_service FROM pipeline"
+| where rank_in_service <= 3
+
+# Mix freely: filter in SPQL, join-to-self in SQL, format in SPQL
+index="indexes/sample/app_logs/*"
+| search level="ERROR"
+| sql "SELECT service, avg(response_ms) AS avg_ms FROM pipeline GROUP BY service"
+| sort -avg_ms
+| head 5
+```
+
+**Security**:
+- The statement runs on a dedicated per-call DuckDB connection with `enable_external_access=false` set **before** your SQL executes: `read_parquet()`, `read_csv()`, `COPY ... TO`, and `ATTACH` against arbitrary filesystem paths are refused by the engine. The connection's configuration is then locked, so the flag cannot be re-enabled from inside the statement. Data enters the pipe through the `index=` clause only.
+- `CREATE TABLE` / `INSERT` against the in-memory session are allowed but discarded when the statement finishes - each `| sql` call is isolated.
+- Pinned by `tests/test_sql_pipe.py::TestExternalAccessLockdown` and `tests/yaml/tier4_negative/test_sql_negative.yaml`.
+
+**Notes**:
+- One statement per `| sql` pipe. Chain multiple `| sql` pipes for multi-step SQL.
+- Keep the statement on one line: SPQL string literals do not span line breaks.
+- String literals may contain `|` characters - the pipeline splitter is quote-aware.
+- An empty upstream result registers as an empty `pipeline` view (schema: `_epoch`), so zero-row days do not error.
+
 ---
 
 ## Output Commands

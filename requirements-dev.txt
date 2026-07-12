@@ -1,4 +1,8 @@
 antlr4-python3-runtime~=4.13.1
+# Grammar regeneration only (cd lexers && antlr4 -v 4.13.2 -Dlanguage=Python3
+# speakesQuery.g4 -o antlr4_active). Downloads a private JRE to ~/.jre on
+# first run. Keep the -v pin in lockstep with the runtime line above.
+antlr4-tools~=0.2
 # Keep in lockstep with requirements.txt - 2.3.3 is the first pandas
 # release with Python 3.14 wheels; a lower dev pin makes the combined
 # `pip install -r requirements.txt -r requirements-dev.txt` unresolvable.
