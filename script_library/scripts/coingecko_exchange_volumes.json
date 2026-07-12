@@ -7,6 +7,15 @@
   "suggested_cron": "0 */6 * * *",
   "suggested_subdirectory": "crypto/coingecko_exchanges",
   "suggested_overwrite": false,
-  "tags": ["free", "no-auth", "crypto", "coingecko", "exchanges", "volume", "liquidity"],
-  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.coingecko.com/api/v3'\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nresp = requests.get(\n    f'{BASE}/exchanges',\n    params={'per_page': 50, 'page': 1},\n    timeout=30,\n)\nresp.raise_for_status()\nexchanges = resp.json()\n\nrows = []\nfor ex in exchanges:\n    vol_btc = float(ex.get('trade_volume_24h_btc', 0) or 0)\n    vol_norm = float(ex.get('trade_volume_24h_btc_normalized', 0) or 0)\n    wash_ratio = round(1.0 - (vol_norm / vol_btc), 4) if vol_btc > 0 else 0.0\n\n    rows.append({\n        'exchange_id': ex.get('id', ''),\n        'name': ex.get('name', ''),\n        'country': ex.get('country', ''),\n        'year_established': ex.get('year_established', 0) or 0,\n        'trust_score': ex.get('trust_score', 0) or 0,\n        'trust_rank': ex.get('trust_score_rank', 0) or 0,\n        'volume_24h_btc': round(vol_btc, 2),\n        'volume_24h_btc_normalized': round(vol_norm, 2),\n        'suspected_wash_pct': round(wash_ratio * 100, 2),\n        'has_trading_incentive': bool(ex.get('has_trading_incentive', False)),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('volume_24h_btc', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)"
+  "tags": [
+    "free",
+    "no-auth",
+    "crypto",
+    "coingecko",
+    "exchanges",
+    "volume",
+    "liquidity"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.coingecko.com/api/v3'\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nresp = requests.get(\n    f'{BASE}/exchanges',\n    params={'per_page': 50, 'page': 1},\n    timeout=30,\n)\nresp.raise_for_status()\nexchanges = resp.json()\n\nrows = []\nfor ex in exchanges:\n    vol_btc = float(ex.get('trade_volume_24h_btc', 0) or 0)\n    vol_norm = float(ex.get('trade_volume_24h_btc_normalized', 0) or 0)\n    wash_ratio = round(1.0 - (vol_norm / vol_btc), 4) if vol_btc > 0 else 0.0\n\n    rows.append({\n        'exchange_id': ex.get('id', ''),\n        'name': ex.get('name', ''),\n        'country': ex.get('country', ''),\n        'year_established': ex.get('year_established', 0) or 0,\n        'trust_score': ex.get('trust_score', 0) or 0,\n        'trust_rank': ex.get('trust_score_rank', 0) or 0,\n        'volume_24h_btc': round(vol_btc, 2),\n        'volume_24h_btc_normalized': round(vol_norm, 2),\n        'suspected_wash_pct': round(wash_ratio * 100, 2),\n        'has_trading_incentive': bool(ex.get('has_trading_incentive', False)),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('volume_24h_btc', ascending=False).reset_index(drop=True)\nGENERATE_RESULTS(df)",
+  "support_tier": "core"
 }

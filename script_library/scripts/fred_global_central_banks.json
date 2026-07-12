@@ -13,6 +13,7 @@
   "suggested_subdirectory": "macro/central_bank_rates",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "fred",
     "macro",

@@ -7,6 +7,15 @@
   "suggested_cron": "0 */12 * * *",
   "suggested_subdirectory": "polymarket/leaderboard",
   "suggested_overwrite": false,
-  "tags": ["free", "no-auth", "polymarket", "prediction-markets", "leaderboard", "traders", "alpha"],
-  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nDATA = 'https://data-api.polymarket.com'\n\nresp = requests.get(\n    f'{DATA}/v1/leaderboard',\n    params={'limit': 100, 'offset': 0},\n    timeout=30,\n)\nresp.raise_for_status()\ndata = resp.json()\n\nleaders = data\nif isinstance(data, dict):\n    leaders = data.get('data', data.get('leaderboard', data.get('results', [])))\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\nrows = []\nfor i in range(len(leaders)):\n    entry = leaders[i]\n    rows.append({\n        'rank': i + 1,\n        'user_address': entry.get('proxyWallet', entry.get('address', '')),\n        'username': entry.get('userName', entry.get('username', '')),\n        'profit': float(entry.get('pnl', entry.get('profit', 0)) or 0),\n        'volume': float(entry.get('vol', entry.get('volume', 0)) or 0),\n        'markets_traded': int(entry.get('marketsTraded', entry.get('markets_traded', 0)) or 0),\n        'positions_won': int(entry.get('positionsWon', entry.get('positions_won', 0)) or 0),\n        'positions_lost': int(entry.get('positionsLost', entry.get('positions_lost', 0)) or 0),\n        'win_rate': float(entry.get('winRate', entry.get('win_rate', 0)) or 0),\n        'profile_image': entry.get('profileImage', entry.get('avatar', '')),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+  "tags": [
+    "free",
+    "no-auth",
+    "polymarket",
+    "prediction-markets",
+    "leaderboard",
+    "traders",
+    "alpha"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nDATA = 'https://data-api.polymarket.com'\n\nresp = requests.get(\n    f'{DATA}/v1/leaderboard',\n    params={'limit': 100, 'offset': 0},\n    timeout=30,\n)\nresp.raise_for_status()\ndata = resp.json()\n\nleaders = data\nif isinstance(data, dict):\n    leaders = data.get('data', data.get('leaderboard', data.get('results', [])))\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\nrows = []\nfor i in range(len(leaders)):\n    entry = leaders[i]\n    rows.append({\n        'rank': i + 1,\n        'user_address': entry.get('proxyWallet', entry.get('address', '')),\n        'username': entry.get('userName', entry.get('username', '')),\n        'profit': float(entry.get('pnl', entry.get('profit', 0)) or 0),\n        'volume': float(entry.get('vol', entry.get('volume', 0)) or 0),\n        'markets_traded': int(entry.get('marketsTraded', entry.get('markets_traded', 0)) or 0),\n        'positions_won': int(entry.get('positionsWon', entry.get('positions_won', 0)) or 0),\n        'positions_lost': int(entry.get('positionsLost', entry.get('positions_lost', 0)) or 0),\n        'win_rate': float(entry.get('winRate', entry.get('win_rate', 0)) or 0),\n        'profile_image': entry.get('profileImage', entry.get('avatar', '')),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)",
+  "support_tier": "core"
 }

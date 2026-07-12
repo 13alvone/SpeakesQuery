@@ -9,6 +9,7 @@
   "suggested_subdirectory": "IMMUTABLE/curator_candidates",
   "suggested_overwrite": false,
   "trust_level": "unrestricted",
+  "support_tier": "core",
   "tags": [
     "free",
     "no-auth",

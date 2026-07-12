@@ -1,6 +1,6 @@
 {
   "title": "Congress.gov Recent Bills and Actions",
-  "description": "Snapshots recent legislation from the official Congress.gov API. Each row identifies a bill with congress / type (HR / S / HJRES / SJRES) / number, title, sponsor, originating chamber, latest action text + date, importance tier (HIGH for chamber passage, signed-into-law, or veto; MEDIUM for committee reports or floor amendments; LOW for introductions), and a policy-area tag (Healthcare, Energy, Finance, Defense, Tech, Immigration, Tax, Trade, Climate, Civil Rights, Other). Powers the Politics & Policy Prediction Brief: HIGH-importance bills move sector ETFs and issue equities reliably (e.g., chip subsidies \u2192 SOXX / chip stocks; permitting reform \u2192 XLE; healthcare cost caps \u2192 XLV / individual drug names). Free Congress.gov API requires CONGRESS_GOV_API_KEY (free signup at api.congress.gov). Round-6 (2026-05-02): tightened importance classifier so SRES/HRES (single-chamber commemorative resolutions like \"Awareness Month\" or \"congratulating Little League\") never tier above LOW; dropped overly-broad \"agreed to\" pattern from HIGH which was misclassifying every procedural agreement; added specific bicameral milestones (conference report agreed to, House/Senate concurred in).",
+  "description": "Snapshots recent legislation from the official Congress.gov API. Each row identifies a bill with congress / type (HR / S / HJRES / SJRES) / number, title, sponsor, originating chamber, latest action text + date, importance tier (HIGH for chamber passage, signed-into-law, or veto; MEDIUM for committee reports or floor amendments; LOW for introductions), and a policy-area tag (Healthcare, Energy, Finance, Defense, Tech, Immigration, Tax, Trade, Climate, Civil Rights, Other). Powers the Politics & Policy Prediction Brief: HIGH-importance bills move sector ETFs and issue equities reliably (e.g., chip subsidies → SOXX / chip stocks; permitting reform → XLE; healthcare cost caps → XLV / individual drug names). Free Congress.gov API requires CONGRESS_GOV_API_KEY (free signup at api.congress.gov). Round-6 (2026-05-02): tightened importance classifier so SRES/HRES (single-chamber commemorative resolutions like \"Awareness Month\" or \"congratulating Little League\") never tier above LOW; dropped overly-broad \"agreed to\" pattern from HIGH which was misclassifying every procedural agreement; added specific bicameral milestones (conference report agreed to, House/Senate concurred in).",
   "category": "Government and Regulatory",
   "api_url": "https://api.congress.gov/v3/bill",
   "requires_credentials": [
@@ -13,6 +13,7 @@
   "suggested_subdirectory": "politics/congress_bills",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "congress",
     "politics",

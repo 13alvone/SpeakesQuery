@@ -3382,6 +3382,15 @@
     [data-theme="cyber"] .lib-tag.contact {
       background: #78350f; color: #fde68a;
     }
+    /* "example" support tier (W13) - unofficial/fragile endpoint,
+       use at your own risk. Muted violet so it reads as an advisory
+       label, not an error. */
+    .lib-tag.example { background: #ede9fe; color: #5b21b6; }
+    [data-theme="dark"] .lib-tag.example,
+    [data-theme="night"] .lib-tag.example,
+    [data-theme="cyber"] .lib-tag.example {
+      background: #4c1d95; color: #ddd6fe;
+    }
 
     /* Per-credential hint banners shown above the credentials sidebar
        when a library script is deployed.  `api` tone = red (secret);
@@ -5090,8 +5099,17 @@ GENERATE_RESULTS(df)
           <span class="subtitle" style="margin:0; font-size:.95rem;">Script Library</span>
           <button id="refresh-lib-btn" type="button" class="button is-light" style="font-size:11px;">Refresh</button>
         </div>
-        <p style="color:var(--secondary); font-size:12px; margin-bottom:1rem;">
+        <p style="color:var(--secondary); font-size:12px; margin-bottom:.4rem;">
           Curated, ready-to-use ingestion scripts. Preview the code, then deploy directly to Create Ingestion with one click.
+        </p>
+        <p id="lib-tier-disclaimer" style="color:var(--secondary); font-size:12px; margin-bottom:1rem;">
+          Scripts are the author's working examples - validate any script against
+          <em>your</em> use case before relying on it. <strong>core</strong> scripts
+          use documented, stable APIs and are maintained with the project;
+          scripts badged <strong>example</strong> sit on unofficial or fragile
+          endpoints (HTML scrapes, undocumented APIs) and are provided
+          use-at-your-own-risk - they can break without warning when the
+          upstream site changes.
         </p>
 
         <div class="lib-toolbar">
@@ -12106,6 +12124,7 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
     if (tag === 'api-key')          return ' auth';
     if (tag === 'contact-required') return ' contact';
     if (tag === 'no-auth')          return ' free';
+    if (tag === 'example-tier')     return ' example';
     return '';
   }
 
@@ -12178,6 +12197,9 @@ Generate the complete, ready-to-paste script. Do not include any explanation out
         cardTags.push('api-key');
       }
       if (typeof s.id === 'string' && s.id.endsWith('_pro')) cardTags.push('pro-tier');
+      // Support tier (W13, 2026-07-12): "example" scripts sit on
+      // unofficial/fragile endpoints - surface that before deploy.
+      if ((s.support_tier || 'example') === 'example') cardTags.push('example-tier');
       (s.tags || []).forEach(t => {
         if (t && !['free', 'no-auth', 'api-key', 'contact-required'].includes(t)) cardTags.push(t);
       });

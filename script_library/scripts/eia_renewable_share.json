@@ -13,6 +13,7 @@
   "suggested_subdirectory": "energy/eia_generation_mix",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "eia",
     "energy",

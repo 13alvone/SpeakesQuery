@@ -13,6 +13,7 @@
   "suggested_subdirectory": "commodities/fred_prices",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "fred",
     "commodities",

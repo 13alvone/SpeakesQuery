@@ -7,6 +7,12 @@
   "suggested_cron": "0 */2 * * *",
   "suggested_subdirectory": "hackernews/top_stories",
   "suggested_overwrite": true,
-  "tags": ["free", "no-auth", "news", "social"],
-  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\n# HackerNews Official API (Firebase) - no auth, no rate limit\n# https://github.com/HackerNews/API\nBASE = 'https://hacker-news.firebaseio.com/v0'\n\n# Get top story IDs (returns ~500, we take top 30)\nresp = requests.get(f'{BASE}/topstories.json', timeout=30)\nresp.raise_for_status()\nstory_ids = resp.json()[:30]\n\nrows = []\nfor sid in story_ids:\n    item_resp = requests.get(f'{BASE}/item/{sid}.json', timeout=15)\n    if item_resp.status_code != 200:\n        continue\n    item = item_resp.json()\n    if not item:\n        continue\n\n    rows.append({\n        'story_id': item.get('id', ''),\n        'title': item.get('title', ''),\n        'url': item.get('url', ''),\n        'author': item.get('by', ''),\n        'score': item.get('score', 0),\n        'comment_count': item.get('descendants', 0),\n        'type': item.get('type', 'story'),\n        '_epoch': item.get('time', int(datetime.now(timezone.utc).timestamp())),\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+  "tags": [
+    "free",
+    "no-auth",
+    "news",
+    "social"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\n# HackerNews Official API (Firebase) - no auth, no rate limit\n# https://github.com/HackerNews/API\nBASE = 'https://hacker-news.firebaseio.com/v0'\n\n# Get top story IDs (returns ~500, we take top 30)\nresp = requests.get(f'{BASE}/topstories.json', timeout=30)\nresp.raise_for_status()\nstory_ids = resp.json()[:30]\n\nrows = []\nfor sid in story_ids:\n    item_resp = requests.get(f'{BASE}/item/{sid}.json', timeout=15)\n    if item_resp.status_code != 200:\n        continue\n    item = item_resp.json()\n    if not item:\n        continue\n\n    rows.append({\n        'story_id': item.get('id', ''),\n        'title': item.get('title', ''),\n        'url': item.get('url', ''),\n        'author': item.get('by', ''),\n        'score': item.get('score', 0),\n        'comment_count': item.get('descendants', 0),\n        'type': item.get('type', 'story'),\n        '_epoch': item.get('time', int(datetime.now(timezone.utc).timestamp())),\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)",
+  "support_tier": "core"
 }

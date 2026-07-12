@@ -13,6 +13,7 @@
   "suggested_subdirectory": "energy/eia_natural_gas",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "eia",
     "energy",

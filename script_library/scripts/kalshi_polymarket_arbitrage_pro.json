@@ -1,6 +1,6 @@
 {
   "title": "Kalshi vs Polymarket Arbitrage Pro",
-  "description": "Pro-tier variant of kalshi_polymarket_arbitrage. Replaces the base script's keyword-overlap matching (\u22653 shared normalized tokens) with rapidfuzz.fuzz.token_sort_ratio - a far stricter semantic similarity measure that collapses word order and character noise. Adds a match_confidence column (0-100, the raw rapidfuzz score) and raises the default match threshold to 70. Produces dramatically fewer false-positive cross-platform pairings than the sandboxed variant. trust_level: unrestricted - imports rapidfuzz which is outside the sandbox allowlist. Walks /v2/events?with_nested_markets=true (2026-05-06 fix) instead of /v2/markets to bypass the KXMVE* sports/entertainment auto-permutation flood that filled /markets with thousands of unmatchable parlays as of the V2 schema flip - events carry the human prediction-market question in  and nested markets in .",
+  "description": "Pro-tier variant of kalshi_polymarket_arbitrage. Replaces the base script's keyword-overlap matching (≥3 shared normalized tokens) with rapidfuzz.fuzz.token_sort_ratio - a far stricter semantic similarity measure that collapses word order and character noise. Adds a match_confidence column (0-100, the raw rapidfuzz score) and raises the default match threshold to 70. Produces dramatically fewer false-positive cross-platform pairings than the sandboxed variant. trust_level: unrestricted - imports rapidfuzz which is outside the sandbox allowlist. Walks /v2/events?with_nested_markets=true (2026-05-06 fix) instead of /v2/markets to bypass the KXMVE* sports/entertainment auto-permutation flood that filled /markets with thousands of unmatchable parlays as of the V2 schema flip - events carry the human prediction-market question in  and nested markets in .",
   "category": "Prediction Markets",
   "api_url": "https://api.elections.kalshi.com/trade-api/v2/events",
   "requires_credentials": [],
@@ -8,6 +8,7 @@
   "suggested_subdirectory": "kalshi/cross_platform_arb_pro",
   "suggested_overwrite": false,
   "trust_level": "unrestricted",
+  "support_tier": "core",
   "tags": [
     "free",
     "no-auth",

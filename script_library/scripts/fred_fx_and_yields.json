@@ -13,6 +13,7 @@
   "suggested_subdirectory": "fx/fred_fx_yields",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "fred",
     "fx",

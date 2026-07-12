@@ -8,6 +8,7 @@
   "suggested_subdirectory": "research/arxiv_papers",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "free",
     "no-auth",

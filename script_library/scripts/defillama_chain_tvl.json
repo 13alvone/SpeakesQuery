@@ -7,6 +7,17 @@
   "suggested_cron": "0 */6 * * *",
   "suggested_subdirectory": "crypto/defillama_chain_tvl",
   "suggested_overwrite": false,
-  "tags": ["free", "no-auth", "crypto", "defi", "defillama", "chains", "tvl", "l2", "ecosystem"],
-  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.llama.fi'\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nresp = requests.get(f'{BASE}/v2/chains', timeout=30)\nresp.raise_for_status()\nchains = resp.json()\n\n# Calculate total TVL for market share\ntotal_tvl = 0.0\nfor ch in chains:\n    total_tvl = total_tvl + float(ch.get('tvl', 0) or 0)\n\nsorted_chains = sorted(chains, key=lambda x: float(x.get('tvl', 0) or 0), reverse=True)\n\nrows = []\nfor i in range(len(sorted_chains)):\n    ch = sorted_chains[i]\n    tvl = float(ch.get('tvl', 0) or 0)\n    if tvl < 100_000:\n        continue\n\n    market_share = round((tvl / total_tvl) * 100, 4) if total_tvl > 0 else 0.0\n\n    rows.append({\n        'rank': i + 1,\n        'chain': ch.get('name', ''),\n        'gecko_id': ch.get('gecko_id', ''),\n        'token_symbol': str(ch.get('tokenSymbol', '') or '').upper(),\n        'tvl_usd': round(tvl, 2),\n        'market_share_pct': market_share,\n        'stablecoins_tvl': round(float(ch.get('stablesMcap', 0) or 0), 2),\n        'protocol_count': int(ch.get('protocols', 0) or 0),\n        'chain_id': ch.get('chainId', ''),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)"
+  "tags": [
+    "free",
+    "no-auth",
+    "crypto",
+    "defi",
+    "defillama",
+    "chains",
+    "tvl",
+    "l2",
+    "ecosystem"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nBASE = 'https://api.llama.fi'\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\nresp = requests.get(f'{BASE}/v2/chains', timeout=30)\nresp.raise_for_status()\nchains = resp.json()\n\n# Calculate total TVL for market share\ntotal_tvl = 0.0\nfor ch in chains:\n    total_tvl = total_tvl + float(ch.get('tvl', 0) or 0)\n\nsorted_chains = sorted(chains, key=lambda x: float(x.get('tvl', 0) or 0), reverse=True)\n\nrows = []\nfor i in range(len(sorted_chains)):\n    ch = sorted_chains[i]\n    tvl = float(ch.get('tvl', 0) or 0)\n    if tvl < 100_000:\n        continue\n\n    market_share = round((tvl / total_tvl) * 100, 4) if total_tvl > 0 else 0.0\n\n    rows.append({\n        'rank': i + 1,\n        'chain': ch.get('name', ''),\n        'gecko_id': ch.get('gecko_id', ''),\n        'token_symbol': str(ch.get('tokenSymbol', '') or '').upper(),\n        'tvl_usd': round(tvl, 2),\n        'market_share_pct': market_share,\n        'stablecoins_tvl': round(float(ch.get('stablesMcap', 0) or 0), 2),\n        'protocol_count': int(ch.get('protocols', 0) or 0),\n        'chain_id': ch.get('chainId', ''),\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nGENERATE_RESULTS(df)",
+  "support_tier": "core"
 }

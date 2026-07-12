@@ -7,6 +7,16 @@
   "suggested_cron": "0 */4 * * *",
   "suggested_subdirectory": "gaming/steam_player_counts",
   "suggested_overwrite": false,
-  "tags": ["free", "no-auth", "gaming", "steam", "engagement", "alpha", "edge", "earnings-signal"],
-  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\n# Steam public API - top played games with concurrent player counts\nresp = requests.get(\n    'https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/',\n    timeout=30,\n)\nresp.raise_for_status()\ndata = resp.json()\n\nranks = data.get('response', {}).get('ranks', [])\n\nrows = []\nfor entry in ranks:\n    app_id = entry.get('appid', 0)\n    current = entry.get('concurrent_in_game', 0)\n    peak = entry.get('peak_in_game', 0)\n\n    peak_ratio = round(current / peak, 4) if peak > 0 else 0.0\n\n    if current >= 100000:\n        engagement_tier = 'MASSIVE'\n    elif current >= 25000:\n        engagement_tier = 'HIGH'\n    elif current >= 5000:\n        engagement_tier = 'MODERATE'\n    else:\n        engagement_tier = 'LOW'\n\n    rows.append({\n        'app_id': app_id,\n        'rank': entry.get('rank', 0),\n        'concurrent_players': current,\n        'peak_today': peak,\n        'peak_ratio': peak_ratio,\n        'engagement_tier': engagement_tier,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('rank').reset_index(drop=True)\nGENERATE_RESULTS(df)"
+  "tags": [
+    "free",
+    "no-auth",
+    "gaming",
+    "steam",
+    "engagement",
+    "alpha",
+    "edge",
+    "earnings-signal"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\nnow_epoch = int(datetime.now(timezone.utc).timestamp())\n\n# Steam public API - top played games with concurrent player counts\nresp = requests.get(\n    'https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/',\n    timeout=30,\n)\nresp.raise_for_status()\ndata = resp.json()\n\nranks = data.get('response', {}).get('ranks', [])\n\nrows = []\nfor entry in ranks:\n    app_id = entry.get('appid', 0)\n    current = entry.get('concurrent_in_game', 0)\n    peak = entry.get('peak_in_game', 0)\n\n    peak_ratio = round(current / peak, 4) if peak > 0 else 0.0\n\n    if current >= 100000:\n        engagement_tier = 'MASSIVE'\n    elif current >= 25000:\n        engagement_tier = 'HIGH'\n    elif current >= 5000:\n        engagement_tier = 'MODERATE'\n    else:\n        engagement_tier = 'LOW'\n\n    rows.append({\n        'app_id': app_id,\n        'rank': entry.get('rank', 0),\n        'concurrent_players': current,\n        'peak_today': peak,\n        'peak_ratio': peak_ratio,\n        'engagement_tier': engagement_tier,\n        '_epoch': now_epoch,\n    })\n\ndf = pd.DataFrame(rows)\nif not df.empty:\n    df = df.sort_values('rank').reset_index(drop=True)\nGENERATE_RESULTS(df)",
+  "support_tier": "core"
 }

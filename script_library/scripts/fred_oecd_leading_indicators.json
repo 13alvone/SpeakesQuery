@@ -13,6 +13,7 @@
   "suggested_subdirectory": "macro/oecd_cli",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "fred",
     "oecd",

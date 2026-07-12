@@ -8,6 +8,7 @@
   "suggested_subdirectory": "reddit/ticker_mentions_pro",
   "suggested_overwrite": false,
   "trust_level": "unrestricted",
+  "support_tier": "core",
   "tags": [
     "free",
     "no-auth",

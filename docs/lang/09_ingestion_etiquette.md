@@ -301,6 +301,20 @@ Your deployment's efficiency is a direct reflection of your ingestion scripts. A
 
 ---
 
+## Support Tiers: `core` vs `example`
+
+Trust tiers (below) describe how a script is *executed*. Support tiers describe how a script is *maintained*. Every library script's JSON declares a `support_tier`:
+
+| Tier | Meaning |
+|---|---|
+| `core` | Uses a documented, stable public API. Maintained with the project: CI-validated against mock responses, fixed when the upstream changes. 130 of the 135 shipped scripts. |
+| `example` | An author-provided working reference on an unofficial or fragile endpoint - an HTML scrape or an undocumented API that can change without notice (the ESPN payload drift of early 2026 is the canonical precedent). Provided use-at-your-own-risk; breakage may not be fixed promptly, or at all. |
+
+The Script Library page badges `example` scripts and carries the disclaimer inline. Two honest rules of thumb regardless of tier:
+
+1. **Every shipped script is the author's working example.** Validate any script against *your* use case, data volumes, and rate-limit posture before relying on it - "core" means maintained, not warranted.
+2. **New scripts must declare the field explicitly.** The loader treats a missing `support_tier` as `example` (fail-safe: an unclassified script never silently claims maintenance), and `tests/test_support_tier.py` freezes the classification so tier moves are deliberate, reviewed acts.
+
 ## Trust Tiers: `sandboxed` vs `unrestricted`
 
 Every ingestion script declares a `trust_level` that controls how it is compiled and what Python it can access. The default is `sandboxed` - what all scripts shipped before 2026-04-16 use. A new `unrestricted` tier was added to give expert authors access to libraries like `scipy`, `scikit-learn`, `rapidfuzz`, and anything else on `sys.path`.
@@ -401,7 +415,7 @@ With full `__builtins__` you can:
 - Access the filesystem directly
 - Bypass the `BudgetAwareRequests` wrapper by importing `urllib`, `http.client`, or raw sockets
 
-The per-execution timeout, HTTP count, and row cap still apply - they are enforced by the engine layer that wraps every script run. But there is no protection against intentional misuse. Treat `trust_level: "unrestricted"` like you treat any code you paste from the internet: **read it first**.
+The per-execution timeout, HTTP count, and row cap still apply - they are enforced by the engine layer that wraps every script run. But there is no protection against intentional misuse. Treat `trust_level: "unrestricted"` like you treat any code you paste from the internet: **read it first**. For the application-wide security posture - what every defense layer does and explicitly does not stop, including why RestrictedPython itself is a hardening layer rather than a security boundary - see [24_threat_model.md](24_threat_model.md).
 
 When to refuse to escalate a script to `unrestricted`:
 

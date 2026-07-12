@@ -9,6 +9,7 @@
   "suggested_subdirectory": "github/trending",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "example",
   "tags": [
     "free",
     "no-auth",

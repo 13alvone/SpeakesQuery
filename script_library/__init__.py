@@ -47,6 +47,13 @@ def list_scripts() -> list[dict]:
                 # 10 tickers × Yahoo pacing + Black-Scholes greeks) set 300.
                 "suggested_timeout_seconds": data.get("suggested_timeout_seconds"),
                 "trust_level": data.get("trust_level", "sandboxed"),
+                # Support tier (W13, 2026-07-12): "core" = maintained by
+                # the project, CI-mocked, stable documented API;
+                # "example" = author-provided reference on an unofficial
+                # or fragile endpoint - use at your own risk. Default is
+                # "example" (fail-safe: an unclassified script must
+                # never silently claim maintenance).
+                "support_tier": data.get("support_tier", "example"),
                 "tags": data.get("tags", []),
             })
         except Exception as exc:

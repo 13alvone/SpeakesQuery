@@ -13,6 +13,7 @@
   "suggested_subdirectory": "sports/odds_movements",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "odds-api",
     "sports-betting",

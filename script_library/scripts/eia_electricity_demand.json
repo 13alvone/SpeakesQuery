@@ -13,6 +13,7 @@
   "suggested_subdirectory": "energy/eia_electricity_demand",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "eia",
     "energy",

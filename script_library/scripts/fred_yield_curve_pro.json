@@ -13,6 +13,7 @@
   "suggested_subdirectory": "macro/fred_yield_curve_pro",
   "suggested_overwrite": false,
   "trust_level": "unrestricted",
+  "support_tier": "core",
   "tags": [
     "fred",
     "macro",

@@ -7,6 +7,12 @@
   "suggested_cron": "*/30 * * * *",
   "suggested_subdirectory": "github/public_events",
   "suggested_overwrite": false,
-  "tags": ["free", "no-auth", "github", "developer"],
-  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\n# GitHub Public Events API (unauthenticated: 60 req/hr)\nheaders = {'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'SpeakesQuery-Ingest'}\nresponse = requests.get('https://api.github.com/events', headers=headers, timeout=30)\nresponse.raise_for_status()\nevents = response.json()\n\nrows = []\nfor event in events:\n    rows.append({\n        'event_id': event.get('id', ''),\n        'type': event.get('type', ''),\n        'actor': event.get('actor', {}).get('login', ''),\n        'repo': event.get('repo', {}).get('name', ''),\n        'created_at': event.get('created_at', ''),\n        'public': event.get('public', True),\n    })\n\ndf = pd.DataFrame(rows)\n\n# Parse GitHub ISO timestamps to epoch\nif not df.empty and 'created_at' in df.columns:\n    df['_epoch'] = pd.to_datetime(df['created_at']).astype('int64') // 10**9\n\nGENERATE_RESULTS(df)"
+  "tags": [
+    "free",
+    "no-auth",
+    "github",
+    "developer"
+  ],
+  "code": "import pandas as pd\nimport requests\nfrom datetime import datetime, timezone\n\n# GitHub Public Events API (unauthenticated: 60 req/hr)\nheaders = {'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'SpeakesQuery-Ingest'}\nresponse = requests.get('https://api.github.com/events', headers=headers, timeout=30)\nresponse.raise_for_status()\nevents = response.json()\n\nrows = []\nfor event in events:\n    rows.append({\n        'event_id': event.get('id', ''),\n        'type': event.get('type', ''),\n        'actor': event.get('actor', {}).get('login', ''),\n        'repo': event.get('repo', {}).get('name', ''),\n        'created_at': event.get('created_at', ''),\n        'public': event.get('public', True),\n    })\n\ndf = pd.DataFrame(rows)\n\n# Parse GitHub ISO timestamps to epoch\nif not df.empty and 'created_at' in df.columns:\n    df['_epoch'] = pd.to_datetime(df['created_at']).astype('int64') // 10**9\n\nGENERATE_RESULTS(df)",
+  "support_tier": "core"
 }

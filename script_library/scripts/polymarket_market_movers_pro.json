@@ -8,6 +8,7 @@
   "suggested_subdirectory": "polymarket/market_movers_pro",
   "suggested_overwrite": false,
   "trust_level": "unrestricted",
+  "support_tier": "core",
   "tags": [
     "free",
     "no-auth",

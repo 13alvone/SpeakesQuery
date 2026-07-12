@@ -8,6 +8,7 @@
   "suggested_subdirectory": "clinical_trials/phase3_updates",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "free",
     "no-auth",

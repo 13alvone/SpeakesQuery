@@ -11,6 +11,7 @@
   "suggested_subdirectory": "forecasting/metaculus",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "free",
     "metaculus",

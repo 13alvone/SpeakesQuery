@@ -13,6 +13,7 @@
   "suggested_subdirectory": "fx/g10_carry",
   "suggested_overwrite": false,
   "trust_level": "sandboxed",
+  "support_tier": "core",
   "tags": [
     "fred",
     "fx",
