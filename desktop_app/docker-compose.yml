@@ -128,12 +128,13 @@ services:
       #     container resolves to /app/.speakes-query.
       - ${HOME}/.speakes-query:/app/.speakes-query
     env_file:
-      # required: false lets `docker compose up` succeed on a tree where
-      # install.sh hasn't generated .env yet (all .env content is optional;
-      # see .env.example). install.sh still creates it on the recommended
-      # path - this only removes the hard failure from the manual path.
-      - path: ../.env
-        required: false
+      # Plain list syntax (not the extended `path:` / `required: false`
+      # form) so this file parses on Compose < 2.24, which is still common
+      # on LTS distros. Plain syntax makes ../.env REQUIRED at `up` time;
+      # install.sh always creates it (from .env.example, or empty), and the
+      # README's "run ./install.sh once first" rule covers the manual path.
+      # If you skip install.sh entirely: `cp .env.example .env` first.
+      - ../.env
     environment:
       PORT: "5111"
       # Bind to all interfaces INSIDE the container so Docker's port mapping
