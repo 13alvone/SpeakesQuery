@@ -3245,13 +3245,15 @@ SCRIPT_REGISTRY = {
             # M-MI-8 (2026-04-22): market_movers_pro now requires a
             # fresh ``lastTradeTime`` (or ``updatedAt``) on the Gamma
             # snapshot - older than 5min and the row is skipped.
-            "gamma-api.polymarket.com/markets": [
+            # Callable so lastTradeTime is minted at REQUEST time - the
+            # script skips snapshots older than 5min (M-MI-8), and a
+            # module-import-time timestamp goes stale whenever collection
+            # -> execution exceeds 5min (e.g. any full-suite run).
+            "gamma-api.polymarket.com/markets": lambda url, kwargs: [
                 make_gamma_market(
-                    lastTradeTime=(
-                        _FRESH_MARKET_MOVER_TS := _options_dt.now(
-                            _options_tz.utc,
-                        ).isoformat().replace("+00:00", "Z")
-                    ),
+                    lastTradeTime=_options_dt.now(
+                        _options_tz.utc,
+                    ).isoformat().replace("+00:00", "Z"),
                 ),
             ],
             "clob.polymarket.com/midpoint": {"mid": "0.70"},

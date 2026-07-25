@@ -757,9 +757,22 @@ def _resolve_glob_pattern(raw_pattern: str) -> str:
 
 
 def _resolve_files(pattern: str) -> List[str]:
-    """Expand a glob pattern to a sorted list of .parquet file paths."""
+    """Expand a glob pattern to a sorted list of .parquet file paths.
+
+    Embedding sidecars (``*.embeddings.parquet``, written next to every
+    source parquet by the embedding sweeper) are infrastructure, not data:
+    a wildcard or directory index must never load them as rows, or every
+    swept source double-counts. They are only returned when the pattern
+    names a sidecar file explicitly (a deliberate inspection escape hatch).
+    """
+    explicit_sidecar = (
+        pattern.endswith(".embeddings.parquet")
+        and "*" not in os.path.basename(pattern)
+    )
     files = sorted(glob.glob(pattern, recursive=True))
     result = [f for f in files if f.endswith(".parquet") and os.path.isfile(f)]
+    if not explicit_sidecar:
+        result = [f for f in result if not f.endswith(".embeddings.parquet")]
     if not result:
         # Diagnostic: help operators figure out why no files matched
         parent = os.path.dirname(pattern.split("*")[0].rstrip("/"))

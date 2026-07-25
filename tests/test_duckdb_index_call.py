@@ -122,6 +122,29 @@ class TestBasicIndexLoad:
         # Directory without glob should recursively load all parquets
         assert len(df) == 1005
 
+    @needs_system4
+    def test_glob_excludes_embedding_sidecars(self):
+        # error_tracking/ ships error1.embeddings.parquet + error2.embeddings.parquet
+        # next to the sources. Wildcard and directory loads must skip them -
+        # sidecars are sweeper infrastructure, not data - or every swept
+        # source double-counts (caught 2026-07-25: expected 8, got 16).
+        tokens = ['index', '=', '"archive/system_logs/error_tracking/*.parquet"']
+        df = process_index_calls(tokens)
+        # error1.parquet (3) + error2.parquet (2), sidecars excluded
+        assert len(df) == 5
+
+    @needs_system4
+    def test_explicit_sidecar_path_still_loads(self):
+        # Naming a sidecar file directly is the deliberate inspection
+        # escape hatch - exclusion applies only to glob/directory expansion.
+        tokens = [
+            'index', '=',
+            '"indexes/archive/system_logs/error_tracking/error1.embeddings.parquet"',
+        ]
+        df = process_index_calls(tokens)
+        assert len(df) > 0
+        assert "embedding" in df.columns
+
     def test_default_index_no_explicit_pattern(self):
         """When no index= is specified, defaults to system_logs/**."""
         tokens = ['status', '=', '"error"']
