@@ -88,6 +88,13 @@ secrets.txt
 !/indexes/archive/system_logs/error_tracking/*.parquet
 !/indexes/system_logs/
 !/indexes/system_logs/default.parquet
+# Embedding sidecars are machine-generated cache, even inside the
+# tracked fixture trees above - the background sweeper (or
+# `python -m tools.embed_backfill`) regenerates them on any host, and
+# each sweep rewrites the file, so tracking them meant permanent
+# working-tree noise (untracked 2026-08-04). This later rule wins over
+# the !-negations above.
+/indexes/**/*.embeddings.parquet
 
 # ── Compaction / cleanup temp files ──────────────────────────────
 *.tmp.parquet

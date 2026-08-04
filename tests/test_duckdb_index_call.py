@@ -137,10 +137,19 @@ class TestBasicIndexLoad:
     def test_explicit_sidecar_path_still_loads(self):
         # Naming a sidecar file directly is the deliberate inspection
         # escape hatch - exclusion applies only to glob/directory expansion.
-        tokens = [
-            'index', '=',
-            '"indexes/archive/system_logs/error_tracking/error1.embeddings.parquet"',
-        ]
+        # Sidecars are machine-generated cache (untracked from git
+        # 2026-08-04): on a fresh clone this file exists only after the
+        # embedding sweeper or `python -m tools.embed_backfill` has run.
+        sidecar = (
+            "indexes/archive/system_logs/error_tracking/"
+            "error1.embeddings.parquet"
+        )
+        if not os.path.exists(sidecar):
+            pytest.skip(
+                "embedding sidecar not generated on this host yet "
+                "(run: python -m tools.embed_backfill)"
+            )
+        tokens = ['index', '=', f'"{sidecar}"']
         df = process_index_calls(tokens)
         assert len(df) > 0
         assert "embedding" in df.columns
