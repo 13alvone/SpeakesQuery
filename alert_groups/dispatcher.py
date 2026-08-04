@@ -1298,13 +1298,31 @@ class AlertGroupDispatcher:
                 claude_est_input_tokens=int(result.estimated_tokens),
                 claude_timeout_s=timeout_s,
             )
+            # Prompt caching (2026-08-04): mark the built prompt as a
+            # cache breakpoint so the SERVER-SIDE web_search loop re-reads
+            # the growing prefix at ~0.1x instead of re-billing it at full
+            # price every iteration. The first uncapped Opus 5 run paid
+            # full freight on 716k input tokens for a 38k prompt - the
+            # search loop re-processed the same context ~19x uncached.
+            # Block-level cache_control is supported by every SDK version
+            # in play (top-level auto-caching is not).
+            cached_messages = messages
+            if messages and isinstance(messages[0].get("content"), str):
+                cached_messages = [{
+                    "role": messages[0].get("role", "user"),
+                    "content": [{
+                        "type": "text",
+                        "text": messages[0]["content"],
+                        "cache_control": {"type": "ephemeral"},
+                    }],
+                }] + list(messages[1:])
             try:
                 call: ClaudeCallResult = call_messages_create(
                     source="alert_group",
                     group_name=group_name,
                     model=model,
                     max_tokens=max_tokens,
-                    messages=messages,
+                    messages=cached_messages,
                     tools=[self._web_search_tool_for(model)],
                     use_headroom=use_headroom,
                 )
@@ -2805,9 +2823,19 @@ class AlertGroupDispatcher:
             "claude-mythos", "claude-opus-4-6", "claude-opus-4-7",
             "claude-opus-4-8", "claude-sonnet-4-6",
         )
+        # Cap the server-side search loop. The first uncapped Opus 5 run
+        # (2026-08-04) issued enough searches to balloon input to 716k
+        # tokens ($4.02/run, 6.5x the Sonnet baseline) - each server-side
+        # iteration re-bills the growing context. 8 matches the observed
+        # search count of healthy Sonnet runs with room to spare.
+        max_uses = int(AlertGroupDispatcher._get_setting(
+            "alert_group_web_search_max_uses", 8,
+        ))
         if any(model.startswith(p) for p in modern_prefixes):
-            return {"type": "web_search_20260209", "name": "web_search"}
-        return {"type": "web_search_20250305", "name": "web_search"}
+            return {"type": "web_search_20260209", "name": "web_search",
+                    "max_uses": max_uses}
+        return {"type": "web_search_20250305", "name": "web_search",
+                "max_uses": max_uses}
 
     @staticmethod
     def _model_choice(group: dict | None = None) -> str:

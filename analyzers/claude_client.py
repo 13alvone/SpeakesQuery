@@ -454,9 +454,16 @@ def call_messages_create(
             latency_ms = int((time.monotonic() - started) * 1000)
             usage = _extract_usage(response)
             input_pm, output_pm = _pricing_for(create_kwargs.get("model", ""))
+            # Cache-aware pricing (2026-08-04): once the AG dispatcher
+            # marks the prompt with cache_control, ``input_tokens`` covers
+            # only the uncached remainder. Cache reads bill at ~0.1x the
+            # input rate and cache writes at ~1.25x - omitting them here
+            # would silently understate ``cost_usd`` on every cached call.
             cost = (
                 usage.get("input_tokens", 0) / 1_000_000 * input_pm
                 + usage.get("output_tokens", 0) / 1_000_000 * output_pm
+                + usage.get("cache_read_tokens", 0) / 1_000_000 * input_pm * 0.10
+                + usage.get("cache_creation_tokens", 0) / 1_000_000 * input_pm * 1.25
             )
             cost = round(cost, 6)
             # L-AN-15 (2026-04-22): a mis-configured pricing table (negative

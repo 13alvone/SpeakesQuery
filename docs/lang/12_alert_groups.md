@@ -547,6 +547,10 @@ Local (router) LLM calls in AG dispatch retry transient failures with graduated 
 
 When the LLM call still fails after every retry, the dispatcher emails the **fully built prompt** to the AG's normal recipient (subject prefix `[SpeakesQuery SALVAGE]`) so the day's feeder data is not lost - paste it into Claude.ai or any LLM to finish the analysis manually. The run still records `status=error`, so failure telemetry and the circuit breaker are unaffected.
 
+### 4b-ii. Web-search cost containment (2026-08-04)
+
+The Claude path's web_search tool is capped at `alert_group_web_search_max_uses` searches per dispatch (default 8), and the built prompt carries a prompt-cache breakpoint so the server-side search loop re-reads the growing context at ~0.1x instead of full price on every iteration. Discovered when the first uncapped Opus 5 options brief ran the input bill to 716k tokens ($4.02) for a 38k-token prompt. `cost_usd` logging is cache-aware (reads at 0.1x, writes at 1.25x of the input rate). Models on Opus 4.6+/Sonnet 4.6+/Opus 5/Sonnet 5 use the `web_search_20260209` variant (server-side dynamic filtering); older models keep `web_search_20250305`.
+
 ### 4c. Calendar-day dispatch cap (2026-08-04)
 
 `max_dispatches_per_day` counts successful dispatches per **calendar day in the AG's timezone** (falling back to UTC). The previous rolling-24h window, measured against completion-stamped run rows, rejected the next day's cron whenever yesterday's run took more than a few seconds (observed in production: three daily AGs alternating success / rate_limited every other day), and a late manual recovery run slid the window so the next scheduled day skipped too. A genuine second dispatch in the same day is still blocked. For wall-clock spacing between consecutive dispatches (e.g. preventing a 23:50 + 00:10 double-send across midnight), set the per-AG `min_interval_between_runs_hours` field alongside it.

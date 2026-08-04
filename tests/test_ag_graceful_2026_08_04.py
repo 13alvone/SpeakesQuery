@@ -604,7 +604,21 @@ class TestOpus5Upgrade:
     ])
     def test_web_search_tool_version(self, model, expected_type):
         tool = AlertGroupDispatcher._web_search_tool_for(model)
-        assert tool == {"type": expected_type, "name": "web_search"}
+        assert tool["type"] == expected_type
+        assert tool["name"] == "web_search"
+        # Cost guard: the first uncapped Opus 5 run ballooned to 716k
+        # input tokens ($4.02). The search loop must always be bounded.
+        assert isinstance(tool["max_uses"], int) and tool["max_uses"] > 0
+
+    def test_cache_aware_cost_formula(self):
+        """cost_usd must price cache reads (~0.1x) and writes (~1.25x),
+        not just the uncached remainder - otherwise every cached AG call
+        understates spend."""
+        import inspect
+        from analyzers import claude_client
+        src = inspect.getsource(claude_client.call_messages_create)
+        assert "cache_read_tokens" in src and "0.10" in src
+        assert "cache_creation_tokens" in src and "1.25" in src
 
     def test_oeb_yaml_pins_opus5_with_headroom(self):
         import yaml as _yaml

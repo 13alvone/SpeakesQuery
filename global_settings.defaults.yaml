@@ -165,6 +165,12 @@ alert_group_circuit_breaker_auto_disable: true
 # one real dispatch. Success closes the breaker; failure restarts the
 # cooldown. Manual reset still works and always wins.
 alert_group_circuit_breaker_cooldown_hours: 20
+# Cap on the server-side web_search loop inside an AG's Claude call.
+# The first uncapped Opus 5 run issued enough searches to balloon input
+# to 716k tokens ($4.02/run) - each server-side iteration re-bills the
+# growing context. Paired with the prompt-cache breakpoint the
+# dispatcher now sets on the built prompt (iterations re-read at ~0.1x).
+alert_group_web_search_max_uses: 8
 # Note on max_dispatches_per_day (per-AG field): since 2026-08-04 the
 # cap counts successes per CALENDAR DAY in the AG's timezone, not a
 # rolling 24h window (rolling windows measured from completion-stamped
