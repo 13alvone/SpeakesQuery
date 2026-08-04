@@ -146,48 +146,99 @@ def _email_patches():
 # ===========================================================================
 
 
-class TestRateLimitGraceWindow:
+class TestRateLimitCalendarDay:
+    """max_dispatches_per_day counts successes per CALENDAR DAY in the
+    AG's timezone (2026-08-04) - not a rolling 24h window. The rolling
+    window (measured against completion-stamped rows) dropped every
+    other daily dispatch, and a late manual recovery run slid the clock
+    so the next scheduled day skipped too."""
 
     def _runs_store(self, runs):
         store = MagicMock()
         store.list_runs.return_value = runs
         return store
 
-    def _ts(self, hours_ago: float) -> str:
-        t = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours_ago)
-        return t.strftime("%Y-%m-%d %H:%M:%S")
+    def _ts_utc(self, when: dt.datetime) -> str:
+        return when.astimezone(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    def test_success_just_inside_24h_no_longer_blocks(self):
-        """The production bug: yesterday's run FINISHED 23.95h ago; the
-        strict window rejected today's cron fire. The grace window (90
-        min default) must allow it."""
+    def test_yesterdays_run_never_blocks_today(self):
+        """Both production bugs at once: a success 23.95h ago (yesterday,
+        completion-stamped) and a late recovery run yesterday evening
+        must not block today's dispatch."""
+        now = dt.datetime.now(dt.timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_late = today_start - dt.timedelta(hours=2)
         store = self._runs_store([
-            {"status": "success", "triggered_at": self._ts(23.95)},
+            {"status": "success", "triggered_at": self._ts_utc(yesterday_late)},
         ])
         with patch("alert_group_store.AlertGroupStore", return_value=store):
             err = AlertGroupDispatcher._check_rate_limit(
-                {"max_dispatches_per_day": 1}, "grace_test",
+                {"max_dispatches_per_day": 1, "timezone": "UTC"},
+                "calday_test",
             )
         assert err is None
 
-    def test_genuine_same_day_second_dispatch_still_blocked(self):
+    def test_same_day_second_dispatch_blocked(self):
+        now = dt.datetime.now(dt.timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # A success earlier today (halfway between midnight and now).
+        earlier_today = today_start + (now - today_start) / 2
         store = self._runs_store([
-            {"status": "success", "triggered_at": self._ts(2.0)},
+            {"status": "success", "triggered_at": self._ts_utc(earlier_today)},
         ])
         with patch("alert_group_store.AlertGroupStore", return_value=store):
             err = AlertGroupDispatcher._check_rate_limit(
-                {"max_dispatches_per_day": 1}, "grace_test",
+                {"max_dispatches_per_day": 1, "timezone": "UTC"},
+                "calday_test",
             )
         assert err is not None
         assert "max_dispatches_per_day" in err
+        assert "calendar day" in err
 
-    def test_min_interval_check_unchanged(self):
+    def test_day_boundary_uses_ag_timezone(self):
+        """A run late yesterday in New York local time can still be
+        'today' in UTC - the AG's timezone decides the boundary."""
+        from zoneinfo import ZoneInfo
+        ny = ZoneInfo("America/New_York")
+        now_ny = dt.datetime.now(ny)
+        # Skip the edge where 'yesterday 23:00 NY' is within the last
+        # hour (i.e. shortly after NY midnight the case is degenerate).
+        if now_ny.hour == 0:
+            pytest.skip("degenerate within the first NY hour of the day")
+        yesterday_ny_late = (
+            now_ny.replace(hour=0, minute=0, second=0, microsecond=0)
+            - dt.timedelta(hours=1)
+        )
         store = self._runs_store([
-            {"status": "success", "triggered_at": self._ts(2.0)},
+            {"status": "success",
+             "triggered_at": self._ts_utc(yesterday_ny_late)},
         ])
         with patch("alert_group_store.AlertGroupStore", return_value=store):
             err = AlertGroupDispatcher._check_rate_limit(
-                {"min_interval_between_runs_hours": 4}, "grace_test",
+                {"max_dispatches_per_day": 1,
+                 "timezone": "America/New_York"},
+                "calday_tz_test",
+            )
+        assert err is None
+
+    def test_bad_timezone_falls_back_to_utc(self):
+        store = self._runs_store([])
+        with patch("alert_group_store.AlertGroupStore", return_value=store):
+            err = AlertGroupDispatcher._check_rate_limit(
+                {"max_dispatches_per_day": 1, "timezone": "Not/AZone"},
+                "calday_test",
+            )
+        assert err is None
+
+    def test_min_interval_check_unchanged(self):
+        t = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=2)
+        store = self._runs_store([
+            {"status": "success",
+             "triggered_at": t.strftime("%Y-%m-%d %H:%M:%S")},
+        ])
+        with patch("alert_group_store.AlertGroupStore", return_value=store):
+            err = AlertGroupDispatcher._check_rate_limit(
+                {"min_interval_between_runs_hours": 4}, "calday_test",
             )
         assert err is not None
         assert "min_interval" in err

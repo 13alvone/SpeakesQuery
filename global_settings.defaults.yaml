@@ -165,12 +165,12 @@ alert_group_circuit_breaker_auto_disable: true
 # one real dispatch. Success closes the breaker; failure restarts the
 # cooldown. Manual reset still works and always wins.
 alert_group_circuit_breaker_cooldown_hours: 20
-# Grace margin subtracted from the rolling 24h max_dispatches_per_day
-# window. Run rows are stamped at COMPLETION, so a strict 24h window
-# rejects the next day's cron fire when yesterday's run took more than
-# a few seconds (observed: daily AGs alternating success/rate_limited
-# every other day). 90 minutes tolerates cron jitter + run duration.
-alert_group_daily_window_grace_minutes: 90
+# Note on max_dispatches_per_day (per-AG field): since 2026-08-04 the
+# cap counts successes per CALENDAR DAY in the AG's timezone, not a
+# rolling 24h window (rolling windows measured from completion-stamped
+# rows dropped every other daily dispatch). Pair with the per-AG
+# min_interval_between_runs_hours field when wall-clock spacing between
+# consecutive dispatches also matters.
 # Graduated retry for local (router) LLM calls in AG dispatch: total
 # attempts and base backoff delay (delay triples per retry, capped at
 # 10 min). Local calls are $0 so retries cost only wall-clock.

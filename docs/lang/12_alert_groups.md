@@ -547,9 +547,9 @@ Local (router) LLM calls in AG dispatch retry transient failures with graduated 
 
 When the LLM call still fails after every retry, the dispatcher emails the **fully built prompt** to the AG's normal recipient (subject prefix `[SpeakesQuery SALVAGE]`) so the day's feeder data is not lost - paste it into Claude.ai or any LLM to finish the analysis manually. The run still records `status=error`, so failure telemetry and the circuit breaker are unaffected.
 
-### 4c. Daily rate-limit grace window (2026-08-04)
+### 4c. Calendar-day dispatch cap (2026-08-04)
 
-Run rows are stamped at COMPLETION, so a strict rolling-24h `max_dispatches_per_day` window rejected the next day's cron fire whenever yesterday's run took more than a few seconds (observed in production: three daily AGs alternating success / rate_limited every other day). The window now shrinks by `alert_group_daily_window_grace_minutes` (default 90) to tolerate cron jitter plus run duration. A genuine second dispatch in the same day is still blocked.
+`max_dispatches_per_day` counts successful dispatches per **calendar day in the AG's timezone** (falling back to UTC). The previous rolling-24h window, measured against completion-stamped run rows, rejected the next day's cron whenever yesterday's run took more than a few seconds (observed in production: three daily AGs alternating success / rate_limited every other day), and a late manual recovery run slid the window so the next scheduled day skipped too. A genuine second dispatch in the same day is still blocked. For wall-clock spacing between consecutive dispatches (e.g. preventing a 23:50 + 00:10 double-send across midnight), set the per-AG `min_interval_between_runs_hours` field alongside it.
 
 ### 5. Metrics endpoint
 

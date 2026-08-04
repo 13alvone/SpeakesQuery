@@ -274,7 +274,10 @@ max_rows: 150
 # last 24h AND the min interval between successes; either firing returns
 # status=rate_limited (no failure email, no circuit-breaker trip).
 max_dispatches_per_day: 1
-min_interval_between_runs_hours: 20
+# 12 (was 20, 2026-08-04): once-daily brief; a 20h floor blocked the
+# next scheduled run whenever a manual recovery run fired later the
+# same day. 12h still prevents any same-day double dispatch.
+min_interval_between_runs_hours: 12
 # Raised 2026-04-20: the prior 1500-token ceiling truncated the first live
 # production brief at opportunity #1 (stop_reason=max_tokens). 16384 fits
 # a full 5-opportunity brief plus up to 2 honorable mentions with

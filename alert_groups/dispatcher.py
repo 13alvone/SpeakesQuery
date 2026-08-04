@@ -2130,32 +2130,36 @@ class AlertGroupDispatcher:
             except (TypeError, ValueError):
                 cap = 0
             if cap > 0:
-                # Grace window (2026-08-04): run rows are stamped at
-                # COMPLETION, not cron-fire time. A daily AG whose run
-                # takes 3+ minutes finishes at 14:33; the next day's
-                # 14:30 cron then sees "success 23.95h ago" inside a
-                # strict 24h window and gets dropped - the audit found
-                # options_edge_brief / github_hot_repos_brief /
-                # daily_opportunity_brief alternating success and
-                # rate_limited every other day for weeks. Shrinking the
-                # window by a grace margin tolerates cron jitter plus
-                # run duration while still catching a genuine second
-                # dispatch in the same day.
-                grace_minutes = float(cls._get_setting(
-                    "alert_group_daily_window_grace_minutes", 90,
-                ))
-                window_start = (
-                    now - _dt.timedelta(hours=24)
-                    + _dt.timedelta(minutes=grace_minutes)
+                # Calendar-day semantics (2026-08-04): the cap counts
+                # successes since MIDNIGHT in the AG's timezone, not a
+                # rolling 24h window. Run rows are stamped at COMPLETION,
+                # so a rolling window rejected the next day's cron
+                # whenever yesterday's run took minutes (three daily AGs
+                # alternated success/rate_limited every other day for
+                # weeks), and a late manual recovery run slid the clock
+                # so the next scheduled day skipped too. "Per day" now
+                # means per day; use min_interval_between_runs_hours for
+                # wall-clock spacing (e.g. to prevent a 23:50 + 00:10
+                # double-send across midnight).
+                tz_name = (group.get("timezone") or "UTC").strip() or "UTC"
+                try:
+                    from zoneinfo import ZoneInfo
+                    tz = ZoneInfo(tz_name)
+                except Exception:
+                    tz = _dt.timezone.utc
+                day_start_local = now.astimezone(tz).replace(
+                    hour=0, minute=0, second=0, microsecond=0,
                 )
-                count_24h = sum(
+                window_start = day_start_local.astimezone(_dt.timezone.utc)
+                count_today = sum(
                     1 for r in successful_runs
                     if (t := _parse(r.get("triggered_at") or ""))
                     and t >= window_start
                 )
-                if count_24h >= cap:
+                if count_today >= cap:
                     return (
-                        f"already dispatched {count_24h} time(s) in last 24h "
+                        f"already dispatched {count_today} time(s) today "
+                        f"({tz_name} calendar day) "
                         f"(max_dispatches_per_day={cap})"
                     )
 
