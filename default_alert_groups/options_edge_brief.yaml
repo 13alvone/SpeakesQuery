@@ -377,14 +377,30 @@ min_interval_between_runs_hours: 4
 # per pick × 7 picks × 1.3 (overhead) ≈ 6400 tokens for picks alone,
 # plus header/summary/closing ≈ 1000, plus JSON tail ≈ 3500.  16384
 # matches Daily Opportunity Brief and provides comfortable headroom.
-max_output_tokens: 16384
+# 24576 (2026-08-04): Opus 5 thinks by default and thinking tokens count
+# against max_tokens - 16384 left too little room for the brief plus the
+# JSON tail once the reasoning budget is subtracted.
+max_output_tokens: 24576
 # Live-trading-quality mode (2026-04-27, reverted from budget-mode):
 # Sonnet 4.6 with web_search ON. Sharper picks at ~$26-30/mo were chosen
 # over the Haiku budget configuration at ~$6/mo because pick quality
 # directly affects P&L on real money.
 # Sonnet's reasoning is meaningfully sharper on multi-tier structure
 # construction, cross-signal correlation, and marginal-conviction calls.
-claude_analyzer_model_primary: claude-sonnet-4-6
+# Opus 5 (2026-08-04): 1.67x Sonnet 4.6 pricing ($5/$25 vs $3/$15 per
+# MTok) for a meaningful reasoning upgrade on multi-leg structure
+# construction and calibration - pick quality directly affects P&L, and
+# the cost stays well under the 3x ceiling set for this brief
+# (~$1.00-1.20/run vs ~$0.62 on Sonnet at current feeder volume).
+claude_analyzer_model_primary: claude-opus-5
+# BLUF-first email digest (2026-08-04): the raw Sonnet output (internal
+# analysis notes + full workflow + JSON tail) is unreadable as an email.
+# When set, the dispatcher distills it into a short BLUF/picks/context
+# report via this $0 local model before sending; the complete raw brief
+# ships as the .md attachment and pick journaling still reads the raw
+# response. Digest failure falls back to the raw text - never a lost
+# brief.
+email_digest_model_id: llamacpp-qwen35-122b-a10b
 email_address: ""
 disabled: true
 created_at: "2026-04-26T00:00:00"

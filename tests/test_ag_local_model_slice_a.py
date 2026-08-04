@@ -303,6 +303,7 @@ class TestLocalModelMoneyLeakCanary:
                           return_value=_feeder_df()), \
              patch.object(AlertGroupDispatcher, "_maybe_trip_circuit_breaker",
                           MagicMock()), \
+             patch("alert_groups.dispatcher.time.sleep"), \
              e_html, e_plain, e_fail:
             d = AlertGroupDispatcher()
             result = d.run(_local_ag(name="empty_resp_test"), force=True)

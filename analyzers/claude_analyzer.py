@@ -56,6 +56,12 @@ _TOKEN_RE = re.compile(r"\$([a-zA-Z_][a-zA-Z0-9_]*)\$")
 _PRICING: Dict[str, Dict[str, float]] = {
     "claude-sonnet-4-6":       {"input": 3.00, "output": 15.00},
     "claude-haiku-4-5-20251001": {"input": 1.00, "output": 5.00},
+    # 2026-08-04: Opus 5 at 1.67x Sonnet 4.6 on both sides - within the
+    # user's 3x ceiling for the options_edge_brief quality upgrade.
+    "claude-opus-5":           {"input": 5.00, "output": 25.00},
+    "claude-opus-4-8":         {"input": 5.00, "output": 25.00},
+    "claude-opus-4-7":         {"input": 5.00, "output": 25.00},
+    "claude-sonnet-5":         {"input": 3.00, "output": 15.00},
 }
 
 # ── Global token keys mapped to saved-search metadata field names ──────────

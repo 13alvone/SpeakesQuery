@@ -9,8 +9,8 @@ query: |-
   | where alert_group="options_edge_brief"
   | eval ago_30d = now() - 2592000
   | where _epoch >= ago_30d
-  | table idea_id, instrument_id, direction, conviction_pct, expected_return_pct, entry_price, suggested_buy_epoch, suggested_sell_epoch, hold_hours, take_profit_price, stop_loss_price, exit_catalyst, source_signals, correlation_cluster, option_structure, option_max_loss_usd, option_max_profit_usd, option_dte_days, account_size_floor_usd
   | sort -_epoch
+  | table idea_id, instrument_id, direction, conviction_pct, expected_return_pct, entry_price, suggested_buy_epoch, suggested_sell_epoch, hold_hours, take_profit_price, stop_loss_price, exit_catalyst, source_signals, correlation_cluster, option_structure, option_max_loss_usd, option_max_profit_usd, option_dte_days, account_size_floor_usd
   | head 100
 cron_schedule: 0 22 * * sun
 lookback: -31d

@@ -160,6 +160,32 @@ alert_group_fail_on_stale_feeder: false     # if true, a stale feeder fails the 
 # /api/alert-groups/<name>/reset-circuit-breaker after investigating.
 alert_group_circuit_breaker_consecutive_failures: 5
 alert_group_circuit_breaker_auto_disable: true
+# Half-open circuit breaker (2026-08-04): a tripped AG skips CLEANLY (no
+# failure email, no error streak) during the cooldown, then auto-probes
+# one real dispatch. Success closes the breaker; failure restarts the
+# cooldown. Manual reset still works and always wins.
+alert_group_circuit_breaker_cooldown_hours: 20
+# Grace margin subtracted from the rolling 24h max_dispatches_per_day
+# window. Run rows are stamped at COMPLETION, so a strict 24h window
+# rejects the next day's cron fire when yesterday's run took more than
+# a few seconds (observed: daily AGs alternating success/rate_limited
+# every other day). 90 minutes tolerates cron jitter + run duration.
+alert_group_daily_window_grace_minutes: 90
+# Graduated retry for local (router) LLM calls in AG dispatch: total
+# attempts and base backoff delay (delay triples per retry, capped at
+# 10 min). Local calls are $0 so retries cost only wall-clock.
+local_llm_retry_attempts: 3
+local_llm_retry_base_delay_seconds: 30
+# When the LLM call still fails after all retries, email the fully built
+# prompt to the AG's recipient so the day's feeder data is not lost
+# (prompt_only-style salvage email; run still records status=error).
+alert_group_llm_failure_prompt_fallback: true
+# Output-token cap for the optional per-AG email digest pass
+# (email_digest_model_id): distills the raw analyst output into a
+# BLUF-first email body via a local model. Keep >= 8192 for thinking
+# models: the reasoning trace counts against max_tokens and a starved
+# trace returns empty content (the 122B failure mode).
+alert_group_digest_max_tokens: 8192
 # Cap on saved-search feeders per alert group. Allowed range 2-100; default
 # 10 preserves the pre-2026-04-21 limit. Raise for wider multi-sector briefs.
 alert_group_max_feeders: 10

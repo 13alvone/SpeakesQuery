@@ -348,7 +348,26 @@ Alert group emails are sent as **multipart HTML + plain text**. The HTML version
 - **Claude's response** rendered with formatted headers, bullet lists, bold/italic, and code blocks
 - **Footer** with generation attribution
 
-All email clients receive a plain-text fallback for compatibility. The HTML formatting is applied consistently regardless of what prompt instructions you provide.
+All email clients receive a plain-text fallback for compatibility. The HTML formatting is applied consistently regardless of what prompt instructions you provide. Markdown tables in the response render as real HTML tables (2026-08-04).
+
+### BLUF-first email digest (2026-08-04)
+
+Raw analyst output from a web_search-enabled Claude run is an archive, not an email: it interleaves internal analysis notes, tool narration, and a machine-readable JSON tail around the actual brief. Set the optional per-AG field `email_digest_model_id` to a registry model (typically a $0 local model like `llamacpp-qwen35-122b-a10b`) and the dispatcher distills the raw response into a short, fixed-structure report before sending:
+
+1. **BLUF** - 2-4 sentences, bottom line up front (action, pick count, stance)
+2. **Today's Picks** - compact per-pick cards (omitted when zero picks)
+3. **Key Context** - performance pulse, regime, notable rejections
+4. **Watch Next** - resume conditions
+
+Contract details:
+
+- Pick extraction ALWAYS runs on the **raw** response - journaling to `indexes/IMMUTABLE/ag_picks/` is unaffected by the digest.
+- The complete raw response ships as the `.md` attachment; the digest is only the inline body.
+- The email subject gains the pick count (e.g. `... - 2 picks`) so the BLUF starts in the inbox list view.
+- Digest failure (model down, empty output) falls back to the raw text minus the trailing JSON fence - never a lost brief. The digest call uses the same graduated retry as guard 4b.
+- `alert_group_digest_max_tokens` (default 8192) caps the digest output. Keep it at 8192+ for thinking models - the reasoning trace counts against the cap and a starved trace returns empty content.
+
+`options_edge_brief` ships with the digest enabled by default.
 
 ### Multiple recipients
 
@@ -496,22 +515,41 @@ Both are optional. When set, pre-flight cost estimate blocks the dispatch with a
 
 Every registered AG cron job uses `max_instances=1`, `misfire_grace_time=600`, `coalesce=True`. A slow-running dispatch cannot overlap with its own next scheduled run.
 
-### 4. Circuit breaker
+### 4. Circuit breaker (half-open since 2026-08-04)
 
-After N consecutive error-status dispatches, the AG's `circuit_breaker_tripped` field is auto-set to `true`. Tripped AGs refuse to dispatch until manually reset.
+After N consecutive error-status dispatches, the AG's `circuit_breaker_tripped` field is auto-set to `true` and `circuit_breaker_tripped_at` records the trip time.
+
+A tripped breaker no longer blocks forever. While the cooldown window is running, scheduled dispatches skip CLEANLY: status `skipped`, no failure email (the trip itself already sent one), no error-streak growth. Once the cooldown elapses, the next dispatch runs as a **half-open probe**: the trip timestamp is refreshed at probe start (a failing probe waits a full cooldown before the next attempt) and a successful run closes the breaker automatically. Pre-2026-08-04 behaviour (skip forever plus a failure email every day until a manual reset) turned one bad week into a silent outage.
 
 | Setting | Default | Notes |
 |---|---|---|
 | `alert_group_circuit_breaker_consecutive_failures` | 5 | Threshold. |
 | `alert_group_circuit_breaker_auto_disable` | `true` | Master switch. |
+| `alert_group_circuit_breaker_cooldown_hours` | 20 | Wait between half-open probes. 20h means a daily AG probes once per scheduled fire. |
 
-Reset via:
+Manual reset still works (and always wins):
 
 ```bash
 curl -X POST http://localhost:5111/api/alert-groups/<name>/reset-circuit-breaker
 ```
 
-A successful dispatch clears the streak automatically.
+A successful dispatch clears the streak and closes the breaker automatically. `force=true` bypasses the breaker entirely for a one-off manual run.
+
+### 4b. Graduated LLM retry + salvage email (2026-08-04)
+
+Local (router) LLM calls in AG dispatch retry transient failures with graduated backoff before failing the run: connection errors, timeouts, HTTP 429 and HTTP 5xx retry; config errors (HTTP 401/400/404, missing credential/endpoint) fail immediately. An empty-text response (the reasoning-trace starvation mode) also retries - local calls are $0 so retries cost only wall-clock. The Claude path keeps its own retry logic inside `analyzers/claude_client.py`.
+
+| Setting | Default | Notes |
+|---|---|---|
+| `local_llm_retry_attempts` | 3 | Total attempts per dispatch. |
+| `local_llm_retry_base_delay_seconds` | 30 | Backoff base; triples per retry, capped at 10 min (30s, 90s, 270s...). |
+| `alert_group_llm_failure_prompt_fallback` | `true` | Salvage email switch. |
+
+When the LLM call still fails after every retry, the dispatcher emails the **fully built prompt** to the AG's normal recipient (subject prefix `[SpeakesQuery SALVAGE]`) so the day's feeder data is not lost - paste it into Claude.ai or any LLM to finish the analysis manually. The run still records `status=error`, so failure telemetry and the circuit breaker are unaffected.
+
+### 4c. Daily rate-limit grace window (2026-08-04)
+
+Run rows are stamped at COMPLETION, so a strict rolling-24h `max_dispatches_per_day` window rejected the next day's cron fire whenever yesterday's run took more than a few seconds (observed in production: three daily AGs alternating success / rate_limited every other day). The window now shrinks by `alert_group_daily_window_grace_minutes` (default 90) to tolerate cron jitter plus run duration. A genuine second dispatch in the same day is still blocked.
 
 ### 5. Metrics endpoint
 

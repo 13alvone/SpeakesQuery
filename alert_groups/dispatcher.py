@@ -214,11 +214,64 @@ _FALLBACK_LOGO_B64 = (
 _LOGO_SVG_B64 = _load_logo_b64()
 
 
+def _convert_md_tables(text: str) -> str:
+    """Convert GitHub-style markdown tables to inline-styled HTML tables.
+
+    Operates on already-HTML-escaped text (pipes survive escaping).
+    A table is a ``| ... |`` header line followed by a ``|---|---|``
+    separator; rows continue until the first non-pipe line. Anything
+    that doesn't match passes through untouched. Added 2026-08-04:
+    analyst briefs regularly emit small tables that previously rendered
+    as raw pipe characters in the email.
+    """
+    lines = text.split("\n")
+    out: list[str] = []
+    i = 0
+    sep_re = re.compile(r"^\s*\|[\s:|\-]+\|\s*$")
+    while i < len(lines):
+        line = lines[i]
+        if (line.lstrip().startswith("|") and i + 1 < len(lines)
+                and sep_re.match(lines[i + 1])):
+            header = [c.strip() for c in line.strip().strip("|").split("|")]
+            i += 2
+            rows: list[list[str]] = []
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                rows.append(
+                    [c.strip() for c in lines[i].strip().strip("|").split("|")]
+                )
+                i += 1
+            th = "".join(
+                f'<th style="padding:6px 10px; border:1px solid #dde3ea; '
+                f'background:#f0f6fc; text-align:left; font-size:13px; '
+                f'color:#1A5A96;">{c}</th>' for c in header
+            )
+            trs = "".join(
+                "<tr>" + "".join(
+                    f'<td style="padding:6px 10px; border:1px solid #dde3ea; '
+                    f'font-size:13px;">{c}</td>' for c in row
+                ) + "</tr>" for row in rows
+            )
+            out.append(
+                '<table cellpadding="0" cellspacing="0" '
+                'style="border-collapse:collapse; margin:12px 0; '
+                'width:100%;">'
+                f"<tr>{th}</tr>{trs}</table>"
+            )
+            continue
+        out.append(line)
+        i += 1
+    return "\n".join(out)
+
+
 def _markdown_to_html(text: str) -> str:
     """Minimal markdown-to-HTML conversion for Claude's response text."""
     import html as html_mod
 
     text = html_mod.escape(text)
+
+    # Tables first (before bold/italic so cell content still gets
+    # inline formatting applied afterwards).
+    text = _convert_md_tables(text)
 
     # Headers: ### h3, ## h2, # h1
     text = re.sub(
@@ -333,6 +386,11 @@ def build_html_email(
     # the savings every time.
     if meta.get("prompt_only"):
         meta_items.append("Mode: prompt-only (no API call, $0.00)")
+    if meta.get("digest"):
+        meta_items.append(
+            f"Summarized by {meta.get('digest_model') or 'local model'} "
+            f"(full brief attached)"
+        )
     meta_bar = " &middot; ".join(meta_items) if meta_items else ""
 
     # Self-documenting truncation banner - inline HTML says plainly that
@@ -360,7 +418,25 @@ def build_html_email(
     # flags the delivery mode so the recipient doesn't mistake the payload
     # for an analyst brief.
     prompt_only_banner = ""
-    if meta.get("prompt_only"):
+    if meta.get("salvage"):
+        import html as _html_mod
+        reason = _html_mod.escape(str(meta.get("failure_reason") or "")[:400])
+        prompt_only_banner = (
+            '<tr><td style="padding:12px 32px 0;">'
+            '<div style="padding:12px 16px; background:#FFF3CD; '
+            'border:1px solid #FFE69C; border-radius:6px; font-size:13px; '
+            'color:#664D03;">'
+            '<strong>⚠ AI analysis failed - data preserved</strong> - '
+            'the LLM call for this brief failed after all retry attempts '
+            f'(<code>{reason}</code>). So today\'s collected data is not '
+            'lost, the fully built prompt is below (and attached as '
+            '<code>.md</code>). Paste it into '
+            '<a href="https://claude.ai" style="color:#664D03;">Claude.ai</a> '
+            'or any LLM to get the analysis manually. The system will '
+            'retry automatically on the next scheduled run.'
+            '</div></td></tr>'
+        )
+    elif meta.get("prompt_only"):
         prompt_only_banner = (
             '<tr><td style="padding:12px 32px 0;">'
             '<div style="padding:12px 16px; background:#E0F2FE; '
@@ -836,27 +912,40 @@ class AlertGroupDispatcher:
                 # the failure email or trip the circuit breaker.
                 return result
 
-        # ── Circuit breaker: if a prior guard tripped it, refuse to dispatch
-        # until the user manually resets. Prevents burning Claude tokens on
-        # a persistently-failing group. Reset via
-        # POST /api/alert-groups/<name>/reset-circuit-breaker.
-        # ``force=True`` also bypasses the breaker so an operator can
-        # manually retry once they've fixed whatever caused the trip.
+        # ── Circuit breaker (half-open since 2026-08-04): a tripped
+        # breaker no longer blocks forever. During the cooldown window
+        # (``alert_group_circuit_breaker_cooldown_hours``, default 20h)
+        # the dispatch is skipped CLEANLY - status "skipped", no failure
+        # email (the trip itself already sent one), no error-streak
+        # growth. Once the cooldown elapses, the next dispatch proceeds
+        # as a half-open probe: the tripped_at timestamp is refreshed
+        # immediately (so a failing probe waits a full cooldown before
+        # the next attempt) and a succeeding run closes the breaker at
+        # the success exit. Manual reset via
+        # POST /api/alert-groups/<name>/reset-circuit-breaker still
+        # works, and ``force=True`` still bypasses the breaker entirely.
+        # Pre-2026-08-04 behaviour (skip forever + daily failure email
+        # until manual reset) turned one bad week into a silent outage:
+        # daily_opportunity_brief sat tripped for 6 days straight.
         if not force and group.get("circuit_breaker_tripped"):
-            result.status = "error"
-            result.error_message = (
-                "Circuit breaker tripped - skipping. Reset via "
-                "POST /api/alert-groups/<name>/reset-circuit-breaker "
-                "after investigating the failure reason."
-            )
+            probe_ok, wait_msg = self._circuit_breaker_probe_state(group)
+            if not probe_ok:
+                result.status = "skipped"
+                result.error_message = wait_msg
+                logger.warning(
+                    "[!] Alert group '%s' skipped (circuit breaker cooling "
+                    "down): %s", group_name, wait_msg,
+                )
+                self._log_run(result)
+                self._emit_log(result, run_started, dry_run=dry_run)
+                return result
             logger.warning(
-                "[!] Alert group '%s' skipped (circuit breaker tripped).",
+                "[!] Alert group '%s': circuit breaker HALF-OPEN probe - "
+                "cooldown elapsed, attempting a real dispatch. Success "
+                "closes the breaker; failure restarts the cooldown.",
                 group_name,
             )
-            self._log_run(result)
-            self._emit_log(result, run_started, dry_run=dry_run)
-            self._maybe_send_failure_email(result)
-            return result
+            self._touch_circuit_breaker_timestamp(group_name)
 
         # Gate: disabled group
         if group.get("disabled", False):
@@ -1139,11 +1228,15 @@ class AlertGroupDispatcher:
                 claude_est_input_tokens=int(result.estimated_tokens),
             )
             try:
-                call, response_text, response_meta = self._call_router_llm(
-                    group_name=group_name,
-                    model_id=model,
-                    user_content=(messages[0]["content"] if messages else ""),
-                    max_tokens=max_tokens,
+                call, response_text, response_meta = (
+                    self._call_router_llm_with_retry(
+                        group_name=group_name,
+                        model_id=model,
+                        user_content=(
+                            messages[0]["content"] if messages else ""
+                        ),
+                        max_tokens=max_tokens,
+                    )
                 )
             except Exception as exc:
                 claude_ms = int((time.monotonic() - claude_started) * 1000)
@@ -1157,6 +1250,11 @@ class AlertGroupDispatcher:
                 self._log_run(result)
                 self._emit_log(result, run_started, dry_run=dry_run)
                 self._maybe_send_failure_email(result)
+                self._maybe_send_salvage_prompt_email(
+                    group=group, group_name=group_name,
+                    serialized=serialized, prompt_text=prompt_text,
+                    failure_reason=str(exc),
+                )
                 self._maybe_trip_circuit_breaker(group_name)
                 return result
         else:
@@ -1207,7 +1305,7 @@ class AlertGroupDispatcher:
                     model=model,
                     max_tokens=max_tokens,
                     messages=messages,
-                    tools=[{"type": "web_search_20250305", "name": "web_search"}],
+                    tools=[self._web_search_tool_for(model)],
                     use_headroom=use_headroom,
                 )
             except ClaudeCallError as exc:
@@ -1222,6 +1320,11 @@ class AlertGroupDispatcher:
                 self._log_run(result)
                 self._emit_log(result, run_started, dry_run=dry_run)
                 self._maybe_send_failure_email(result)
+                self._maybe_send_salvage_prompt_email(
+                    group=group, group_name=group_name,
+                    serialized=serialized, prompt_text=prompt_text,
+                    failure_reason=str(exc),
+                )
                 self._maybe_trip_circuit_breaker(group_name)
                 return result
 
@@ -1261,6 +1364,11 @@ class AlertGroupDispatcher:
             self._log_run(result)
             self._emit_log(result, run_started, dry_run=dry_run)
             self._maybe_send_failure_email(result)
+            self._maybe_send_salvage_prompt_email(
+                group=group, group_name=group_name,
+                serialized=serialized, prompt_text=prompt_text,
+                failure_reason=result.error_message,
+            )
             self._maybe_trip_circuit_breaker(group_name)
             return result
         logger.info(
@@ -1292,6 +1400,7 @@ class AlertGroupDispatcher:
         # non-fatal - the brief still ships, we just lose capture for
         # this one run and log a warning. Truncated briefs (``stop_reason
         # == "max_tokens"``) may legitimately not contain a JSON block.
+        pick_count: int | None = None
         try:
             pick_count = self._extract_and_log_picks(
                 response_text=response_text,
@@ -1335,6 +1444,27 @@ class AlertGroupDispatcher:
                     group_name, exc,
                 )
 
+        # ── Email body selection (2026-08-04) ─────────────────────
+        # When the AG sets ``email_digest_model_id``, the raw analyst
+        # output is distilled into a BLUF-first readable report by a
+        # local $0 model before emailing. The RAW response always
+        # survives in full: pick extraction above already ran on it,
+        # and it ships as the .md attachment. Digest failure falls back
+        # to the raw text minus the machine JSON tail - never a lost
+        # brief.
+        email_body = response_text
+        digest_used = False
+        if (group.get("email_digest_model_id") or "").strip():
+            digest = self._build_digest_email_body(
+                group=group, group_name=group_name,
+                response_text=response_text,
+            )
+            if digest:
+                email_body = digest
+                digest_used = True
+            else:
+                email_body = self._strip_json_tail(response_text)
+
         # Send email
         email_address = group.get("email_address", "").strip()
         if email_address:
@@ -1358,12 +1488,20 @@ class AlertGroupDispatcher:
                 stop_reason = getattr(call.response, "stop_reason", None)
                 truncated = stop_reason == "max_tokens"
                 subject_suffix = " - TRUNCATED" if truncated else ""
+                # BLUF at subject level: when the digest path ran and the
+                # pick journaler parsed a count, put it in the subject so
+                # the reader knows whether to open the email at all.
+                if digest_used and pick_count is not None:
+                    plural = "" if pick_count == 1 else "s"
+                    subject_suffix = (
+                        f" - {pick_count} pick{plural}{subject_suffix}"
+                    )
                 self._send_html_email(
                     subject=(
                         f"[SpeakesQuery REPORT] {group_name} - {subject_date}"
                         f"{subject_suffix}"
                     ),
-                    plain_body=response_text,
+                    plain_body=email_body,
                     group_name=group_name,
                     to_addrs=email_address,
                     meta={
@@ -1373,9 +1511,15 @@ class AlertGroupDispatcher:
                         "cost_usd": result.cost_usd,
                         "truncated": truncated,
                         "stop_reason": stop_reason,
+                        "digest": digest_used,
+                        "digest_model": (
+                            (group.get("email_digest_model_id") or "").strip()
+                            if digest_used else ""
+                        ),
                     },
                     template_override=(group.get("email_template_override") or ""),
                     attach_markdown=True,
+                    attachment_text=response_text,
                 )
             except Exception as exc:
                 email_ms = int((time.monotonic() - email_started) * 1000)
@@ -1539,6 +1683,74 @@ class AlertGroupDispatcher:
         self._log_run(result)
         self._emit_log(result, run_started, dry_run=dry_run)
         return result
+
+    def _maybe_send_salvage_prompt_email(
+        self,
+        *,
+        group: dict,
+        group_name: str,
+        serialized: list,
+        prompt_text: str,
+        failure_reason: str,
+    ) -> None:
+        """Best-effort data-preservation email after a terminal LLM failure.
+
+        Added 2026-08-04. By the time the LLM call fails, every feeder has
+        already run and the prompt is fully built - throwing that away
+        means the day's data is simply lost (feeders like the trending-
+        repos dedup only surface a repo ONCE). When the LLM call fails
+        after all retries, email the built prompt to the AG's normal
+        recipient (prompt_only-style) so the reader can still get the
+        analysis manually. Gated by
+        ``alert_group_llm_failure_prompt_fallback`` (default True).
+
+        Never raises; the run keeps status='error' either way so the
+        circuit breaker and failure telemetry are unaffected.
+        """
+        try:
+            if not bool(self._get_setting(
+                    "alert_group_llm_failure_prompt_fallback", True)):
+                return
+            email_address = (group.get("email_address") or "").strip()
+            if not email_address or not serialized:
+                return
+            prompt_body = self.payload_builder.build_user_content(
+                group_name, serialized, prompt_text,
+            )
+            import datetime as _dt
+            subject_date = _dt.datetime.now(
+                _dt.timezone.utc,
+            ).strftime("%Y-%m-%d")
+            self._send_html_email(
+                subject=(
+                    f"[SpeakesQuery SALVAGE] {group_name} - {subject_date} "
+                    f"- LLM failed, data preserved"
+                ),
+                plain_body=prompt_body,
+                group_name=group_name,
+                to_addrs=email_address,
+                meta={
+                    "searches_used": [
+                        getattr(s, "search_name", "") for s in serialized
+                    ],
+                    "actual_tokens": 0,
+                    "cost_usd": 0.0,
+                    "prompt_only": True,
+                    "salvage": True,
+                    "failure_reason": failure_reason,
+                },
+                template_override=(group.get("email_template_override") or ""),
+                attach_markdown=True,
+            )
+            logger.info(
+                "[i] AG '%s': salvage prompt email sent to %s (LLM failure: "
+                "%s)", group_name, email_address, failure_reason,
+            )
+        except Exception as exc:
+            logger.warning(
+                "[!] AG '%s': salvage prompt email failed (data only in "
+                "logs now): %s", group_name, exc,
+            )
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1918,7 +2130,24 @@ class AlertGroupDispatcher:
             except (TypeError, ValueError):
                 cap = 0
             if cap > 0:
-                window_start = now - _dt.timedelta(hours=24)
+                # Grace window (2026-08-04): run rows are stamped at
+                # COMPLETION, not cron-fire time. A daily AG whose run
+                # takes 3+ minutes finishes at 14:33; the next day's
+                # 14:30 cron then sees "success 23.95h ago" inside a
+                # strict 24h window and gets dropped - the audit found
+                # options_edge_brief / github_hot_repos_brief /
+                # daily_opportunity_brief alternating success and
+                # rate_limited every other day for weeks. Shrinking the
+                # window by a grace margin tolerates cron jitter plus
+                # run duration while still catching a genuine second
+                # dispatch in the same day.
+                grace_minutes = float(cls._get_setting(
+                    "alert_group_daily_window_grace_minutes", 90,
+                ))
+                window_start = (
+                    now - _dt.timedelta(hours=24)
+                    + _dt.timedelta(minutes=grace_minutes)
+                )
                 count_24h = sum(
                     1 for r in successful_runs
                     if (t := _parse(r.get("triggered_at") or ""))
@@ -2121,10 +2350,16 @@ class AlertGroupDispatcher:
         if streak + 1 < threshold:
             return
         try:
+            import datetime as _dt
             from alert_group_store import AlertGroupStore
             store = AlertGroupStore()
             store.initialize()
-            store.update_group(group_name, {"circuit_breaker_tripped": True})
+            store.update_group(group_name, {
+                "circuit_breaker_tripped": True,
+                "circuit_breaker_tripped_at": _dt.datetime.now(
+                    _dt.timezone.utc,
+                ).isoformat(),
+            })
             logger.error(
                 "[x] Alert group '%s' circuit breaker TRIPPED after %d "
                 "consecutive failures.", group_name, streak + 1,
@@ -2150,12 +2385,101 @@ class AlertGroupDispatcher:
 
     @classmethod
     def _reset_consecutive_failure_count(cls, group_name: str) -> None:
-        """No-op marker - success runs are naturally recorded in the audit
-        DB, so the consecutive-error counter reads 0 on next query. The
-        method exists so callers signal intent at the success exit."""
-        # Intentionally empty - see docstring. Preserved so the success
-        # exit of _run_inner stays explicit rather than silent.
-        return
+        """Close the circuit breaker after a healthy run.
+
+        The consecutive-error counter itself resets naturally (success
+        runs land in the audit DB, so the streak reads 0 on next query),
+        but since 2026-08-04 a successful half-open probe must ALSO clear
+        ``circuit_breaker_tripped`` so the AG returns to normal service
+        without a manual reset.
+        """
+        try:
+            from alert_group_store import AlertGroupStore
+            store = AlertGroupStore()
+            store.initialize()
+            g = store.get_group(group_name)
+            if g.get("circuit_breaker_tripped"):
+                store.update_group(group_name, {
+                    "circuit_breaker_tripped": False,
+                    "circuit_breaker_tripped_at": "",
+                })
+                logger.info(
+                    "[i] Alert group '%s': circuit breaker CLOSED after "
+                    "successful run.", group_name,
+                )
+        except FileNotFoundError:
+            # Group dict was passed directly (tests / ad-hoc dispatch)
+            # without a backing YAML - nothing to clear.
+            return
+        except Exception as exc:
+            logger.warning(
+                "[!] Alert group '%s': could not close circuit breaker "
+                "after success: %s", group_name, exc,
+            )
+
+    @classmethod
+    def _circuit_breaker_probe_state(cls, group: dict) -> tuple[bool, str]:
+        """Return ``(probe_ok, wait_message)`` for a tripped breaker.
+
+        ``probe_ok=True`` means the cooldown has elapsed (or the trip
+        predates the ``circuit_breaker_tripped_at`` field) and the caller
+        should attempt a half-open probe dispatch. ``probe_ok=False``
+        means the breaker is still cooling down; ``wait_message``
+        explains when the next automatic probe will happen.
+        """
+        import datetime as _dt
+        cooldown_h = float(cls._get_setting(
+            "alert_group_circuit_breaker_cooldown_hours", 20,
+        ))
+        raw = (group.get("circuit_breaker_tripped_at") or "").strip()
+        if not raw:
+            # Legacy trip (field predates 2026-08-04) - probe immediately
+            # so long-stuck AGs self-heal on their next scheduled fire.
+            return True, ""
+        try:
+            tripped_at = _dt.datetime.fromisoformat(raw)
+            if tripped_at.tzinfo is None:
+                tripped_at = tripped_at.replace(tzinfo=_dt.timezone.utc)
+        except ValueError:
+            return True, ""
+        elapsed_h = (
+            _dt.datetime.now(_dt.timezone.utc) - tripped_at
+        ).total_seconds() / 3600.0
+        if elapsed_h >= cooldown_h:
+            return True, ""
+        remaining_h = cooldown_h - elapsed_h
+        return False, (
+            f"Circuit breaker cooling down - tripped {elapsed_h:.1f}h ago; "
+            f"next automatic half-open probe in {remaining_h:.1f}h "
+            f"(alert_group_circuit_breaker_cooldown_hours={cooldown_h:g}). "
+            f"Reset now via POST /api/alert-groups/<name>/"
+            f"reset-circuit-breaker or run with force=true."
+        )
+
+    @classmethod
+    def _touch_circuit_breaker_timestamp(cls, group_name: str) -> None:
+        """Refresh ``circuit_breaker_tripped_at`` to now (probe start).
+
+        Called when a half-open probe begins so a failing probe waits a
+        full cooldown before the next attempt instead of probing on
+        every scheduled fire.
+        """
+        try:
+            import datetime as _dt
+            from alert_group_store import AlertGroupStore
+            store = AlertGroupStore()
+            store.initialize()
+            store.update_group(group_name, {
+                "circuit_breaker_tripped": True,
+                "circuit_breaker_tripped_at": _dt.datetime.now(
+                    _dt.timezone.utc,
+                ).isoformat(),
+            })
+        except Exception as exc:
+            logger.warning(
+                "[!] Alert group '%s': could not refresh circuit breaker "
+                "timestamp: %s", group_name, exc,
+            )
 
     def _call_router_llm(
         self, *, group_name, model_id, user_content, max_tokens,
@@ -2228,6 +2552,258 @@ class AlertGroupDispatcher:
             finish_reason, call.cost_usd,
         )
         return call, response_text, response_meta
+
+    @staticmethod
+    def _is_transient_llm_error(exc: Exception) -> bool:
+        """Classify a router/transport failure as transient (retryable).
+
+        Transient: connection-level failures, timeouts, HTTP 429, and
+        HTTP 5xx (including a gateway's 502/503/504). NOT transient:
+        other HTTP 4xx (401 bad token, 400 bad request, 404) - retrying
+        a config error just delays the failure email.
+        """
+        error_class = getattr(exc, "error_class", "") or type(exc).__name__
+        if error_class.startswith("HTTP"):
+            try:
+                code = int(error_class[4:])
+            except ValueError:
+                return False
+            return code == 429 or code >= 500
+        transient_markers = ("Timeout", "Connection", "ChunkedEncoding",
+                             "Protocol")
+        return any(m in error_class for m in transient_markers)
+
+    def _call_router_llm_with_retry(
+        self, *, group_name, model_id, user_content, max_tokens,
+    ):
+        """Graduated-retry wrapper around :meth:`_call_router_llm`.
+
+        Added 2026-08-04: an AG dispatch aggregates the work of many
+        feeders; losing the whole run to one transient LLM hiccup throws
+        that data away. Local calls cost $0, so retrying is cheap.
+
+        Behaviour:
+          * up to ``local_llm_retry_attempts`` (default 3) total attempts
+          * graduated backoff: base delay (default 30s) tripling each
+            retry, capped at 10 minutes (30s, 90s, 270s, ...)
+          * only TRANSIENT failures retry (see
+            :meth:`_is_transient_llm_error`); a 401/400 config error
+            raises immediately
+          * an empty-text response (the reasoning-trace-starvation
+            failure mode) also retries - it is transient in practice and
+            each retry is free on a local model
+
+        Note this deliberately diverges from the Claude-path "don't
+        retry timeouts" rule: that rule exists because a cloud retry
+        burns real dollars against the same timeout ceiling. A LAN model
+        retry costs nothing but wall-clock, and the observed gateway
+        timeouts (504 at a proxy's ceiling) often clear on a quieter
+        second attempt.
+        """
+        attempts = max(1, int(self._get_setting("local_llm_retry_attempts", 3)))
+        base_delay = max(1, int(self._get_setting(
+            "local_llm_retry_base_delay_seconds", 30,
+        )))
+        last_exc: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                call, response_text, response_meta = self._call_router_llm(
+                    group_name=group_name,
+                    model_id=model_id,
+                    user_content=user_content,
+                    max_tokens=max_tokens,
+                )
+                if response_text.strip():
+                    call.attempts = attempt
+                    return call, response_text, response_meta
+                # Empty text: retryable on a local model. Keep the last
+                # normalized result so the final failure surfaces through
+                # the shared empty-text guard with full diagnostics.
+                last_exc = None
+                last_empty = (call, response_text, response_meta)
+                if attempt == attempts:
+                    call.attempts = attempt
+                    return last_empty
+                logger.warning(
+                    "[!] AG '%s': local LLM attempt %d/%d returned EMPTY "
+                    "text (finish=%s). Retrying in %ds...",
+                    group_name, attempt, attempts,
+                    response_meta.get("stop_reason"),
+                    min(base_delay * (3 ** (attempt - 1)), 600),
+                )
+            except Exception as exc:
+                if not self._is_transient_llm_error(exc) or attempt == attempts:
+                    raise
+                last_exc = exc
+                logger.warning(
+                    "[!] AG '%s': local LLM attempt %d/%d failed "
+                    "(transient: %s). Retrying in %ds...",
+                    group_name, attempt, attempts, exc,
+                    min(base_delay * (3 ** (attempt - 1)), 600),
+                )
+            delay = min(base_delay * (3 ** (attempt - 1)), 600)
+            _dispatch_progress_set(
+                group_name,
+                phase="retrying_local_llm",
+                phase_label=(
+                    f"Local LLM attempt {attempt}/{attempts} failed - "
+                    f"retrying in {delay}s (graduated backoff)."
+                ),
+            )
+            time.sleep(delay)
+        # Unreachable: the loop always returns or raises on the final
+        # attempt. Defensive re-raise keeps static analysis honest.
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("local LLM retry loop exited without a result")
+
+    # ------------------------------------------------------------------
+    # Email digest (2026-08-04): distill the raw analyst output into a
+    # BLUF-first readable report via a local $0 model before emailing.
+    # ------------------------------------------------------------------
+
+    _DIGEST_PROMPT_TEMPLATE = (
+        "You are the email editor for the \"{group_name}\" report. Below "
+        "is today's RAW analyst output. Rewrite it as a clean, skimmable "
+        "email report with EXACTLY this structure (markdown):\n"
+        "\n"
+        "# {group_name} - Daily Report\n"
+        "\n"
+        "## BLUF\n"
+        "2-4 sentences maximum, bottom line up front: what action (if "
+        "any) the reader should take today, how many picks/items there "
+        "are, the overall stance, and the single most important fact. If "
+        "there are zero picks, the FIRST sentence says so plainly and "
+        "the second gives the one-clause reason.\n"
+        "\n"
+        "## Today's Picks\n"
+        "(Omit this section entirely when there are zero picks.) One "
+        "compact block per pick: **instrument and direction** on the "
+        "first line, then short bullets for structure/entry, max "
+        "loss/max profit, conviction, and a one-sentence thesis.\n"
+        "\n"
+        "## Key Context\n"
+        "3-6 short bullets: trailing performance, market regime, and the "
+        "most notable candidates that were REJECTED and why (one line "
+        "each).\n"
+        "\n"
+        "## Watch Next\n"
+        "1-3 bullets: the conditions that would change the call or "
+        "produce picks on a future day.\n"
+        "\n"
+        "HARD RULES\n"
+        "- Preserve every number EXACTLY as written in the source. Never "
+        "invent, recompute, or extrapolate a figure.\n"
+        "- Drop all internal analysis notes, step-by-step reasoning, "
+        "tool-call narration, and any fenced JSON block completely.\n"
+        "- Plain markdown only: headers, bold, bullets. No tables. No "
+        "JSON. No preamble before the # header and nothing after the "
+        "final bullet.\n"
+        "- Keep the whole report under 500 words. The complete raw "
+        "analyst output is attached to the email separately - you are "
+        "writing the readable summary, not the archive.\n"
+        "\n"
+        "RAW ANALYST OUTPUT\n"
+        "------------------\n"
+        "{raw}\n"
+    )
+
+    def _build_digest_email_body(
+        self, *, group: dict, group_name: str, response_text: str,
+    ) -> str | None:
+        """Distill ``response_text`` via the AG's ``email_digest_model_id``.
+
+        Returns the digest markdown, or None when the field is unset or
+        the digest attempt failed (caller falls back to the raw text -
+        an ugly brief always beats a lost one). The digest model is
+        expected to be a $0 local registry model (e.g. the 122B qwen);
+        the raw response is preserved verbatim in the email's .md
+        attachment and in the pick journal regardless.
+        """
+        digest_model = (group.get("email_digest_model_id") or "").strip()
+        if not digest_model or not response_text.strip():
+            return None
+        # Default 8192, not less: a thinking model's reasoning trace
+        # counts against max_tokens (the 122B's trace alone can run ~6k
+        # tokens), and a starved trace returns EMPTY content.
+        max_tokens = int(self._get_setting(
+            "alert_group_digest_max_tokens", 8192,
+        ))
+        logger.info(
+            "[i] AG '%s': building email digest via %s (raw %d chars).",
+            group_name, digest_model, len(response_text),
+        )
+        _dispatch_progress_set(
+            group_name,
+            phase="building_digest",
+            phase_label=(
+                f"Distilling brief into a BLUF-first email via "
+                f"{digest_model} (local, $0)..."
+            ),
+        )
+        try:
+            _call, text, _meta = self._call_router_llm_with_retry(
+                group_name=group_name,
+                model_id=digest_model,
+                user_content=self._DIGEST_PROMPT_TEMPLATE.format(
+                    group_name=group_name, raw=response_text,
+                ),
+                max_tokens=max_tokens,
+            )
+        except Exception as exc:
+            logger.warning(
+                "[!] AG '%s': email digest via %s failed (%s) - falling "
+                "back to the raw brief.", group_name, digest_model, exc,
+            )
+            return None
+        text = (text or "").strip()
+        if not text:
+            logger.warning(
+                "[!] AG '%s': email digest returned empty text - falling "
+                "back to the raw brief.", group_name,
+            )
+            return None
+        return text
+
+    @staticmethod
+    def _strip_json_tail(text: str) -> str:
+        """Remove a trailing fenced ```json block from an email body.
+
+        The machine-readable tail exists for the pick journaler, not the
+        human reader; it survives untouched in the .md attachment and in
+        the pick extraction (which runs on the raw response). Only a
+        TRAILING fence is stripped - a JSON example mid-brief is left
+        alone.
+        """
+        stripped = (text or "").rstrip()
+        fence_start = stripped.rfind("```json")
+        if fence_start == -1:
+            return text
+        tail = stripped[fence_start:]
+        # Only treat it as the machine tail when the block closes at the
+        # very end of the text (allowing trailing whitespace).
+        if not tail.rstrip().endswith("```"):
+            return text
+        return stripped[:fence_start].rstrip()
+
+    @staticmethod
+    def _web_search_tool_for(model: str) -> dict:
+        """Return the newest web_search server-tool variant *model* supports.
+
+        The ``web_search_20260209`` variant (dynamic filtering - results
+        are code-filtered server-side before hitting the context window)
+        requires Opus 4.6+/Sonnet 4.6+/Opus 5/Sonnet 5/Fable 5; older
+        models keep the basic ``web_search_20250305`` variant. Added
+        2026-08-04 with the options_edge_brief Opus 5 upgrade.
+        """
+        modern_prefixes = (
+            "claude-opus-5", "claude-sonnet-5", "claude-fable-5",
+            "claude-mythos", "claude-opus-4-6", "claude-opus-4-7",
+            "claude-opus-4-8", "claude-sonnet-4-6",
+        )
+        if any(model.startswith(p) for p in modern_prefixes):
+            return {"type": "web_search_20260209", "name": "web_search"}
+        return {"type": "web_search_20250305", "name": "web_search"}
 
     @staticmethod
     def _model_choice(group: dict | None = None) -> str:
@@ -3048,7 +3624,8 @@ class AlertGroupDispatcher:
     def _send_html_email(subject: str, plain_body: str, group_name: str,
                          to_addrs: str, meta: dict,
                          template_override: str | None = None,
-                         attach_markdown: bool = False):
+                         attach_markdown: bool = False,
+                         attachment_text: str | None = None):
         """Send a branded HTML email with plain-text fallback.
 
         When ``template_override`` is provided, it is used verbatim (with
@@ -3063,6 +3640,11 @@ class AlertGroupDispatcher:
         against the 2026-04-20 first-brief truncation: operator saw the
         full story in the attachment while the inline HTML showed only
         opportunity #1.
+
+        ``attachment_text`` (2026-08-04) overrides what lands in the .md
+        attachment. The digest path emails a distilled body but must
+        attach the COMPLETE raw analyst output - defaults to
+        ``plain_body`` when omitted.
         """
         from query_engine.Alert import (
             load_smtp_config_from_env,
@@ -3108,7 +3690,8 @@ class AlertGroupDispatcher:
             )
             try:
                 msg.add_attachment(
-                    (plain_body or "").encode("utf-8"),
+                    (attachment_text if attachment_text is not None
+                     else (plain_body or "")).encode("utf-8"),
                     maintype="text",
                     subtype="markdown",
                     filename=fname,

@@ -2835,7 +2835,12 @@ def ag_reset_circuit_breaker(name):
         return jsonify({"status": "error", "message": str(exc)}), 404
 
     try:
-        updated = _ag_store.update_group(name, {"circuit_breaker_tripped": False})
+        updated = _ag_store.update_group(name, {
+            "circuit_breaker_tripped": False,
+            # Half-open breaker (2026-08-04): clear the trip timestamp so
+            # a later trip starts a fresh cooldown.
+            "circuit_breaker_tripped_at": "",
+        })
         try:
             from functionality.log_writer import log_system_event
             log_system_event(

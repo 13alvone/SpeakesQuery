@@ -48,7 +48,13 @@ logger = logging.getLogger(__name__)
 _FALLBACK_PRICING: dict[str, dict[str, float]] = {
     "claude-sonnet-4-6":          {"input": 3.00, "output": 15.00},
     "claude-haiku-4-5-20251001":  {"input": 1.00, "output": 5.00},
-    "claude-opus-4-7":            {"input": 15.00, "output": 75.00},
+    # Opus-tier pricing dropped to $5/$25 with Opus 4.7+ (the old $15/$75
+    # entry here was Opus 4.1-era and overstated cost 3x - corrected
+    # 2026-08-04 when options_edge_brief moved to Opus 5).
+    "claude-opus-4-7":            {"input": 5.00, "output": 25.00},
+    "claude-opus-4-8":            {"input": 5.00, "output": 25.00},
+    "claude-opus-5":              {"input": 5.00, "output": 25.00},
+    "claude-sonnet-5":            {"input": 3.00, "output": 15.00},
 }
 
 

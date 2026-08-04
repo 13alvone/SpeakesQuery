@@ -319,6 +319,12 @@ class AlertGroupStore:
         # checked best-effort so a typo is caught at save time.
         AlertGroupValidation.validate_model_id(data.get("model_id"))
 
+        # 2026-08-04: optional digest model for BLUF-first email bodies.
+        # Same registry validation as model_id; empty/None = disabled.
+        AlertGroupValidation.validate_model_id(
+            data.get("email_digest_model_id"),
+        )
+
         # Headroom (2026-06-23): optional tri-state override for whether this
         # AG's Claude call routes through the compression proxy. Only the
         # shape is validated; resolution against the global default happens
@@ -466,6 +472,13 @@ class AlertGroupStore:
             "max_cost_usd_per_run", "max_cost_usd_per_day",
             "max_feeder_staleness_hours", "fail_on_stale_feeder",
             "email_template_override", "circuit_breaker_tripped",
+            # 2026-08-04: half-open circuit breaker - trip timestamp
+            # drives the cooldown/auto-probe cycle in the dispatcher.
+            "circuit_breaker_tripped_at",
+            # 2026-08-04: optional local model that distills the raw
+            # analyst output into a BLUF-first email body. Empty = email
+            # the raw response (historical behaviour).
+            "email_digest_model_id",
             # Deduplication + output-size fields (2026-04-20 round 2):
             "max_dispatches_per_day", "min_interval_between_runs_hours",
             "max_output_tokens",

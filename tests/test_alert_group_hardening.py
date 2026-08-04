@@ -348,6 +348,12 @@ class TestPerAGBudget:
 
 class TestCircuitBreaker:
     def test_tripped_flag_blocks_dispatch(self, tmp_env):
+        """2026-08-04 half-open update: a tripped breaker INSIDE its
+        cooldown window skips CLEANLY (status='skipped', no failure
+        email) instead of the old status='error' + daily failure email.
+        A trip with no timestamp (legacy YAML) probes immediately - see
+        tests/test_ag_graceful_2026_08_04.py for that path."""
+        import datetime as _dt
         from alert_groups.dispatcher import AlertGroupDispatcher
 
         group = {
@@ -358,11 +364,14 @@ class TestCircuitBreaker:
             "prompt_text": "Go.",
             "email_address": "",
             "circuit_breaker_tripped": True,
+            "circuit_breaker_tripped_at": _dt.datetime.now(
+                _dt.timezone.utc,
+            ).isoformat(),
         }
         d = AlertGroupDispatcher()
         result = d.run(group)
-        assert result.status == "error"
-        assert "Circuit breaker tripped" in (result.error_message or "")
+        assert result.status == "skipped"
+        assert "cooling down" in (result.error_message or "")
 
     def test_trips_after_consecutive_errors(self, tmp_env):
         from global_settings import get_settings
@@ -726,6 +735,7 @@ class TestRateLimit:
         past the breaker gate (manual override of operator intent)."""
         from alert_groups.dispatcher import AlertGroupDispatcher
 
+        import datetime as _dt
         group = {
             "name": "tripped_force",
             "disabled": False,
@@ -734,11 +744,15 @@ class TestRateLimit:
             "prompt_text": "Go.",
             "email_address": "",
             "circuit_breaker_tripped": True,
+            "circuit_breaker_tripped_at": _dt.datetime.now(
+                _dt.timezone.utc,
+            ).isoformat(),
         }
         d = AlertGroupDispatcher()
-        # Without force: blocked by breaker
+        # Without force: blocked by breaker (clean skip during cooldown
+        # since the 2026-08-04 half-open update)
         r_blocked = d.run(group, force=False)
-        assert r_blocked.status == "error"
+        assert r_blocked.status == "skipped"
         assert "Circuit breaker" in (r_blocked.error_message or "")
         # With force: breaker bypassed (downstream gate will still fire
         # because search_names is empty, but it won't be the breaker)

@@ -425,11 +425,11 @@ class TestOptionsAGMigration:
     def test_options_edge_brief_uses_ny_timezone(self):
         ag = self._load("options_edge_brief")
         assert ag.get("timezone") == "America/New_York"
-        # Cron must be the wall-clock-stable 10:30 + 15:30 ET pair.
-        # 2026-05-02 cron audit (e3c5514): renamed numeric DOW "1-5" →
-        # named "mon-fri" (numeric DOW silently misfires under
-        # APScheduler's 0=Mon convention vs Linux 0=Sun).
-        assert ag["schedule"] == "30 10,15 * * mon-fri"
+        # OEB v2 "Discipline Edition" (2026-07-24) moved the brief to
+        # ONCE-daily 10:30 ET (the 15:30 midday re-check was a v1
+        # artifact). Named DOW per the 2026-05-02 cron audit (numeric
+        # DOW silently misfires under APScheduler's 0=Mon convention).
+        assert ag["schedule"] == "30 10 * * mon-fri"
 
     def test_options_performance_review_uses_ny_timezone(self):
         ag = self._load("options_performance_review")
